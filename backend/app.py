@@ -1,17 +1,17 @@
 from flask import Flask, jsonify
-from flask_cors import CORS
 from pymongo import MongoClient
+import os
 
 app = Flask(__name__)
-CORS(app)
 
 # MongoDB connection
-client = MongoClient('mongodb://mongodb:27017/')
-db = client.mydatabase
+mongo_uri = os.getenv('MONGO_URI', 'mongodb://root:example@mongodb:27017/')
+client = MongoClient(mongo_uri)
+db = client.test_database
 
-@app.route('/api/test')
-def test():
-    return jsonify({"message": "Backend is working!"})
+@app.route('/')
+def hello():
+    return jsonify({"message": "Hello from Python Backend!"})
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8000) 
+    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5000))) 
