@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
+import MongoExplorer from "./components/MongoExplorer";
 
 function App() {
     const [clicks, setClicks] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [showExplorer, setShowExplorer] = useState(false);
 
     const fetchClicks = async () => {
         try {
@@ -50,61 +52,90 @@ function App() {
 
     return (
         <div style={{ padding: "20px" }}>
-            <h1>MongoDB Click Counter</h1>
-
-            {error && (
-                <div
+            <div
+                style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "20px",
+                }}
+            >
+                <h1>MongoDB Click Counter</h1>
+                <button
+                    onClick={() => setShowExplorer(!showExplorer)}
                     style={{
-                        padding: "10px",
-                        backgroundColor: "#ffebee",
-                        color: "#c62828",
-                        marginBottom: "20px",
+                        padding: "10px 20px",
+                        fontSize: "16px",
+                        cursor: "pointer",
+                        backgroundColor: "#2196F3",
+                        color: "white",
+                        border: "none",
                         borderRadius: "4px",
                     }}
                 >
-                    {error}
-                </div>
-            )}
+                    {showExplorer ? "Hide DB Structure" : "Show DB Structure"}
+                </button>
+            </div>
 
-            <button
-                onClick={handleClick}
-                disabled={loading}
-                style={{
-                    padding: "10px 20px",
-                    fontSize: "16px",
-                    margin: "20px 0",
-                    cursor: loading ? "not-allowed" : "pointer",
-                    backgroundColor: "#4CAF50",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "4px",
-                }}
-            >
-                {loading ? "Recording..." : "Click Me!"}
-            </button>
-
-            <h2>Click History:</h2>
-            <div style={{ maxHeight: "400px", overflowY: "auto" }}>
-                {clicks.length === 0 ? (
-                    <p>No clicks recorded yet.</p>
-                ) : (
-                    clicks.map((click) => (
+            {showExplorer ? (
+                <MongoExplorer />
+            ) : (
+                <div>
+                    {error && (
                         <div
-                            key={click._id}
                             style={{
                                 padding: "10px",
-                                margin: "5px 0",
-                                backgroundColor: "#f5f5f5",
+                                backgroundColor: "#ffebee",
+                                color: "#c62828",
+                                marginBottom: "20px",
                                 borderRadius: "4px",
-                                boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
                             }}
                         >
-                            <p>Time: {new Date(click.timestamp).toLocaleString()}</p>
-                            <p>Message: {click.message}</p>
+                            {error}
                         </div>
-                    ))
-                )}
-            </div>
+                    )}
+
+                    <button
+                        onClick={handleClick}
+                        disabled={loading}
+                        style={{
+                            padding: "10px 20px",
+                            fontSize: "16px",
+                            margin: "20px 0",
+                            cursor: loading ? "not-allowed" : "pointer",
+                            backgroundColor: "#4CAF50",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "4px",
+                        }}
+                    >
+                        {loading ? "Recording..." : "Click Me!"}
+                    </button>
+
+                    <h2>Click History:</h2>
+                    <div style={{ maxHeight: "400px", overflowY: "auto" }}>
+                        {clicks.length === 0 ? (
+                            <p>No clicks recorded yet.</p>
+                        ) : (
+                            clicks.map((click) => (
+                                <div
+                                    key={click._id}
+                                    style={{
+                                        padding: "10px",
+                                        margin: "5px 0",
+                                        backgroundColor: "#f5f5f5",
+                                        borderRadius: "4px",
+                                        boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
+                                    }}
+                                >
+                                    <p>Time: {new Date(click.timestamp).toLocaleString()}</p>
+                                    <p>Message: {click.message}</p>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

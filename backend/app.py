@@ -3,7 +3,8 @@ from flask_cors import CORS
 from pymongo import MongoClient
 import os
 from datetime import datetime
-from bson import ObjectId
+from bson import ObjectId, json_util
+import json
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -57,39 +58,30 @@ def get_clicks():
 @app.route('/api/db-structure', methods=['GET'])
 def get_db_structure():
     try:
-        # Get all collections in the database
-        collections = db.list_collection_names()
-        
         structure = {}
-        for collection_name in collections:
-            collection = db[collection_name]
-            
-            # Get a sample document from each collection
-            sample_doc = collection.find_one()
-            
-            if sample_doc:
-                # Convert ObjectId to string for JSON serialization
-                sample_doc['_id'] = str(sample_doc['_id'])
-                # Convert datetime objects to ISO format strings
-                for key, value in sample_doc.items():
-                    if isinstance(value, datetime):
-                        sample_doc[key] = value.isoformat()
+        # Get list of all databases
+        database_list = client.list_database_names()
+        
+        for db_name in database_list:
+            # Skip system databases
+            if db_name not in ['admin', 'local', 'config']:
+                db = client[db_name]
+                structure[db_name] = {}
                 
-                # Get total count of documents in collection
-                doc_count = collection.count_documents({})
+                # Get all collections in the database
+                collections = db.list_collection_names()
                 
-                structure[collection_name] = {
-                    'document_count': doc_count,
-                    'sample_document': sample_doc,
-                    'fields': list(sample_doc.keys())
-                }
-            else:
-                structure[collection_name] = {
-                    'document_count': 0,
-                    'sample_document': None,
-                    'fields': []
-                }
-                
+                for collection_name in collections:
+                    collection = db[collection_name]
+                    # Get a sample document to understand the structure
+                    sample_doc = collection.find_one()
+                    if sample_doc:
+                        # Convert ObjectId to string for JSON serialization
+                        sample_doc = json.loads(json_util.dumps(sample_doc))
+                        structure[db_name][collection_name] = sample_doc
+                    else:
+                        structure[db_name][collection_name] = "Empty Collection"
+        
         return jsonify(structure)
     except Exception as e:
         print(f"Error getting database structure: {e}")
