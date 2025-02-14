@@ -54,5 +54,46 @@ def get_clicks():
         print(f"Error getting clicks: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/db-structure', methods=['GET'])
+def get_db_structure():
+    try:
+        # Get all collections in the database
+        collections = db.list_collection_names()
+        
+        structure = {}
+        for collection_name in collections:
+            collection = db[collection_name]
+            
+            # Get a sample document from each collection
+            sample_doc = collection.find_one()
+            
+            if sample_doc:
+                # Convert ObjectId to string for JSON serialization
+                sample_doc['_id'] = str(sample_doc['_id'])
+                # Convert datetime objects to ISO format strings
+                for key, value in sample_doc.items():
+                    if isinstance(value, datetime):
+                        sample_doc[key] = value.isoformat()
+                
+                # Get total count of documents in collection
+                doc_count = collection.count_documents({})
+                
+                structure[collection_name] = {
+                    'document_count': doc_count,
+                    'sample_document': sample_doc,
+                    'fields': list(sample_doc.keys())
+                }
+            else:
+                structure[collection_name] = {
+                    'document_count': 0,
+                    'sample_document': None,
+                    'fields': []
+                }
+                
+        return jsonify(structure)
+    except Exception as e:
+        print(f"Error getting database structure: {e}")
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5000)), debug=True) 
