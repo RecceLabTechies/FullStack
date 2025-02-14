@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import CollectionTable from "./CollectionTable";
 
 function MongoExplorer() {
     const [dbStructure, setDbStructure] = useState(null);
@@ -37,7 +38,7 @@ function MongoExplorer() {
                     backgroundColor: "#f5f5f5",
                     padding: "20px",
                     borderRadius: "8px",
-                    maxWidth: "800px",
+                    maxWidth: "1200px",
                     margin: "20px auto",
                 }}
             >
@@ -52,17 +53,8 @@ function MongoExplorer() {
                                 >
                                     <h3 style={{ color: "#4CAF50" }}>Collection: {collName}</h3>
                                     <div style={{ marginLeft: "20px" }}>
-                                        <h4>Sample Document Structure:</h4>
-                                        <pre
-                                            style={{
-                                                backgroundColor: "white",
-                                                padding: "10px",
-                                                borderRadius: "4px",
-                                                overflow: "auto",
-                                            }}
-                                        >
-                                            {JSON.stringify(schema, null, 2)}
-                                        </pre>
+                                        <h4>Sample Document:</h4>
+                                        <CollectionTable schema={schema} />
                                     </div>
                                 </div>
                             ))}

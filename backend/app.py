@@ -93,7 +93,7 @@ def get_db_structure():
     
     For each non-system database:
     1. Lists all collections
-    2. Gets a sample document from each collection
+    2. Gets up to 10 sample documents from each collection
     3. Converts BSON to JSON-serializable format
     
     Skips system databases (admin, local, config)
@@ -114,12 +114,12 @@ def get_db_structure():
                 
                 for collection_name in collections:
                     collection = db[collection_name]
-                    # Get a sample document to understand the structure
-                    sample_doc = collection.find_one()
-                    if sample_doc:
+                    # Get up to 10 documents to display
+                    sample_docs = list(collection.find().limit(10))
+                    if sample_docs:
                         # Convert ObjectId to string for JSON serialization
-                        sample_doc = json.loads(json_util.dumps(sample_doc))
-                        structure[db_name][collection_name] = sample_doc
+                        sample_docs = json.loads(json_util.dumps(sample_docs))
+                        structure[db_name][collection_name] = sample_docs
                     else:
                         structure[db_name][collection_name] = "Empty Collection"
         
