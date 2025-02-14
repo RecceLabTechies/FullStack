@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import MongoExplorer from "./components/MongoExplorer";
+import CsvUploader from "./components/CsvUploader";
 
 function App() {
     const [clicks, setClicks] = useState([]);
@@ -81,6 +82,7 @@ function App() {
                 <MongoExplorer />
             ) : (
                 <div>
+                    <CsvUploader />
                     {error && (
                         <div
                             style={{
