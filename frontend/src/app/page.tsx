@@ -1,7 +1,8 @@
 import Link from "next/link";
-
 import { LatestPost } from "~/app/_components/post";
 import { api, HydrateClient } from "~/trpc/server";
+import { ClickButton } from "~/app/_components/ClickButton";
+import { UploadButton } from "~/app/_components/UploadButton";
 
 export default async function Home() {
   const hello = await api.post.hello({ text: "from tRPC" });
@@ -44,6 +45,11 @@ export default async function Home() {
               {hello ? hello.greeting : "Loading tRPC query..."}
             </p>
           </div>
+
+          {/* Button to call backend API */}
+          <ClickButton />
+
+          <UploadButton />
 
           <LatestPost />
         </div>
