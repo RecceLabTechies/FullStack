@@ -4,6 +4,7 @@ import { BarChartCard } from "@/app/dashboard/bar-chart";
 import { LineChartCard } from "@/app/dashboard/line-chart";
 import LeadDateChart from "./lead-date-chart";
 
+
 export default function Page() {
   
   const isLoading = false;
@@ -13,7 +14,7 @@ export default function Page() {
       <BarChartCard isLoading={isLoading} />
       <BarChartCard isLoading={isLoading} />
       <LineChartCard isLoading={isLoading} />
-      <LeadDateChart />
+      {/* <LeadDateChart /> */}
     </div>
   );
 

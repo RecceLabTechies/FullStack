@@ -1,0 +1,8 @@
+username,email,role,company,password,chart_access,report_generation_access,user_management_access
+johndoe,john.doe@acme.com,admin,Acme Corp,P@ssw0rd123,true,true,true
+janesmith,jane.smith@acme.com,user,Acme Corp,SecurePass456,true,true,false
+bobwilson,bob.wilson@acme.com,user,Acme Corp,StrongPwd789,true,false,false
+sarahlee,sarah.lee@acme.com,root,Acme Corp,R00tAccess!,true,true,true
+mikebrown,mike.brown@acme.com,user,Acme Corp,Acm3User#90,true,false,false
+emmadavis,emma.davis@acme.com,admin,Acme Corp,T3chAdm1n!,true,true,true
+alexzhang,alex.zhang@acme.com,user,Acme Corp,St@rtup2024,true,true,false 

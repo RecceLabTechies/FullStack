@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import AdminPage from "@/components/AdminPage";
+import AdminPage from "@/app/dashboard/admin/AdminPage";
 
 export const metadata: Metadata = {
   title: "Staff Management | Admin Dashboard",

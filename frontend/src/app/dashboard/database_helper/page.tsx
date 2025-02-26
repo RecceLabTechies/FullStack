@@ -1,7 +1,7 @@
 "use client";
 
 import { fetchDbStructure } from "@/api/dbApi";
-import { UploadButton } from "@/components/UploadButton";
+import { UploadButton } from "@/app/dashboard/database_helper/UploadButton";
 import { AdCampaignData } from "@/types/adCampaignTypes";
 import React from "react";
 

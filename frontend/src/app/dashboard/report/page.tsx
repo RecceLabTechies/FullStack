@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import ReportBuilder from "@/components/ReportBuilder";
-import ReportPreview from "@/components/ReportPreview";
+import ReportBuilder from "@/app/dashboard/report/ReportBuilder";
+import ReportPreview from "@/app/dashboard/report/ReportPreview";
 
 export const metadata: Metadata = {
   title: "Report Generation",
