@@ -65,8 +65,10 @@ const LeadDateChart = () => {
           setData(result);
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch chart data');
-        console.error('Error fetching chart data:', err);
+        setError(
+          err instanceof Error ? err.message : "Failed to fetch chart data",
+        );
+        console.error("Error fetching chart data:", err);
       } finally {
         setIsLoading(false);
       }
@@ -91,13 +93,14 @@ const LeadDateChart = () => {
   // Calculate trend percentage with proper type checking
   const calculateTrend = () => {
     if (data.length < 2) return null;
-    
+
     const lastEntry = data[data.length - 1];
     const previousEntry = data[data.length - 2];
-    
+
     if (!lastEntry?.leads || !previousEntry?.leads) return null;
-    
-    const trend = ((lastEntry.leads - previousEntry.leads) / previousEntry.leads) * 100;
+
+    const trend =
+      ((lastEntry.leads - previousEntry.leads) / previousEntry.leads) * 100;
     return trend.toFixed(1);
   };
 
@@ -154,9 +157,9 @@ const LeadDateChart = () => {
                 tickFormatter={(value: string): string => {
                   try {
                     const date = new Date(value);
-                    return date.toLocaleDateString('en-US', { 
-                      month: 'short',
-                      day: 'numeric'
+                    return date.toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
                     });
                   } catch {
                     return value;
@@ -179,14 +182,14 @@ const LeadDateChart = () => {
                 dataKey="leads"
                 stroke="hsl(var(--chart-1))"
                 strokeWidth={2}
-                dot={{ 
+                dot={{
                   strokeWidth: 2,
                   r: 4,
-                  className: "cursor-pointer transition-all hover:r-6"
+                  className: "cursor-pointer transition-all hover:r-6",
                 }}
                 activeDot={{
                   r: 6,
-                  strokeWidth: 3
+                  strokeWidth: 3,
                 }}
               >
                 <LabelList
@@ -204,8 +207,11 @@ const LeadDateChart = () => {
         <div className="flex-col items-start gap-2 text-sm sm:text-base">
           {calculateTrend() && (
             <div className="flex items-center gap-2 font-medium leading-none">
-              Trending {Number(calculateTrend()) >= 0 ? 'up' : 'down'} by {Math.abs(Number(calculateTrend()))}% this month
-              <TrendingUp className={`h-4 w-4 ${Number(calculateTrend()) >= 0 ? 'text-green-500' : 'text-red-500'}`} />
+              Trending {Number(calculateTrend()) >= 0 ? "up" : "down"} by{" "}
+              {Math.abs(Number(calculateTrend()))}% this month
+              <TrendingUp
+                className={`h-4 w-4 ${Number(calculateTrend()) >= 0 ? "text-green-500" : "text-red-500"}`}
+              />
             </div>
           )}
           <div className="mt-1 leading-none text-muted-foreground">
