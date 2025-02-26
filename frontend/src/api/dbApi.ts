@@ -15,4 +15,4 @@ export const fetchDbStructure = async (): Promise<DbStructure | null> => {
     console.error("Failed to fetch database structure", error);
     return null;
   }
-}; 
+};
