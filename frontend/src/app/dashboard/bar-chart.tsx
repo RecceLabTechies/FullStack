@@ -40,7 +40,7 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-export function BarChartCard({ isLoading }: { isLoading: boolean }) {
+export function BarChartCard({ isLoading }: { isLoading?: boolean }) {
   return (
     <Card>
       <CardHeader>
