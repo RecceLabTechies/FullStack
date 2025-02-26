@@ -1,11 +1,12 @@
 import os
 import csv
 import json
+import pandas as pd
 from io import StringIO
 from flask_cors import CORS
 from datetime import datetime
 from pymongo import MongoClient
-from bson import ObjectId, json_util
+from bson import  json_util
 from werkzeug.utils import secure_filename
 from flask import Flask, jsonify, request, make_response
 
@@ -170,31 +171,21 @@ def upload_csv():
 @app.route("/api/campaign_data_mock", methods=["GET"])
 def get_data_for_leads_date_chart():
     try:
-        # Replace 'your_collection_name' with the actual collection name used for the CSV data
         collection = db["campaign_data_mock"]
-
-        # Query the collection to get the data
         data = list(collection.find({}, {"_id": 0}))
-
-        # Use pandas to manipulate the data
-        import pandas as pd
-
         df = pd.DataFrame(data)
-
-        # Drop all columns except 'date' and 'leads'
         df = df[["date", "leads"]]
-
-        # Group by 'date' and sum the 'leads'
+        df['leads'] = df['leads'].astype(int)
         df_grouped = df.groupby("date", as_index=False).sum()
+        df_grouped = df_grouped.sort_values('date').tail(7)
 
-        # Convert the DataFrame back to a list of dictionaries
         data_summary = df_grouped.to_dict(orient="records")
 
         return jsonify(data_summary)
     except Exception as e:
         print(f"Error retrieving data summary: {e}")
         return jsonify({"error": str(e)}), 500
-
+ 
 
 @app.route("/api/users", methods=["GET"])
 def get_users():

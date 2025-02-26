@@ -1,14 +1,15 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { fetchDbStructure } from "../../api/dbApi";
-import { type AdCampaignData } from "@/types/adCampaignTypes";
+import { fetchLeadsDateChartData, LeadsDateChartData } from "../../api/dbApi";
 import {
   LineChart,
   Line,
   XAxis,
+  YAxis,
   CartesianGrid,
   LabelList,
+  ResponsiveContainer,
 } from "recharts";
 import {
   ChartConfig,
@@ -25,20 +26,50 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+
+// Loading state component
+const ChartLoadingState = () => (
+  <Card>
+    <CardHeader>
+      <Skeleton className="h-8 w-[200px]" />
+      <Skeleton className="h-4 w-[300px]" />
+    </CardHeader>
+    <CardContent>
+      <div className="h-[300px] w-full">
+        <Skeleton className="h-full w-full" />
+      </div>
+    </CardContent>
+    <CardFooter>
+      <div className="w-full space-y-2">
+        <Skeleton className="h-4 w-[120px]" />
+        <Skeleton className="h-4 w-[160px]" />
+      </div>
+    </CardFooter>
+  </Card>
+);
 
 const LeadDateChart = () => {
-  const [data, setData] = useState<AdCampaignData[]>([]);
+  const [data, setData] = useState<LeadsDateChartData[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
-      setIsLoading(true);
-      const result = await fetchDbStructure();
-      const campaignData = result?.test_database?.campaign_data_mock ?? [];
-      setData(campaignData);
-      setIsLoading(false);
-      console.log("Fetched data:", campaignData);
+      try {
+        setIsLoading(true);
+        setError(null);
+        const result = await fetchLeadsDateChartData();
+        if (result) {
+          setData(result);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch chart data');
+        console.error('Error fetching chart data:', err);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     fetchData();
@@ -50,98 +81,139 @@ const LeadDateChart = () => {
     leads: row.leads,
   }));
 
-  const chartConfig = {
+  const chartConfig: ChartConfig = {
     leads: {
       label: "Leads",
       color: "hsl(var(--chart-1))",
     },
-  } satisfies ChartConfig;
+  };
+
+  // Calculate trend percentage with proper type checking
+  const calculateTrend = () => {
+    if (data.length < 2) return null;
+    
+    const lastEntry = data[data.length - 1];
+    const previousEntry = data[data.length - 2];
+    
+    if (!lastEntry?.leads || !previousEntry?.leads) return null;
+    
+    const trend = ((lastEntry.leads - previousEntry.leads) / previousEntry.leads) * 100;
+    return trend.toFixed(1);
+  };
+
+  if (isLoading) {
+    return <ChartLoadingState />;
+  }
+
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (data.length === 0) {
+    return (
+      <Alert>
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>No data available for the chart</AlertDescription>
+      </Alert>
+    );
+  }
 
   return (
-    <div>
-      <h1>Lead Date Chart</h1>
-      {isLoading ? (
-        <p>Loading data...</p>
-      ) : data.length > 0 ? (
-        <Card>
-          <CardHeader>
-            {isLoading ? (
-              <>
-                <Skeleton className="h-8 w-[200px]" />
-                <Skeleton className="h-4 w-[300px]" />
-              </>
-            ) : (
-              <>
-                <CardTitle>Lead - Date Chart</CardTitle>
-                <CardDescription>January - June 2024</CardDescription>
-              </>
-            )}
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="h-[200px] w-full">
-                <Skeleton className="h-full w-full" />
-              </div>
-            ) : (
-              <ChartContainer config={chartConfig}>
-                <LineChart
-                  accessibilityLayer
-                  width={500}
-                  height={300}
-                  data={transformedData}
-                  margin={{
-                    top: 20,
-                    left: 12,
-                    right: 12,
-                  }}
-                >
-                  <CartesianGrid vertical={false} />
-                  <XAxis
-                    dataKey="date"
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                    tickFormatter={(value: string) => value.slice(0, 3)}
-                  />
-                  <ChartTooltip
-                    cursor={false}
-                    content={<ChartTooltipContent indicator="line" />}
-                  />
-                  <Line type="monotone" dataKey="leads" stroke="#8884d8">
-                    <LabelList
-                      position="top"
-                      offset={12}
-                      className="fill-foreground"
-                      fontSize={12}
-                    />
-                  </Line>
-                </LineChart>
-              </ChartContainer>
-            )}
-          </CardContent>
-          <CardFooter>
-            {isLoading ? (
-              <div className="w-full space-y-2">
-                <Skeleton className="h-4 w-[120px]" />
-                <Skeleton className="h-4 w-[160px]" />
-              </div>
-            ) : (
-              <div className="flex-col items-start gap-2 text-sm">
-                <div className="flex gap-2 font-medium leading-none">
-                  Trending up by 5.2% this month{" "}
-                  <TrendingUp className="h-4 w-4" />
-                </div>
-                <div className="leading-none text-muted-foreground">
-                  Showing total visitors for the last 6 months
-                </div>
-              </div>
-            )}
-          </CardFooter>
-        </Card>
-      ) : (
-        <p>No data available</p>
-      )}
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-xl sm:text-2xl">Lead Tracking</CardTitle>
+        <CardDescription className="text-sm sm:text-base">
+          January - June 2024
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ChartContainer config={chartConfig}>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart
+              data={transformedData}
+              margin={{
+                top: 20,
+                left: 24,
+                right: 24,
+                bottom: 20,
+              }}
+              role="img"
+              aria-label="Lead trends over time"
+            >
+              <CartesianGrid vertical={false} strokeDasharray="3 3" />
+              <XAxis
+                dataKey="date"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                tickFormatter={(value: string): string => {
+                  try {
+                    const date = new Date(value);
+                    return date.toLocaleDateString('en-US', { 
+                      month: 'short',
+                      day: 'numeric'
+                    });
+                  } catch {
+                    return value;
+                  }
+                }}
+              />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                tickFormatter={(value) => `${value}`}
+                className="text-xs sm:text-sm"
+              />
+              <ChartTooltip
+                cursor={false}
+                content={<ChartTooltipContent indicator="line" />}
+              />
+              <Line
+                type="monotone"
+                dataKey="leads"
+                stroke="hsl(var(--chart-1))"
+                strokeWidth={2}
+                dot={{ 
+                  strokeWidth: 2,
+                  r: 4,
+                  className: "cursor-pointer transition-all hover:r-6"
+                }}
+                activeDot={{
+                  r: 6,
+                  strokeWidth: 3
+                }}
+              >
+                <LabelList
+                  position="top"
+                  offset={12}
+                  className="fill-foreground text-xs sm:text-sm"
+                  fontSize={12}
+                />
+              </Line>
+            </LineChart>
+          </ResponsiveContainer>
+        </ChartContainer>
+      </CardContent>
+      <CardFooter>
+        <div className="flex-col items-start gap-2 text-sm sm:text-base">
+          {calculateTrend() && (
+            <div className="flex items-center gap-2 font-medium leading-none">
+              Trending {Number(calculateTrend()) >= 0 ? 'up' : 'down'} by {Math.abs(Number(calculateTrend()))}% this month
+              <TrendingUp className={`h-4 w-4 ${Number(calculateTrend()) >= 0 ? 'text-green-500' : 'text-red-500'}`} />
+            </div>
+          )}
+          <div className="mt-1 leading-none text-muted-foreground">
+            Showing total leads for the last 6 months
+          </div>
+        </div>
+      </CardFooter>
+    </Card>
   );
 };
 

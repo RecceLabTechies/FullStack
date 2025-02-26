@@ -14,7 +14,7 @@ export default function Page() {
       <BarChartCard isLoading={isLoading} />
       <BarChartCard isLoading={isLoading} />
       <LineChartCard isLoading={isLoading} />
-      {/* <LeadDateChart /> */}
+      <LeadDateChart />
     </div>
   );
 
