@@ -23,6 +23,11 @@ export interface LeadsDateChartData {
   leads: number;
 }
 
+export interface RevenueDateChartData {
+  date: string;
+  revenue: number;
+}
+
 export const fetchDbStructure = async (): Promise<DbStructure | null> => {
   try {
     const response = await axios.get("http://localhost:5001/api/db-structure");
@@ -69,6 +74,16 @@ export const fetchLeadsDateChartData = async (): Promise<LeadsDateChartData[] | 
     return response.data as LeadsDateChartData[];
   } catch (error) {
     console.error("Failed to fetch leads date chart data", error);
+    return null;
+  }
+};
+
+export const fetchRevenueDateChartData = async (): Promise<RevenueDateChartData[] | null> => {
+  try {
+    const response = await axios.get("http://localhost:5001/api/revenue_data");
+    return response.data as RevenueDateChartData[];
+  } catch (error) {
+    console.error("Failed to fetch revenue date chart data", error);
     return null;
   }
 };

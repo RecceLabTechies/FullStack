@@ -3,7 +3,7 @@ import { AreaChartCard } from "@/app/dashboard/area-chart";
 import { BarChartCard } from "@/app/dashboard/bar-chart";
 import { LineChartCard } from "@/app/dashboard/line-chart";
 import LeadDateChart from "./lead-date-chart";
-
+import RevenueChart from "./revenue-date-chart";
 
 export default function Page() {
   
@@ -15,6 +15,7 @@ export default function Page() {
       <BarChartCard isLoading={isLoading} />
       <LineChartCard isLoading={isLoading} />
       <LeadDateChart />
+      <RevenueChart />
     </div>
   );
 
