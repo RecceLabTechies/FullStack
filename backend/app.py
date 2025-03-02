@@ -185,7 +185,26 @@ def get_data_for_leads_date_chart():
     except Exception as e:
         print(f"Error retrieving data summary: {e}")
         return jsonify({"error": str(e)}), 500
- 
+
+
+@app.route("/api/revenue_data", methods=["GET"])
+def get_data_for_revenue_date_chart():
+    try:
+        collection = db["campaign_data_mock"]
+        data = list(collection.find({}, {"_id": 0}))
+        df = pd.DataFrame(data)
+        df = df[["date", "revenue"]]
+        df['revenue'] = df['revenue'].astype(float)  # Convert to float for decimal values
+        df_grouped = df.groupby("date", as_index=False).sum()
+        df_grouped = df_grouped.sort_values('date').tail(7)
+
+        data_summary = df_grouped.to_dict(orient="records")
+
+        return jsonify(data_summary)
+    except Exception as e:
+        print(f"Error retrieving revenue data: {e}")
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route("/api/users", methods=["GET"])
 def get_users():
