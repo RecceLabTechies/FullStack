@@ -29,12 +29,12 @@ export default function AdSpendTable() {
       <h3 className="text-lg font-medium mb-4">
         Enter your budgeted ad spend for predictions across the next month (thousands $GD)
       </h3>
-      <div className="bg-white rounded-lg overflow-hidden border">
+      <div className="rounded-lg overflow-hidden border">
         <Table>
           <TableHeader>
             <TableRow>
               {adSpendData.map((item) => (
-                <TableHead key={item.channel} className="text-center bg-green-200">
+                <TableHead key={item.channel} className="text-center">
                   {item.channel}
                 </TableHead>
               ))}
@@ -43,7 +43,7 @@ export default function AdSpendTable() {
           <TableBody>
             <TableRow>
               {adSpendData.map((item, index) => (
-                <TableCell key={item.channel} className="text-center bg-green-100">
+                <TableCell key={item.channel} className="text-center">
                   <Input
                     type="number"
                     value={item.spend}

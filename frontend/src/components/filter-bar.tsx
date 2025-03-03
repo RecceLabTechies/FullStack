@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Card } from "./ui/card"
 
 const channels = [
   { label: "Instagram", value: "instagram" },
@@ -44,9 +45,8 @@ export default function FilterBar({
   setSelectedAgeGroups,
 }: FilterBarProps) {
   return (
-    <div className="bg-amber-100 rounded-lg p-4 flex flex-col md:flex-row gap-4 items-center">
+    <Card className="p-4 flex flex-col md:flex-row gap-4 items-center">
       <h2 className="font-bold text-lg">Filter By</h2>
-
       <div className="flex-1">
         <Popover>
           <PopoverTrigger asChild>
@@ -157,7 +157,7 @@ export default function FilterBar({
           </PopoverContent>
         </Popover>
       </div>
-    </div>
+    </Card>
   )
 }
 
