@@ -1,24 +1,10 @@
-import * as React from "react";
-import { AreaChartCard } from "@/app/dashboard/area-chart";
-import { BarChartCard } from "@/app/dashboard/bar-chart";
-import { LineChartCard } from "@/app/dashboard/line-chart";
-import LeadDateChart from "./lead-date-chart";
-import RevenueChart from "./revenue-date-chart";
+import Dashboard from "@/components/dashboard"
 
 export default function Page() {
-  
-  const isLoading = false;
   return (
-    <div className="grid gap-4 md:grid-cols-2">
-      <AreaChartCard isLoading={isLoading} />
-      <BarChartCard isLoading={isLoading} />
-      <BarChartCard isLoading={isLoading} />
-      <LineChartCard isLoading={isLoading} />
-      <LeadDateChart />
-      <RevenueChart />
-    </div>
-  );
-
+    <main className="min-h-screen bg-gray-50">
+      <Dashboard />
+    </main>
+  )
 }
-
 
