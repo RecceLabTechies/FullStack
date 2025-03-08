@@ -1,0 +1,542 @@
+[
+  {
+    "Time": "2015-04-01 00:00:00",
+    "Number_of_New_Accounts": 30142.71,
+    "Total_Base_Mn": 539.89
+  },
+  {
+    "Time": "2016-04-01 00:00:00",
+    "Number_of_New_Accounts": 33329.94,
+    "Total_Base_Mn": 539.89
+  },
+  {
+    "Time": "2017-04-01 00:00:00",
+    "Number_of_New_Accounts": 36517.17,
+    "Total_Base_Mn": 539.89
+  },
+  {
+    "Time": "2018-04-01 00:00:00",
+    "Number_of_New_Accounts": 39704.39,
+    "Total_Base_Mn": 539.89
+  },
+  {
+    "Time": "2019-04-01 00:00:00",
+    "Number_of_New_Accounts": 325097.33,
+    "Total_Base_Mn": 4092.1
+  },
+  {
+    "Time": "2020-04-01 00:00:00",
+    "Number_of_New_Accounts": 86078.41,
+    "Total_Base_Mn": 7644.32
+  },
+  {
+    "Time": "2021-04-01 00:00:00",
+    "Number_of_New_Accounts": 73930.45,
+    "Total_Base_Mn": 10894.0
+  },
+  {
+    "Time": "2022-04-01 00:00:00",
+    "Number_of_New_Accounts": 108928.37,
+    "Total_Base_Mn": 20647.0
+  },
+  {
+    "Time": "2023-04-01 00:00:00",
+    "Number_of_New_Accounts": 26940.27,
+    "Total_Base_Mn": 13993.0
+  },
+  {
+    "Time": "2015-08-01 00:00:00",
+    "Number_of_New_Accounts": 24364.97,
+    "Total_Base_Mn": 10925.74
+  },
+  {
+    "Time": "2016-08-01 00:00:00",
+    "Number_of_New_Accounts": 24737.14,
+    "Total_Base_Mn": 7858.48
+  },
+  {
+    "Time": "2017-08-01 00:00:00",
+    "Number_of_New_Accounts": 22911.81,
+    "Total_Base_Mn": 4791.22
+  },
+  {
+    "Time": "2018-08-01 00:00:00",
+    "Number_of_New_Accounts": 14668.57,
+    "Total_Base_Mn": 1723.96
+  },
+  {
+    "Time": "2019-08-01 00:00:00",
+    "Number_of_New_Accounts": 134521.32,
+    "Total_Base_Mn": 5276.18
+  },
+  {
+    "Time": "2020-08-01 00:00:00",
+    "Number_of_New_Accounts": 78879.31,
+    "Total_Base_Mn": 8828.39
+  },
+  {
+    "Time": "2021-08-01 00:00:00",
+    "Number_of_New_Accounts": 44028.98,
+    "Total_Base_Mn": 8601.0
+  },
+  {
+    "Time": "2022-08-01 00:00:00",
+    "Number_of_New_Accounts": 135993.93,
+    "Total_Base_Mn": 21534.0
+  },
+  {
+    "Time": "2023-08-01 00:00:00",
+    "Number_of_New_Accounts": 46286.04,
+    "Total_Base_Mn": 14962.0
+  },
+  {
+    "Time": "2015-12-01 00:00:00",
+    "Number_of_New_Accounts": 25768.54,
+    "Total_Base_Mn": 11948.51
+  },
+  {
+    "Time": "2016-12-01 00:00:00",
+    "Number_of_New_Accounts": 26512.84,
+    "Total_Base_Mn": 8935.02
+  },
+  {
+    "Time": "2017-12-01 00:00:00",
+    "Number_of_New_Accounts": 25609.26,
+    "Total_Base_Mn": 5921.52
+  },
+  {
+    "Time": "2018-12-01 00:00:00",
+    "Number_of_New_Accounts": 20542.12,
+    "Total_Base_Mn": 2908.03
+  },
+  {
+    "Time": "2019-12-01 00:00:00",
+    "Number_of_New_Accounts": 100004.97,
+    "Total_Base_Mn": 6460.25
+  },
+  {
+    "Time": "2020-12-01 00:00:00",
+    "Number_of_New_Accounts": 74708.77,
+    "Total_Base_Mn": 10012.46
+  },
+  {
+    "Time": "2021-12-01 00:00:00",
+    "Number_of_New_Accounts": 118018.06,
+    "Total_Base_Mn": 17265.0
+  },
+  {
+    "Time": "2022-12-01 00:00:00",
+    "Number_of_New_Accounts": 56254.85,
+    "Total_Base_Mn": 18813.0
+  },
+  {
+    "Time": "2023-12-01 00:00:00",
+    "Number_of_New_Accounts": 50484.57,
+    "Total_Base_Mn": 15897.0
+  },
+  {
+    "Time": "2015-02-01 00:00:00",
+    "Number_of_New_Accounts": 24993.12,
+    "Total_Base_Mn": 13417.61
+  },
+  {
+    "Time": "2016-02-01 00:00:00",
+    "Number_of_New_Accounts": 26738.0,
+    "Total_Base_Mn": 10938.23
+  },
+  {
+    "Time": "2017-02-01 00:00:00",
+    "Number_of_New_Accounts": 27828.95,
+    "Total_Base_Mn": 8458.84
+  },
+  {
+    "Time": "2018-02-01 00:00:00",
+    "Number_of_New_Accounts": 27691.09,
+    "Total_Base_Mn": 5979.46
+  },
+  {
+    "Time": "2019-02-01 00:00:00",
+    "Number_of_New_Accounts": 24795.62,
+    "Total_Base_Mn": 3500.07
+  },
+  {
+    "Time": "2020-02-01 00:00:00",
+    "Number_of_New_Accounts": 91773.82,
+    "Total_Base_Mn": 7052.28
+  },
+  {
+    "Time": "2021-02-01 00:00:00",
+    "Number_of_New_Accounts": 71429.18,
+    "Total_Base_Mn": 9905.0
+  },
+  {
+    "Time": "2022-02-01 00:00:00",
+    "Number_of_New_Accounts": 50149.07,
+    "Total_Base_Mn": 11612.0
+  },
+  {
+    "Time": "2023-02-01 00:00:00",
+    "Number_of_New_Accounts": 92411.78,
+    "Total_Base_Mn": 18006.0
+  },
+  {
+    "Time": "2015-01-01 00:00:00",
+    "Number_of_New_Accounts": 24521.1,
+    "Total_Base_Mn": 15045.61
+  },
+  {
+    "Time": "2016-01-01 00:00:00",
+    "Number_of_New_Accounts": 26131.88,
+    "Total_Base_Mn": 12085.22
+  },
+  {
+    "Time": "2017-01-01 00:00:00",
+    "Number_of_New_Accounts": 26970.32,
+    "Total_Base_Mn": 9124.83
+  },
+  {
+    "Time": "2018-01-01 00:00:00",
+    "Number_of_New_Accounts": 26284.71,
+    "Total_Base_Mn": 6164.44
+  },
+  {
+    "Time": "2019-01-01 00:00:00",
+    "Number_of_New_Accounts": 21879.34,
+    "Total_Base_Mn": 3204.05
+  },
+  {
+    "Time": "2020-01-01 00:00:00",
+    "Number_of_New_Accounts": 95484.56,
+    "Total_Base_Mn": 6756.26
+  },
+  {
+    "Time": "2021-01-01 00:00:00",
+    "Number_of_New_Accounts": 71881.65,
+    "Total_Base_Mn": 9881.0
+  },
+  {
+    "Time": "2022-01-01 00:00:00",
+    "Number_of_New_Accounts": 50690.8,
+    "Total_Base_Mn": 11764.0
+  },
+  {
+    "Time": "2023-01-01 00:00:00",
+    "Number_of_New_Accounts": 113550.89,
+    "Total_Base_Mn": 20216.0
+  },
+  {
+    "Time": "2015-07-01 00:00:00",
+    "Number_of_New_Accounts": 23750.97,
+    "Total_Base_Mn": 15518.98
+  },
+  {
+    "Time": "2016-07-01 00:00:00",
+    "Number_of_New_Accounts": 23797.86,
+    "Total_Base_Mn": 10821.97
+  },
+  {
+    "Time": "2017-07-01 00:00:00",
+    "Number_of_New_Accounts": 21118.72,
+    "Total_Base_Mn": 6124.95
+  },
+  {
+    "Time": "2018-07-01 00:00:00",
+    "Number_of_New_Accounts": 9442.25,
+    "Total_Base_Mn": 1427.94
+  },
+  {
+    "Time": "2019-07-01 00:00:00",
+    "Number_of_New_Accounts": 152370.11,
+    "Total_Base_Mn": 4980.16
+  },
+  {
+    "Time": "2020-07-01 00:00:00",
+    "Number_of_New_Accounts": 80310.77,
+    "Total_Base_Mn": 8532.37
+  },
+  {
+    "Time": "2021-07-01 00:00:00",
+    "Number_of_New_Accounts": 81575.98,
+    "Total_Base_Mn": 13457.0
+  },
+  {
+    "Time": "2022-07-01 00:00:00",
+    "Number_of_New_Accounts": 46332.14,
+    "Total_Base_Mn": 16138.0
+  },
+  {
+    "Time": "2023-07-01 00:00:00",
+    "Number_of_New_Accounts": 66231.64,
+    "Total_Base_Mn": 16084.0
+  },
+  {
+    "Time": "2015-06-01 00:00:00",
+    "Number_of_New_Accounts": 23545.11,
+    "Total_Base_Mn": 12345.98
+  },
+  {
+    "Time": "2016-06-01 00:00:00",
+    "Number_of_New_Accounts": 23608.93,
+    "Total_Base_Mn": 8607.96
+  },
+  {
+    "Time": "2017-06-01 00:00:00",
+    "Number_of_New_Accounts": 20960.1,
+    "Total_Base_Mn": 4869.95
+  },
+  {
+    "Time": "2018-06-01 00:00:00",
+    "Number_of_New_Accounts": 9352.02,
+    "Total_Base_Mn": 1131.93
+  },
+  {
+    "Time": "2019-06-01 00:00:00",
+    "Number_of_New_Accounts": 179691.87,
+    "Total_Base_Mn": 4684.14
+  },
+  {
+    "Time": "2020-06-01 00:00:00",
+    "Number_of_New_Accounts": 81956.72,
+    "Total_Base_Mn": 8236.35
+  },
+  {
+    "Time": "2021-06-01 00:00:00",
+    "Number_of_New_Accounts": 34369.13,
+    "Total_Base_Mn": 7916.0
+  },
+  {
+    "Time": "2022-06-01 00:00:00",
+    "Number_of_New_Accounts": 156948.28,
+    "Total_Base_Mn": 22204.0
+  },
+  {
+    "Time": "2023-06-01 00:00:00",
+    "Number_of_New_Accounts": 38568.12,
+    "Total_Base_Mn": 13931.0
+  },
+  {
+    "Time": "2015-03-01 00:00:00",
+    "Number_of_New_Accounts": 22538.59,
+    "Total_Base_Mn": 10509.22
+  },
+  {
+    "Time": "2016-03-01 00:00:00",
+    "Number_of_New_Accounts": 22298.65,
+    "Total_Base_Mn": 7087.44
+  },
+  {
+    "Time": "2017-03-01 00:00:00",
+    "Number_of_New_Accounts": 18749.44,
+    "Total_Base_Mn": 3665.65
+  },
+  {
+    "Time": "2018-03-01 00:00:00",
+    "Number_of_New_Accounts": 2623.8,
+    "Total_Base_Mn": 243.87
+  },
+  {
+    "Time": "2019-03-01 00:00:00",
+    "Number_of_New_Accounts": 663518.3,
+    "Total_Base_Mn": 3796.09
+  },
+  {
+    "Time": "2020-03-01 00:00:00",
+    "Number_of_New_Accounts": 88683.23,
+    "Total_Base_Mn": 7348.3
+  },
+  {
+    "Time": "2021-03-01 00:00:00",
+    "Number_of_New_Accounts": 143450.18,
+    "Total_Base_Mn": 16954.0
+  },
+  {
+    "Time": "2022-03-01 00:00:00",
+    "Number_of_New_Accounts": 76047.84,
+    "Total_Base_Mn": 22403.0
+  },
+  {
+    "Time": "2023-03-01 00:00:00",
+    "Number_of_New_Accounts": 48759.95,
+    "Total_Base_Mn": 17068.0
+  },
+  {
+    "Time": "2015-05-01 00:00:00",
+    "Number_of_New_Accounts": 23178.55,
+    "Total_Base_Mn": 13009.98
+  },
+  {
+    "Time": "2016-05-01 00:00:00",
+    "Number_of_New_Accounts": 23116.56,
+    "Total_Base_Mn": 8951.96
+  },
+  {
+    "Time": "2017-05-01 00:00:00",
+    "Number_of_New_Accounts": 20108.7,
+    "Total_Base_Mn": 4893.93
+  },
+  {
+    "Time": "2018-05-01 00:00:00",
+    "Number_of_New_Accounts": 6827.09,
+    "Total_Base_Mn": 835.91
+  },
+  {
+    "Time": "2019-05-01 00:00:00",
+    "Number_of_New_Accounts": 226554.42,
+    "Total_Base_Mn": 4388.12
+  },
+  {
+    "Time": "2020-05-01 00:00:00",
+    "Number_of_New_Accounts": 83860.69,
+    "Total_Base_Mn": 7940.34
+  },
+  {
+    "Time": "2021-05-01 00:00:00",
+    "Number_of_New_Accounts": 41875.19,
+    "Total_Base_Mn": 8556.0
+  },
+  {
+    "Time": "2022-05-01 00:00:00",
+    "Number_of_New_Accounts": 152137.64,
+    "Total_Base_Mn": 23940.0
+  },
+  {
+    "Time": "2023-05-01 00:00:00",
+    "Number_of_New_Accounts": 38325.97,
+    "Total_Base_Mn": 18059.0
+  },
+  {
+    "Time": "2015-11-01 00:00:00",
+    "Number_of_New_Accounts": 25158.62,
+    "Total_Base_Mn": 14197.26
+  },
+  {
+    "Time": "2016-11-01 00:00:00",
+    "Number_of_New_Accounts": 25617.47,
+    "Total_Base_Mn": 10335.51
+  },
+  {
+    "Time": "2017-11-01 00:00:00",
+    "Number_of_New_Accounts": 24037.47,
+    "Total_Base_Mn": 6473.76
+  },
+  {
+    "Time": "2018-11-01 00:00:00",
+    "Number_of_New_Accounts": 16770.0,
+    "Total_Base_Mn": 2612.02
+  },
+  {
+    "Time": "2019-11-01 00:00:00",
+    "Number_of_New_Accounts": 105609.63,
+    "Total_Base_Mn": 6164.23
+  },
+  {
+    "Time": "2020-11-01 00:00:00",
+    "Number_of_New_Accounts": 75562.95,
+    "Total_Base_Mn": 9716.44
+  },
+  {
+    "Time": "2021-11-01 00:00:00",
+    "Number_of_New_Accounts": 117307.51,
+    "Total_Base_Mn": 18182.0
+  },
+  {
+    "Time": "2022-11-01 00:00:00",
+    "Number_of_New_Accounts": 56772.37,
+    "Total_Base_Mn": 19348.0
+  },
+  {
+    "Time": "2023-11-01 00:00:00",
+    "Number_of_New_Accounts": 73572.11,
+    "Total_Base_Mn": 19332.0
+  },
+  {
+    "Time": "2015-10-01 00:00:00",
+    "Number_of_New_Accounts": 24752.75,
+    "Total_Base_Mn": 15078.0
+  },
+  {
+    "Time": "2016-10-01 00:00:00",
+    "Number_of_New_Accounts": 25070.47,
+    "Total_Base_Mn": 10824.0
+  },
+  {
+    "Time": "2017-10-01 00:00:00",
+    "Number_of_New_Accounts": 23132.65,
+    "Total_Base_Mn": 6570.0
+  },
+  {
+    "Time": "2018-10-01 00:00:00",
+    "Number_of_New_Accounts": 14558.02,
+    "Total_Base_Mn": 2316.0
+  },
+  {
+    "Time": "2019-10-01 00:00:00",
+    "Number_of_New_Accounts": 112715.34,
+    "Total_Base_Mn": 5868.21
+  },
+  {
+    "Time": "2020-10-01 00:00:00",
+    "Number_of_New_Accounts": 76530.1,
+    "Total_Base_Mn": 9420.42
+  },
+  {
+    "Time": "2021-10-01 00:00:00",
+    "Number_of_New_Accounts": 138365.78,
+    "Total_Base_Mn": 19629.0
+  },
+  {
+    "Time": "2022-10-01 00:00:00",
+    "Number_of_New_Accounts": 72439.25,
+    "Total_Base_Mn": 25836.0
+  },
+  {
+    "Time": "2023-10-01 00:00:00",
+    "Number_of_New_Accounts": 44793.11,
+    "Total_Base_Mn": 16524.0
+  },
+  {
+    "Time": "2015-09-01 00:00:00",
+    "Number_of_New_Accounts": 24564.84,
+    "Total_Base_Mn": 12898.0
+  },
+  {
+    "Time": "2016-09-01 00:00:00",
+    "Number_of_New_Accounts": 24914.57,
+    "Total_Base_Mn": 9271.99
+  },
+  {
+    "Time": "2017-09-01 00:00:00",
+    "Number_of_New_Accounts": 23045.01,
+    "Total_Base_Mn": 5645.98
+  },
+  {
+    "Time": "2018-09-01 00:00:00",
+    "Number_of_New_Accounts": 14680.29,
+    "Total_Base_Mn": 2019.98
+  },
+  {
+    "Time": "2019-09-01 00:00:00",
+    "Number_of_New_Accounts": 121981.52,
+    "Total_Base_Mn": 5572.19
+  },
+  {
+    "Time": "2020-09-01 00:00:00",
+    "Number_of_New_Accounts": 77628.3,
+    "Total_Base_Mn": 9124.41
+  },
+  {
+    "Time": "2021-09-01 00:00:00",
+    "Number_of_New_Accounts": 47175.07,
+    "Total_Base_Mn": 9871.0
+  },
+  {
+    "Time": "2022-09-01 00:00:00",
+    "Number_of_New_Accounts": 126907.36,
+    "Total_Base_Mn": 22437.0
+  },
+  {
+    "Time": "2023-09-01 00:00:00",
+    "Number_of_New_Accounts": 39768.9,
+    "Total_Base_Mn": 15331.0
+  }
+]

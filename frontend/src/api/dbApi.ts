@@ -1,5 +1,5 @@
-import axios from "axios";
 import { type AdCampaignData } from "@/types/adCampaignTypes";
+import axios from "axios";
 
 export interface DbStructure {
   test_database: {
@@ -58,9 +58,13 @@ export const addUser = async (user: User): Promise<string | null> => {
   }
 };
 
-export const fetchUserByUsername = async (username: string): Promise<User | null> => {
+export const fetchUserByUsername = async (
+  username: string,
+): Promise<User | null> => {
   try {
-    const response = await axios.get(`http://localhost:5001/api/user?username=${username}`);
+    const response = await axios.get(
+      `http://localhost:5001/api/user?username=${username}`,
+    );
     return response.data as User;
   } catch (error) {
     console.error("Failed to fetch user by username", error);
@@ -68,9 +72,13 @@ export const fetchUserByUsername = async (username: string): Promise<User | null
   }
 };
 
-export const fetchLeadsDateChartData = async (): Promise<LeadsDateChartData[] | null> => {
+export const fetchLeadsDateChartData = async (): Promise<
+  LeadsDateChartData[] | null
+> => {
   try {
-    const response = await axios.get("http://localhost:5001/api/campaign_data_mock");
+    const response = await axios.get(
+      "http://localhost:5001/api/campaign_data_mock",
+    );
     return response.data as LeadsDateChartData[];
   } catch (error) {
     console.error("Failed to fetch leads date chart data", error);
@@ -78,7 +86,9 @@ export const fetchLeadsDateChartData = async (): Promise<LeadsDateChartData[] | 
   }
 };
 
-export const fetchRevenueDateChartData = async (): Promise<RevenueDateChartData[] | null> => {
+export const fetchRevenueDateChartData = async (): Promise<
+  RevenueDateChartData[] | null
+> => {
   try {
     const response = await axios.get("http://localhost:5001/api/revenue_data");
     return response.data as RevenueDateChartData[];

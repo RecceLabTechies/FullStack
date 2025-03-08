@@ -1,0 +1,20 @@
+name: bt4103
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pandas
+  - numpy
+  - matplotlib
+  - scikit-learn
+  - jupyter
+  - seaborn
+  - pydantic
+  - flask-cors
+  - flask
+  - pip
+  - pip:
+      - langchain-core
+      - langchain-ollama
+      - langchain
