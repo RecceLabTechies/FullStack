@@ -6,7 +6,7 @@ from io import StringIO
 from flask_cors import CORS
 from datetime import datetime
 from pymongo import MongoClient
-from bson import  json_util
+from bson import json_util
 from werkzeug.utils import secure_filename
 from flask import Flask, jsonify, request, make_response
 
@@ -175,9 +175,9 @@ def get_data_for_leads_date_chart():
         data = list(collection.find({}, {"_id": 0}))
         df = pd.DataFrame(data)
         df = df[["date", "leads"]]
-        df['leads'] = df['leads'].astype(int)
+        df["leads"] = df["leads"].astype(int)
         df_grouped = df.groupby("date", as_index=False).sum()
-        df_grouped = df_grouped.sort_values('date').tail(7)
+        df_grouped = df_grouped.sort_values("date").tail(7)
 
         data_summary = df_grouped.to_dict(orient="records")
 
@@ -194,9 +194,11 @@ def get_data_for_revenue_date_chart():
         data = list(collection.find({}, {"_id": 0}))
         df = pd.DataFrame(data)
         df = df[["date", "revenue"]]
-        df['revenue'] = df['revenue'].astype(float)  # Convert to float for decimal values
+        df["revenue"] = df["revenue"].astype(
+            float
+        )  # Convert to float for decimal values
         df_grouped = df.groupby("date", as_index=False).sum()
-        df_grouped = df_grouped.sort_values('date').tail(7)
+        df_grouped = df_grouped.sort_values("date").tail(7)
 
         data_summary = df_grouped.to_dict(orient="records")
 

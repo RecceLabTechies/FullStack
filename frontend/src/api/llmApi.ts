@@ -17,11 +17,11 @@ export interface AnalysisResponse {
   error?: string;
 }
 
-const LLM_API_BASE_URL = "http://localhost:5000";
+const LLM_API_BASE_URL = "http://localhost:5152";
 
 export const analyzeData = async (query: string): Promise<AnalysisResponse> => {
   try {
-    const response = await axios.post(`${LLM_API_BASE_URL}/api/analyze`, {
+    const response = await axios.post(`${LLM_API_BASE_URL}/api/pipeline`, {
       query,
     });
     return response.data as AnalysisResponse;

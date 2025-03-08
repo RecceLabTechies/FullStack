@@ -1,9 +1,11 @@
 "use client";
 
+import { analyzeData } from "@/api/llmApi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Loader2 } from "lucide-react";
 import { useState } from "react";
 
 interface Message {
@@ -13,26 +15,16 @@ interface Message {
   timestamp: Date;
 }
 
-interface PaperSize {
-  name: string;
-  widthClass: string;
+interface ReportSection {
+  title: string;
+  content: string;
+  data?: Record<string, any>;
 }
 
-const DEFAULT_SIZE: PaperSize = {
-  name: "A4",
-  widthClass: "w-[51rem]",
-};
-
-const paperSizes: Record<string, PaperSize> = {
-  letter: {
-    name: "Letter",
-    widthClass: "w-[52rem]",
-  },
-  a4: {
-    name: "A4",
-    widthClass: "w-[51rem]",
-  },
-};
+interface Report {
+  title: string;
+  sections: ReportSection[];
+}
 
 export default function ReportGenerationPage() {
   const [messages, setMessages] = useState<Message[]>([
@@ -45,11 +37,38 @@ export default function ReportGenerationPage() {
     },
   ]);
   const [inputMessage, setInputMessage] = useState("");
-  const [selectedSize, setSelectedSize] = useState<string>("a4");
+  const [isLoading, setIsLoading] = useState(false);
+  const [report, setReport] = useState<Report>({
+    title: "Report",
+    sections: [],
+  });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const generateReportContent = async (userMessage: string) => {
+    const response = await analyzeData(userMessage);
+
+    if (!response.success || !response.result) {
+      throw new Error(response.error || "Failed to generate report content");
+    }
+
+    const newSection: ReportSection = {
+      title: `Analysis ${report.sections.length + 1}`,
+      content: response.result.output,
+      data: response.result.data_preview,
+    };
+
+    setReport((prev) => ({
+      ...prev,
+      sections: [...prev.sections, newSection],
+    }));
+
+    return response;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputMessage.trim()) return;
+    if (!inputMessage.trim() || isLoading) return;
+
+    setIsLoading(true);
 
     // Add user message
     const userMessage: Message = {
@@ -59,24 +78,52 @@ export default function ReportGenerationPage() {
       timestamp: new Date(),
     };
 
-    // Add assistant response
-    const assistantMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      content:
-        "I'll help you create that report. Could you provide more details about what you'd like to include?",
-      sender: "assistant",
-      timestamp: new Date(),
-    };
+    try {
+      // Generate report content based on user message
+      const response = await generateReportContent(inputMessage);
 
-    setMessages((prev) => [...prev, userMessage, assistantMessage]);
-    setInputMessage("");
+      // Add assistant response
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content:
+          response.result?.output ||
+          "I've updated the report based on your input. What else would you like to add?",
+        sender: "assistant",
+        timestamp: new Date(),
+      };
+
+      setMessages((prev) => [...prev, userMessage, assistantMessage]);
+    } catch (error) {
+      // Add error message
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content:
+          error instanceof Error
+            ? `Error: ${error.message}`
+            : "Sorry, I encountered an error while generating the report. Please try again.",
+        sender: "assistant",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, userMessage, errorMessage]);
+    } finally {
+      setIsLoading(false);
+      setInputMessage("");
+    }
   };
+
   return (
-    <div className="flex h-full gap-3 overflow-clip">
-      <section className="flex h-full w-1/3 min-w-[26rem] max-w-[52rem] flex-col justify-between">
+    <div className="flex h-full gap-3 overflow-clip p-4">
+      <section className="flex h-full w-1/3 min-w-[26rem] max-w-[52rem] flex-col justify-between rounded-lg border bg-card p-4 shadow-sm">
+        <div className="mb-4">
+          <h2 className="text-xl font-semibold">Chat Assistant</h2>
+          <p className="text-sm text-muted-foreground">
+            Ask questions or request analysis to build your report
+          </p>
+        </div>
+
         {/* Chat History */}
-        <ScrollArea className="h-[calc(100%_-_4rem)]">
-          <div className="flex-1 space-y-2 overflow-y-auto">
+        <ScrollArea className="flex-1 px-2">
+          <div className="space-y-4">
             {messages.map((message) => (
               <div
                 key={message.id}
@@ -91,8 +138,8 @@ export default function ReportGenerationPage() {
                       : "bg-muted"
                   }`}
                 >
-                  <p>{message.content}</p>
-                  <span className="text-xs opacity-70">
+                  <p className="text-sm">{message.content}</p>
+                  <span className="mt-1 block text-xs opacity-70">
                     {message.timestamp.toLocaleTimeString()}
                   </span>
                 </div>
@@ -100,81 +147,53 @@ export default function ReportGenerationPage() {
             ))}
           </div>
         </ScrollArea>
+
         {/* Input Form */}
-        <form onSubmit={handleSubmit} className="flex space-x-2 pb-4">
+        <form onSubmit={handleSubmit} className="mt-4 flex space-x-2">
           <Input
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
-            placeholder="Type your message here..."
+            placeholder="Ask a question or request analysis..."
+            disabled={isLoading}
+            className="flex-1"
           />
-          <Button type="submit">Send</Button>
+          <Button type="submit" disabled={isLoading}>
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing
+              </>
+            ) : (
+              "Send"
+            )}
+          </Button>
         </form>
       </section>
-      <section>
-        <h2 className="text-2xl font-bold">Report Preview</h2>
+
+      <section className="flex-1 rounded-lg border bg-card p-4 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold">{report.title}</h2>
+          <Button variant="outline">Export Report</Button>
+        </div>
+
         <Separator className="mb-4 mt-2" />
-        <ScrollArea className="h-[calc(100%_-_4rem)]">
-          <article className="flex-1 space-y-2 overflow-y-auto">
-            <p>
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean ut
-              est ullamcorper, euismod nisl a, viverra purus. Phasellus ac
-              congue lacus, eu hendrerit arcu. Maecenas consectetur eu odio non
-              mattis. Nunc scelerisque tristique purus. Mauris interdum justo
-              vitae lacus imperdiet, ac aliquam dui auctor. Aliquam viverra
-              scelerisque ante. Mauris vel risus justo. Praesent ullamcorper
-              libero in odio ornare, id rutrum sem scelerisque. In sodales, arcu
-              sit amet euismod tempor, sem risus laoreet enim, pellentesque
-              venenatis ipsum nisi fringilla turpis. Ut rutrum mi tincidunt orci
-              sollicitudin mollis. Curabitur non placerat sem. Nullam sit amet
-              varius augue. Duis id rhoncus dolor, sit amet fermentum ante.
-              Pellentesque lobortis dapibus eleifend. Nulla facilisis commodo
-              nisl, vitae dictum justo auctor at.
-            </p>
-            <p>
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean ut
-              est ullamcorper, euismod nisl a, viverra purus. Phasellus ac
-              congue lacus, eu hendrerit arcu. Maecenas consectetur eu odio non
-              mattis. Nunc scelerisque tristique purus. Mauris interdum justo
-              vitae lacus imperdiet, ac aliquam dui auctor. Aliquam viverra
-              scelerisque ante. Mauris vel risus justo. Praesent ullamcorper
-              libero in odio ornare, id rutrum sem scelerisque. In sodales, arcu
-              sit amet euismod tempor, sem risus laoreet enim, pellentesque
-              venenatis ipsum nisi fringilla turpis. Ut rutrum mi tincidunt orci
-              sollicitudin mollis. Curabitur non placerat sem. Nullam sit amet
-              varius augue. Duis id rhoncus dolor, sit amet fermentum ante.
-              Pellentesque lobortis dapibus eleifend. Nulla facilisis commodo
-              nisl, vitae dictum justo auctor at.
-            </p>
-            <p>
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean ut
-              est ullamcorper, euismod nisl a, viverra purus. Phasellus ac
-              congue lacus, eu hendrerit arcu. Maecenas consectetur eu odio non
-              mattis. Nunc scelerisque tristique purus. Mauris interdum justo
-              vitae lacus imperdiet, ac aliquam dui auctor. Aliquam viverra
-              scelerisque ante. Mauris vel risus justo. Praesent ullamcorper
-              libero in odio ornare, id rutrum sem scelerisque. In sodales, arcu
-              sit amet euismod tempor, sem risus laoreet enim, pellentesque
-              venenatis ipsum nisi fringilla turpis. Ut rutrum mi tincidunt orci
-              sollicitudin mollis. Curabitur non placerat sem. Nullam sit amet
-              varius augue. Duis id rhoncus dolor, sit amet fermentum ante.
-              Pellentesque lobortis dapibus eleifend. Nulla facilisis commodo
-              nisl, vitae dictum justo auctor at.
-            </p>
-            <p>
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean ut
-              est ullamcorper, euismod nisl a, viverra purus. Phasellus ac
-              congue lacus, eu hendrerit arcu. Maecenas consectetur eu odio non
-              mattis. Nunc scelerisque tristique purus. Mauris interdum justo
-              vitae lacus imperdiet, ac aliquam dui auctor. Aliquam viverra
-              scelerisque ante. Mauris vel risus justo. Praesent ullamcorper
-              libero in odio ornare, id rutrum sem scelerisque. In sodales, arcu
-              sit amet euismod tempor, sem risus laoreet enim, pellentesque
-              venenatis ipsum nisi fringilla turpis. Ut rutrum mi tincidunt orci
-              sollicitudin mollis. Curabitur non placerat sem. Nullam sit amet
-              varius augue. Duis id rhoncus dolor, sit amet fermentum ante.
-              Pellentesque lobortis dapibus eleifend. Nulla facilisis commodo
-              nisl, vitae dictum justo auctor at.
-            </p>
+
+        <ScrollArea className="h-[calc(100vh-12rem)]">
+          <article className="prose prose-sm dark:prose-invert max-w-none">
+            {report.sections.length === 0 ? (
+              <div className="flex h-40 items-center justify-center text-muted-foreground">
+                <p>
+                  Your report content will appear here as you chat with the
+                  assistant.
+                </p>
+              </div>
+            ) : (
+              report.sections.map((section, index) => (
+                <div key={index} className="mb-6">
+                  <p>{section.content}</p>
+                </div>
+              ))
+            )}
           </article>
         </ScrollArea>
       </section>
