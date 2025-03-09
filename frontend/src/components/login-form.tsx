@@ -49,13 +49,16 @@ export function LoginForm({
       return;
     }
 
-    const user = users.find((u) => u.email === email && u.password === password);
+    const user = users.find(
+      (u) => u.email === email && u.password === password,
+    );
     if (!user) {
       setError("Invalid email or password");
       return;
     }
 
-    router.push("/dashboard"); // Redirect to dashboard on successful login
+    localStorage.setItem("user", JSON.stringify(user)); // Save user session
+    router.push("/dashboard"); // Redirect to dashboard
   };
 
   return (
