@@ -2,86 +2,56 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pipeline import run_pipeline, PipelineResult
 import pandas as pd
-from typing import Dict, Any
 
 app = Flask(__name__)
 CORS(app)
 
 
-@app.route("/api/pipeline", methods=["POST"])
-def pipeline():
+@app.route("/api/query", methods=["POST"])
+def process_query():
     """
-    API endpoint to run the LLM pipeline.
-
-    Expected JSON payload:
-    {
-        "query": "your natural language query here"
-    }
-
-    Returns:
-    {
-        "success": true/false,
-        "result": {
-            "selected_json": "filename.json",
-            "original_query": "query text",
-            "query_type": "chart/description/report",
-            "output": "generated output (chart path or text)",
-            "data_preview": {} // First few rows of processed data if available
-        },
-        "error": "error message if any"
-    }
+    Endpoint to process queries through the pipeline
+    Expects a JSON body with format: {"query": "your query here"}
     """
+    if not request.is_json:
+        return jsonify({"error": "Request must be JSON"}), 400
+
+    data = request.get_json()
+    if "query" not in data:
+        return jsonify({"error": "Query field is required"}), 400
+
+    query = data["query"]
     try:
-        # Get query from request
-        data = request.get_json()
-        if not data or "query" not in data:
-            return (
-                jsonify({"success": False, "error": "Missing query in request body"}),
-                400,
+        result: PipelineResult = run_pipeline(query)
+
+        # Convert the result to a JSON-serializable format
+        response = {
+            "selected_json": result.selected_json,
+            "original_query": result.original_query,
+            "query_type": result.query_type,
+        }
+
+        # Handle different output types
+        if result.query_type == "chart":
+            response["output"] = (
+                result.output if isinstance(result.output, dict) else str(result.output)
             )
+        elif result.query_type in ["description", "report"]:
+            response["output"] = str(result.output)
+        else:
+            response["output"] = None
 
-        query = data["query"]
-
-        # Run the pipeline
-        result = run_pipeline(query)
-
-        # Convert PipelineResult to dictionary
-        response = _format_pipeline_result(result)
-
-        return jsonify({"success": True, "result": response})
+        return jsonify(response)
 
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-def _format_pipeline_result(result: PipelineResult) -> Dict[str, Any]:
-    """
-    Format PipelineResult object into a JSON-serializable dictionary.
-
-    Args:
-        result (PipelineResult): Pipeline execution result
-
-    Returns:
-        Dict[str, Any]: Formatted response dictionary
-    """
-    response = {
-        "selected_json": result.selected_json,
-        "original_query": result.original_query,
-        "query_type": result.query_type,
-        "output": result.output,
-    }
-
-    # Add data preview if DataFrame is not empty
-    if not result.processed_df.empty:
-        response["data_preview"] = result.processed_df.head().to_dict()
-        response["data_shape"] = {
-            "rows": result.processed_df.shape[0],
-            "columns": result.processed_df.shape[1],
-        }
-        response["columns"] = list(result.processed_df.columns)
-
-    return response
+@app.route("/api/health", methods=["GET"])
+def health_check():
+    """Health check endpoint"""
+    return jsonify({"status": "healthy"}), 200
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5152, host="0.0.0.0")
+    app.run(debug=True, host="0.0.0.0", port=5152)

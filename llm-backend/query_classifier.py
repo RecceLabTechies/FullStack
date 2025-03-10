@@ -18,9 +18,16 @@ class QueryType(BaseModel):
 class QueryClassifier:
     def __init__(self, model_name: str = "llama3.2"):
         self.template = """Classify the following query into one of these categories:
-        - description: Queries asking for specific details or explanations about certain aspects
-        - report: Queries requesting comprehen sive analysis of all aspects of the dataset
-        - chart: Queries specifically requesting visual representation or graphs
+        - description: Queries asking for specific details, explanations, or summaries about particular aspects of the data. These often focus on a specific topic, metric, or segment. Examples: "describe the spending on LinkedIn", "generate description of marketing expenses", "explain the revenue trends for Q1", "summarize the customer acquisition costs"
+        
+        - report: Queries requesting comprehensive analysis across multiple aspects of the dataset, often requiring a full overview or detailed breakdown of the entire dataset. Examples: "create a full financial report", "generate a comprehensive analysis of all marketing channels", "provide a complete breakdown of all expenses"
+        
+        - chart: Queries specifically requesting visual representation or graphs of data. Examples: "create a bar chart of monthly sales", "plot the revenue growth over time", "visualize the customer demographics"
+
+        Important rules:
+        1. If the query contains words like "describe", "description", "explain", "summarize" or "details about" a specific topic, it's likely a description query.
+        2. If the query asks about a specific aspect or dimension (like "spending on LinkedIn" or "marketing expenses"), it's likely a description query.
+        3. Reports are broader in scope and typically cover multiple aspects or the entire dataset.
 
         Query: {query}
 
@@ -55,9 +62,75 @@ class QueryClassifier:
         """
         try:
             result = self.chain.invoke({"query": query})
+            result["original_query"] = query
+
+            # Apply post-processing rules to handle edge cases
+            result["query_type"] = self._apply_post_processing_rules(
+                query, result["query_type"]
+            )
+
             return QueryType(**result, dataframe=df)
         except Exception as e:
             raise Exception(f"Error classifying query: {str(e)}")
+
+    def _apply_post_processing_rules(self, query: str, query_type: str) -> str:
+        """
+        Apply additional rules to refine the classification for edge cases
+
+        Args:
+            query (str): The original user query
+            query_type (str): The initial classification from the LLM
+
+        Returns:
+            str: The potentially updated classification
+        """
+        query_lower = query.lower()
+
+        # Rule 1: If query explicitly mentions "description" or "describe" and is about a specific topic,
+        # it should be a description query
+        description_indicators = [
+            "description of",
+            "describe",
+            "explain",
+            "summarize",
+            "details about",
+            "details of",
+        ]
+        if any(indicator in query_lower for indicator in description_indicators):
+            # Check if it's about a specific topic (not a general request for everything)
+            if not any(
+                term in query_lower
+                for term in ["all", "every", "complete", "comprehensive", "full"]
+            ):
+                return "description"
+
+        # Rule 2: If query explicitly asks for a chart or visualization, it should be a chart query
+        chart_indicators = [
+            "chart",
+            "graph",
+            "plot",
+            "visualize",
+            "visualization",
+            "diagram",
+        ]
+        if any(indicator in query_lower for indicator in chart_indicators):
+            return "chart"
+
+        # Rule 3: If query explicitly asks for a comprehensive report, it should be a report query
+        report_indicators = [
+            "report",
+            "analysis of all",
+            "comprehensive",
+            "full breakdown",
+            "complete overview",
+        ]
+        if any(indicator in query_lower for indicator in report_indicators) and any(
+            term in query_lower
+            for term in ["all", "every", "complete", "comprehensive", "full"]
+        ):
+            return "report"
+
+        return query_type
 
 
 def classify_query(user_query: str, df: pd.DataFrame) -> Tuple[str, str, pd.DataFrame]:
@@ -83,6 +156,32 @@ if __name__ == "__main__":
     # Create a sample DataFrame for testing
     sample_df = pd.DataFrame({"A": [1, 2, 3], "B": ["x", "y", "z"]})
 
+    # Test cases
+    test_cases = [
+        ("generate description of spending on linkedin", "description"),
+        ("describe the marketing expenses", "description"),
+        ("explain the revenue for Q2", "description"),
+        ("create a comprehensive financial report", "report"),
+        ("analyze all aspects of our business performance", "report"),
+        ("generate a chart showing monthly sales", "chart"),
+        ("visualize the customer demographics", "chart"),
+        ("summarize the spending on Facebook ads", "description"),
+        ("provide details about the ROI for Google Ads", "description"),
+        ("create a full breakdown of all marketing channels", "report"),
+    ]
+
+    print("=== Testing Classification Accuracy ===")
+    for query, expected in test_cases:
+        query_type, _, _ = classify_query(query, sample_df)
+        result = (
+            "✓"
+            if query_type == expected
+            else f"✗ (got {query_type}, expected {expected})"
+        )
+        print(f"Query: '{query}'\nExpected: {expected}, Result: {result}\n")
+
+    # Interactive testing
+    print("\n=== Interactive Testing ===")
     query = input("Enter your query: ")
     query_type, original_query, df = classify_query(query, sample_df)
     print(f"Query type: {query_type}")

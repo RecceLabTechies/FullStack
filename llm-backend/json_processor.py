@@ -42,9 +42,7 @@ def validate_filter_values(filter_code: str, df: pd.DataFrame) -> str:
                 ].iloc[0]
                 return f"df[df['{column_name}'] == '{actual_value}']"
             else:
-                print(
-                    f"Warning: Value '{target_value}' not found in column '{column_name}'."
-                )
+                print(f"⚠️ Value '{target_value}' not found in column '{column_name}'")
                 print(
                     f"Available values: {', '.join(map(str, df[column_name].unique()))}"
                 )
@@ -106,7 +104,7 @@ Response format - ONLY provide the filtering code or "No filtering required":"""
         )
 
         # Initialize LLM
-        model = OllamaLLM(model="llama3.2")
+        model = OllamaLLM(model="granite-code:8b")
 
         # Get sample data for context
         sample_data = df.head().to_string()
@@ -138,44 +136,29 @@ result = {validated_response}
                     if isinstance(filtered_df, pd.DataFrame):
                         df = filtered_df
             except Exception as e:
-                print(f"Warning: Error applying filter: {e}")
+                print(f"⚠️ Filter application error: {e}")
 
         return df, query
 
     except Exception as e:
-        print(f"Error processing JSON file: {e}")
+        print(f"⚠️ JSON processing error: {e}")
         # Return empty DataFrame if there's an error
         return pd.DataFrame(), query
 
 
 if __name__ == "__main__":
     # Get user input
-    print("\n=== JSON Data Processor ===")
-    json_file = input("Enter the JSON file name (e.g., data.json): ")
-    query = input("Enter your query about the data: ")
+    json_file = input("Enter JSON file name: ")
+    query = input("Enter your query: ")
 
     # Process the query
-    print("\nProcessing query...")
     df, original_query = process_json_query(json_file, query)
 
-    # Display results
-    print("\n=== Results ===")
-    print(f"Original Query: {original_query}")
-    print(f"\nDataFrame Shape: {df.shape[0]} rows × {df.shape[1]} columns")
-
     if not df.empty:
-        print("\nFirst few rows of the processed DataFrame:")
-        # Set display options for better output
+        print(f"Data Size: {df.shape[0]} rows × {df.shape[1]} columns")
         pd.set_option("display.max_columns", None)
         pd.set_option("display.expand_frame_repr", False)
         pd.set_option("display.max_rows", 5)
         print(df.head())
-
-        print("\nColumn Information:")
-        for col in df.columns:
-            unique_values = df[col].nunique()
-            print(f"- {col}: {unique_values} unique values")
     else:
-        print(
-            "\nNo data to display. Please check if the JSON file exists and the query is valid."
-        )
+        print("⚠️ No data available")

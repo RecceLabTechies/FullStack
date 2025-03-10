@@ -50,7 +50,7 @@ def extract_headers(file_path: str) -> list[str]:
                 return list(first_item.keys())
         return []
     except (json.JSONDecodeError, FileNotFoundError) as e:
-        print(f"Error processing {file_path}: {str(e)}")
+        print(f"⚠️ Error in file {file_path}: {str(e)}")
         raise
 
 
@@ -78,7 +78,7 @@ def recursive_json_schema_extractor(directory: str) -> Dict[str, List[str]]:
                 headers = extract_headers(full_path)
                 schemas[full_path] = headers
             except Exception as e:
-                print(f"Error processing file {full_path}: {e}")
+                print(f"⚠️ Error processing {full_path}: {e}")
     return schemas
 
 
@@ -143,10 +143,7 @@ Example format:
 
 
 prompt = ChatPromptTemplate.from_template(template)
-model = OllamaLLM(
-    model="llama3.2",
-    temperature=0.7,  # Balanced setting between creativity and consistency
-)
+model = OllamaLLM(model="mistral", temperature=0.3)
 
 
 # Function to parse LLM output into QueryList
@@ -163,41 +160,57 @@ def parse_llm_response(response: str) -> QueryList:
     Returns:
         QueryList: Structured object containing validated queries
     """
-    print("\n[DEBUG] Parsing LLM response:")
+    print("\n🔍 Parsing LLM response")
     print(f"Raw response:\n{response}")
 
-    lines = response.strip().split("\n")
+    # Split response into lines and clean up
+    lines = [line.strip() for line in response.strip().split("\n") if line.strip()]
     queries = []
     seen_queries = set()
 
-    print("\nProcessing lines:")
+    print("\n⚙️ Processing queries:")
     for line in lines:
         try:
-            clean_line = line.strip("[]")
-            query_type, query_text = clean_line.split(",", 1)
-            query_type = query_type.strip().lower()
-            query_text = query_text.strip(' "')
+            # Remove any leading/trailing brackets and whitespace
+            clean_line = line.strip("[] ")
+            if not clean_line or "," not in clean_line:
+                continue
 
-            print(f"- Line: {line}")
+            # Split into type and text, handling potential multiple commas in the query text
+            parts = clean_line.split(",", 1)
+            if len(parts) != 2:
+                continue
+
+            query_type = parts[0].strip().lower()
+            query_text = parts[1].strip(" \"'")  # Remove quotes and whitespace
+
+            # Skip empty or malformed queries
+            if not query_type or not query_text:
+                continue
+
+            # Validate query type
+            if query_type not in ["chart", "description"]:
+                print(f"  ❌ Invalid query type in: {line}")
+                continue
+
+            print(f"• Query: {line}")
             print(f"  Type: {query_type}")
             print(f"  Text: {query_text}")
-
-            if query_type not in ["chart", "description"]:
-                print("  ⚠️ Invalid query type - skipping")
-                continue
 
             query_pair = (query_type, query_text)
             if query_pair not in seen_queries:
                 queries.append(query_pair)
                 seen_queries.add(query_pair)
-                print("  ✓ Added to queries")
+                print("  ✓ Added to analysis")
             else:
                 print("  ⚠️ Duplicate query - skipping")
-        except ValueError:
-            print(f"  ⚠️ Error parsing line: {line}")
+
+        except Exception as e:
+            print(f"  ❌ Error processing line: {line}")
+            print(f"    Error details: {str(e)}")
             continue
 
-    print(f"\nTotal queries parsed: {len(queries)}")
+    print(f"\n✓ Total queries: {len(queries)}")
     return QueryList(queries=queries)
 
 
@@ -236,7 +249,7 @@ def generate_analysis_queries(user_query: str) -> QueryList:
         result = chain.invoke({"json_headers": formatted_headers, "query": user_query})
         return result
     except Exception as e:
-        print(f"Error generating queries: {str(e)}")
+        print(f"⚠️ Error generating queries: {str(e)}")
         raise
 
 
@@ -247,8 +260,9 @@ if __name__ == "__main__":
         test_query = "Generate a comprehensive analysis report"
         result = generate_analysis_queries(test_query)
 
-        print("\nGenerated Analysis Queries:")
+        print("\n📊 Generated Analysis Queries")
+        print("=" * 50)
         for query_type, query in result.queries:
             print(f"[{query_type}] {query}")
     except Exception as e:
-        print(f"Error during query generation: {str(e)}")
+        print(f"⚠️ Error: {str(e)}")

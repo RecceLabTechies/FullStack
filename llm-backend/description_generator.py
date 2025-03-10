@@ -5,7 +5,6 @@ import pandas as pd
 from pydantic import BaseModel
 from langchain_ollama.llms import OllamaLLM
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.tools import Tool
 from langchain_experimental.utilities import PythonREPL
 from scipy import stats
 from pandas.api.types import (
@@ -176,7 +175,7 @@ def select_relevant_columns(df: pd.DataFrame, query: str) -> pd.DataFrame:
     )
 
     # Generate column selection
-    model = OllamaLLM(model="llama3.2")
+    model = OllamaLLM(model="wizardlm2")
     selection_chain = column_selection_prompt | model
     raw_selection = selection_chain.invoke(
         {"query": query, "columns": list(df.columns)}
@@ -193,7 +192,7 @@ def select_relevant_columns(df: pd.DataFrame, query: str) -> pd.DataFrame:
             if start_idx != -1 and end_idx != -1:
                 cleaned_response = cleaned_response[start_idx : end_idx + 1]
             else:
-                print("Warning: Could not find valid column list in response")
+                print("⚠️ Could not find valid column list in response")
                 return df
 
         # Use Python REPL to safely evaluate the string as a Python list
@@ -203,39 +202,35 @@ def select_relevant_columns(df: pd.DataFrame, query: str) -> pd.DataFrame:
             if not isinstance(selected_columns, list):
                 raise ValueError("Response is not a list")
         except:
-            print(f"Error parsing response: {cleaned_response}")
+            print(f"⚠️ Invalid column selection: {cleaned_response}")
             return df
 
         # Filter to only existing columns
         valid_columns = [col for col in selected_columns if col in df.columns]
 
         if not valid_columns:
-            print(f"\nWarning: No valid columns found in response: {cleaned_response}")
+            print(f"⚠️ No valid columns found in selection: {cleaned_response}")
             print("Available columns:", list(df.columns))
             return df
 
         filtered_df = df[valid_columns]
-        print(f"\nSelected columns for analysis: {valid_columns}")
-        print("\nFiltered DataFrame preview:")
-        print(filtered_df.head())
         return filtered_df
 
     except Exception as e:
-        print(f"Error in column selection: {str(e)}")
-        print("Using all columns instead")
+        print(f"⚠️ Column selection error: {str(e)}")
         return df
 
 
-def generate_description(df: pd.DataFrame, query: str) -> str:
+def generate_description(df: pd.DataFrame, query: str) -> StructuredDescription:
     """
-    Generate a markdown formatted description based on DataFrame analysis and user query.
+    Generate a structured description based on DataFrame analysis and user query.
 
     Args:
         df (pd.DataFrame): Input DataFrame to analyze
         query (str): Natural language query about the data
 
     Returns:
-        str: Markdown formatted description
+        StructuredDescription: A structured description containing HTML elements
     """
     # First, select relevant columns based on the query
     filtered_df = select_relevant_columns(df, query)
@@ -249,77 +244,213 @@ def generate_description(df: pd.DataFrame, query: str) -> str:
         
         Statistical Report:\n{stats_report}\n
         
-        Generate a comprehensive executive summary in markdown format that MUST:
-        1. Begin with a level 1 heading (#) for the executive summary title that includes specific metrics
-        2. Provide a detailed overview with:
-           - Key numerical findings (use exact numbers)
-           - Most significant trends
-           - Critical insights
-        3. For EACH of the following sections, provide specific metrics, comparisons, and actionable insights:
-           
-           Key Performance Metrics (##):
-           - Compare actual numbers against targets
-           - Highlight top and bottom performing metrics
-           - Include specific percentage changes
-           
-           Trend Analysis (##):
-           - Identify specific patterns in the data
-           - Compare current performance with historical data
-           - Quantify growth rates or decline
-           
-           Market Segmentation (##):
-           - Break down performance by key segments
-           - Identify best and worst performing segments
-           - Include specific market share numbers
-           
-           Campaign Effectiveness (##):
-           - ROI calculations with exact numbers
-           - Cost per acquisition/conversion
-           - Compare effectiveness across channels
-           
-           Areas of Opportunity (##):
-           - Specific recommendations based on data
-           - Potential impact in percentage/numbers
-           - Priority areas for improvement
-           
-           Risk Factors (##):
-           - Quantify potential risks
-           - Impact assessment with numbers
-           - Mitigation strategies
+        Generate a comprehensive executive summary as a JSON array. Each element must be a 2-element array: [tag, content].
+        The tag must be one of: "h2", "h3", "p"
         
-        IMPORTANT:
-        - Every section MUST include specific numbers from the statistical report
-        - Use ### headers for subsections within each major section
-        - Each paragraph must contain at least 3 specific metrics or findings
-        - Avoid generic statements - be specific and data-driven
-        - Make clear connections between data points and business implications
-        - Use proper markdown formatting (# for h1, ## for h2, ### for h3)
-        - Use bullet points (- ) where appropriate
-        - Use bold (**) and italic (*) for emphasis
+        Rules for structure:
+        1. Start with an h2 title
+        2. Each major section must be h2
+        3. Subsections must be h3
+        4. All content must be p tags
+        5. Required major sections (h2):
+           - Key Performance Metrics
+           - Trend Analysis
+           - Market Segmentation
+           - Campaign Effectiveness
+           - Areas of Opportunity
+           - Risk Factors
         
-        Example format (but with real numbers from the data):
-        # Q3 Marketing Campaign Analysis: 28% ROI Growth with 12% Cost Reduction
+        Format rules:
+        1. Use ONLY double quotes (")
+        2. Each array element must end with comma except the last one
+        3. Keep all content on a single line - NO line breaks in content
+        4. ALL text must be properly escaped JSON strings
         
-        Analysis of 47,892 campaign touchpoints reveals a 28.3% increase in ROI, driven by a 12% reduction in customer acquisition costs and 15% higher conversion rates across digital channels. Mobile engagement showed particular strength, with a 42% year-over-year improvement in click-through rates.
-        
-        ## Key Performance Metrics
-        Digital channel conversion rates increased from 3.2% to 4.8%, representing a 50% improvement. Cost per acquisition decreased from $34.50 to $30.36, while customer lifetime value increased by 23% to $156.78.
-        
-        ### Channel Performance
-        Social media campaigns delivered the highest ROI at 312%, followed by email at 289% and display ads at 187%...
-        
-        [Continue with similar detailed, data-driven content for each section...]
+        Here are three examples of correctly formatted responses:
+
+        Example 1 (Cost Analysis):
+        [
+            ["h2", "Cost Analysis Overview: 15% Reduction in Q3"],
+            ["p", "Analysis of 10,000 transactions shows significant cost optimization across channels."],
+            ["h2", "Key Performance Metrics"],
+            ["h3", "Cost Structure"],
+            ["p", "Average cost per transaction decreased from $25.30 to $21.50, representing a 15% improvement."],
+            ["h2", "Trend Analysis"],
+            ["h3", "Monthly Patterns"],
+            ["p", "Cost reduction accelerated from 5% in July to 15% in September, indicating successful optimization."],
+            ["h2", "Market Segmentation"],
+            ["h3", "Regional Analysis"],
+            ["p", "Western region shows highest cost efficiency with 18% reduction compared to 12% average."],
+            ["h2", "Campaign Effectiveness"],
+            ["h3", "ROI Metrics"],
+            ["p", "Cost per acquisition improved from $52 to $44, driving 20% better campaign ROI."],
+            ["h2", "Areas of Opportunity"],
+            ["h3", "Process Optimization"],
+            ["p", "Data indicates potential for additional 10% cost reduction through automation."],
+            ["h2", "Risk Factors"],
+            ["h3", "Market Conditions"],
+            ["p", "Rising supplier costs may impact current savings by 3-5% in Q4."]
+        ]
+
+        Example 2 (Revenue Analysis):
+        [
+            ["h2", "Revenue Performance: 28% YoY Growth"],
+            ["p", "Q3 revenue reached $2.5M with consistent growth across all segments."],
+            ["h2", "Key Performance Metrics"],
+            ["h3", "Revenue Drivers"],
+            ["p", "Customer lifetime value increased by 23% to $850 per customer."],
+            ["h2", "Trend Analysis"],
+            ["h3", "Growth Patterns"],
+            ["p", "Monthly revenue growth averaged 2.8% with peak performance in August at 3.2%."],
+            ["h2", "Market Segmentation"],
+            ["h3", "Customer Segments"],
+            ["p", "Premium segment grew 35% while standard segment maintained 15% growth."],
+            ["h2", "Campaign Effectiveness"],
+            ["h3", "Channel Performance"],
+            ["p", "Digital channels delivered 42% of revenue with 3.1x ROI."],
+            ["h2", "Areas of Opportunity"],
+            ["h3", "Expansion Potential"],
+            ["p", "Data suggests 40% growth potential in untapped markets."],
+            ["h2", "Risk Factors"],
+            ["h3", "Market Risks"],
+            ["p", "Competitive pressure may impact growth by 5-8% in specific segments."]
+        ]
+
+        Example 3 (Customer Behavior):
+        [
+            ["h2", "Customer Engagement Analysis: 32% Higher Interaction"],
+            ["p", "Analysis of 50,000 customer interactions reveals significant engagement improvements."],
+            ["h2", "Key Performance Metrics"],
+            ["h3", "Engagement Metrics"],
+            ["p", "Average session duration increased 45% to 12.5 minutes per visit."],
+            ["h2", "Trend Analysis"],
+            ["h3", "Behavioral Patterns"],
+            ["p", "Customer return rate improved from 25% to 40% over the quarter."],
+            ["h2", "Market Segmentation"],
+            ["h3", "Demographic Insights"],
+            ["p", "25-34 age group shows 50% higher engagement than other segments."],
+            ["h2", "Campaign Effectiveness"],
+            ["h3", "Response Rates"],
+            ["p", "Email campaign engagement increased 28% with 2.5x better conversion."],
+            ["h2", "Areas of Opportunity"],
+            ["h3", "Feature Adoption"],
+            ["p", "Data indicates 60% of users haven't explored premium features."],
+            ["h2", "Risk Factors"],
+            ["h3", "Retention Risks"],
+            ["p", "Seasonal variation may reduce engagement by 15% in Q4."]
+        ]
+
+        Now, generate a similar response for the given query and statistics, following the same format exactly. Return ONLY the JSON array with no additional text or explanation.
         """
     )
 
-    # Generate markdown summary
+    # Generate structured summary
     model = OllamaLLM(model="llama3.2")
     summary_chain = summary_prompt | model
-    markdown_summary = summary_chain.invoke(
+    raw_elements = summary_chain.invoke(
         {"query": query, "stats_report": str(stats_report)}
     )
 
-    return markdown_summary.strip()
+    # Parse the raw elements into a list of HTMLElement objects
+    try:
+        # Clean up the response and extract the list
+        cleaned_response = raw_elements.strip()
+
+        # Find the outermost list
+        start_idx = cleaned_response.find("[")
+        end_idx = cleaned_response.rfind("]")
+
+        if start_idx == -1 or end_idx == -1:
+            raise ValueError("Could not find valid list structure in response")
+
+        list_content = cleaned_response[start_idx : end_idx + 1]
+
+        # Preprocessing to clean up common JSON issues
+        import re
+
+        # 1. Remove any line breaks within content
+        list_content = re.sub(r'"\s*\n\s*"', '" "', list_content)
+
+        # 2. Remove any trailing commas before closing brackets
+        list_content = re.sub(r",(\s*])", r"\1", list_content)
+
+        # 3. Ensure commas between array elements
+        list_content = re.sub(r"]\s*\n\s*\[", "],\n[", list_content)
+
+        # 4. Remove any non-JSON content
+        list_content = re.sub(
+            r'[^\[\],\s"{}:.\-\d\w@$%&()*+/<>=?^_`~]+', "", list_content
+        )
+
+        # Parse JSON
+        import json
+
+        elements_list = json.loads(list_content)
+
+        # Validate and convert to HTMLElement objects
+        html_elements = []
+        valid_tags = {"h2", "h3", "p"}
+        required_h2_sections = {
+            "Key Performance Metrics",
+            "Trend Analysis",
+            "Market Segmentation",
+            "Campaign Effectiveness",
+            "Areas of Opportunity",
+            "Risk Factors",
+        }
+        found_h2_sections = set()
+        current_level = None
+
+        for item in elements_list:
+            if not isinstance(item, list) or len(item) != 2:
+                continue
+
+            tag, content = item
+            if not isinstance(tag, str) or not isinstance(content, str):
+                continue
+
+            if tag not in valid_tags:
+                continue
+
+            # Enforce tag hierarchy
+            if tag == "h2":
+                current_level = "h2"
+                if any(section in content for section in required_h2_sections):
+                    found_h2_sections.add(
+                        next(
+                            section
+                            for section in required_h2_sections
+                            if section in content
+                        )
+                    )
+            elif tag == "h3":
+                if current_level != "h2":
+                    continue
+                current_level = "h3"
+            elif tag == "p":
+                if current_level not in ("h2", "h3"):
+                    continue
+
+            html_elements.append(HTMLElement(tag=tag, content=content))
+
+        # Verify all required sections are present
+        missing_sections = required_h2_sections - found_h2_sections
+        if missing_sections:
+            print(f"⚠️ Missing sections in analysis: {missing_sections}")
+
+        if not html_elements:
+            raise ValueError("No valid elements found after parsing")
+
+        return StructuredDescription(elements=html_elements)
+
+    except Exception as e:
+        print(f"⚠️ Error generating description: {str(e)}")
+        return StructuredDescription(
+            elements=[
+                HTMLElement(tag="h2", content="Error Generating Report"),
+                HTMLElement(tag="p", content=f"Failed to generate report: {str(e)}"),
+            ]
+        )
 
 
 if __name__ == "__main__":
@@ -339,12 +470,9 @@ if __name__ == "__main__":
         }
     )
 
-    print("\nOriginal DataFrame:")
-    print(sample_df.head())
-
-    query = input("\nEnter your analysis query: ")
+    query = input("\n❓ Enter your analysis query: ")
     result = generate_description(sample_df, query)
 
-    # Display the results
-    print("\n=== Generated Description ===")
-    print(result)
+    print("\n📝 Analysis Results:")
+    for element in result.elements:
+        print(f"{element.tag}: {element.content}")
