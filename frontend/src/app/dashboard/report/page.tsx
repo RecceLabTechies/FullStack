@@ -162,7 +162,6 @@ export default function ReportGenerationPage() {
                 <Line
                   type="monotone"
                   dataKey={chartData.yAxis.dataKey}
-                  stroke="#8884d8"
                   strokeWidth={2}
                   dot={{ r: 4 }}
                   activeDot={{ r: 6 }}
