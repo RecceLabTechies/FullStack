@@ -1,6 +1,5 @@
 "use client";
 
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Card,
   CardContent,
@@ -10,13 +9,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  ChartConfig,
+  type ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, TrendingUp } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
   CartesianGrid,
@@ -113,21 +112,11 @@ const RevenueChart = () => {
   }
 
   if (error) {
-    return (
-      <Alert variant="destructive">
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>{error}</AlertDescription>
-      </Alert>
-    );
+    return { error };
   }
 
   if (data.length === 0) {
-    return (
-      <Alert>
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>No data available for the chart</AlertDescription>
-      </Alert>
-    );
+    return "No data available for the chart";
   }
 
   return (

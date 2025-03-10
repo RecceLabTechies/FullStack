@@ -1,13 +1,25 @@
-"use client"
+"use client";
 
-import { CalendarIcon, Check, ChevronsUpDown } from "lucide-react"
-import { format } from "date-fns"
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Card } from "./ui/card"
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { CalendarIcon, Check, ChevronsUpDown } from "lucide-react";
+import { DateRange } from "react-day-picker";
+import { Card } from "./ui/card";
 
 const channels = [
   { label: "Instagram", value: "instagram" },
@@ -18,22 +30,22 @@ const channels = [
   { label: "LinkedIn", value: "linkedin" },
   { label: "Newspaper", value: "newspaper" },
   { label: "Radio", value: "radio" },
-]
+];
 
 const ageGroups = [
   { label: "18-24", value: "18-24" },
   { label: "25-34", value: "25-34" },
   { label: "35-54", value: "35-54" },
   { label: "45-54", value: "45-54" },
-]
+];
 
 interface FilterBarProps {
-  dateRange: [Date, Date] | undefined
-  setDateRange: (date: [Date, Date] | undefined) => void
-  selectedChannels: string[]
-  setSelectedChannels: (channels: string[]) => void
-  selectedAgeGroups: string[]
-  setSelectedAgeGroups: (ageGroups: string[]) => void
+  dateRange: DateRange | undefined;
+  setDateRange: (date: DateRange | undefined) => void;
+  selectedChannels: string[];
+  setSelectedChannels: (channels: string[]) => void;
+  selectedAgeGroups: string[];
+  setSelectedAgeGroups: (ageGroups: string[]) => void;
 }
 
 export default function FilterBar({
@@ -45,16 +57,20 @@ export default function FilterBar({
   setSelectedAgeGroups,
 }: FilterBarProps) {
   return (
-    <Card className="p-4 flex flex-col md:flex-row gap-4 items-center">
-      <h2 className="font-bold text-lg">Filter By</h2>
+    <Card className="flex flex-col items-center gap-4 p-4 md:flex-row">
+      <h2 className="text-lg font-bold">Filter By</h2>
       <div className="flex-1">
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" className="w-full justify-start text-left font-normal bg-white">
+            <Button
+              variant="outline"
+              className="w-full justify-start bg-white text-left font-normal"
+            >
               <CalendarIcon className="mr-2 h-4 w-4" />
-              {dateRange?.length === 2 ? (
+              {dateRange?.from && dateRange?.to ? (
                 <>
-                  {format(dateRange[0], "LLL dd, y")} - {format(dateRange[1], "LLL dd, y")}
+                  {format(dateRange.from, "LLL dd, y")} -{" "}
+                  {format(dateRange.to, "LLL dd, y")}
                 </>
               ) : (
                 <span>Date Range</span>
@@ -77,8 +93,14 @@ export default function FilterBar({
       <div className="flex-1">
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" role="combobox" className="w-full justify-between bg-white">
-              {selectedChannels.length > 0 ? `${selectedChannels.length} channels selected` : "Channels"}
+            <Button
+              variant="outline"
+              role="combobox"
+              className="w-full justify-between bg-white"
+            >
+              {selectedChannels.length > 0
+                ? `${selectedChannels.length} channels selected`
+                : "Channels"}
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
@@ -95,15 +117,19 @@ export default function FilterBar({
                       onSelect={() => {
                         setSelectedChannels(
                           selectedChannels.includes(channel.value)
-                            ? selectedChannels.filter((c) => c !== channel.value)
+                            ? selectedChannels.filter(
+                                (c) => c !== channel.value,
+                              )
                             : [...selectedChannels, channel.value],
-                        )
+                        );
                       }}
                     >
                       <Check
                         className={cn(
                           "mr-2 h-4 w-4",
-                          selectedChannels.includes(channel.value) ? "opacity-100" : "opacity-0",
+                          selectedChannels.includes(channel.value)
+                            ? "opacity-100"
+                            : "opacity-0",
                         )}
                       />
                       {channel.label}
@@ -119,8 +145,14 @@ export default function FilterBar({
       <div className="flex-1">
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" role="combobox" className="w-full justify-between bg-white">
-              {selectedAgeGroups.length > 0 ? `${selectedAgeGroups.length} age groups selected` : "Age Group"}
+            <Button
+              variant="outline"
+              role="combobox"
+              className="w-full justify-between bg-white"
+            >
+              {selectedAgeGroups.length > 0
+                ? `${selectedAgeGroups.length} age groups selected`
+                : "Age Group"}
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
@@ -137,15 +169,19 @@ export default function FilterBar({
                       onSelect={() => {
                         setSelectedAgeGroups(
                           selectedAgeGroups.includes(ageGroup.value)
-                            ? selectedAgeGroups.filter((a) => a !== ageGroup.value)
+                            ? selectedAgeGroups.filter(
+                                (a) => a !== ageGroup.value,
+                              )
                             : [...selectedAgeGroups, ageGroup.value],
-                        )
+                        );
                       }}
                     >
                       <Check
                         className={cn(
                           "mr-2 h-4 w-4",
-                          selectedAgeGroups.includes(ageGroup.value) ? "opacity-100" : "opacity-0",
+                          selectedAgeGroups.includes(ageGroup.value)
+                            ? "opacity-100"
+                            : "opacity-0",
                         )}
                       />
                       {ageGroup.label}
@@ -158,6 +194,5 @@ export default function FilterBar({
         </Popover>
       </div>
     </Card>
-  )
+  );
 }
-

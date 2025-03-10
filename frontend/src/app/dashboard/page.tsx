@@ -9,9 +9,10 @@ import RevenueChart from "@/app/dashboard/revenue-chart";
 import FilterBar from "@/components/filter-bar";
 import { Card } from "@/components/ui/card";
 import { useState } from "react";
+import { DateRange } from "react-day-picker";
 
 export default function Page() {
-  const [dateRange, setDateRange] = useState<[Date, Date] | undefined>();
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [selectedAgeGroups, setSelectedAgeGroups] = useState<string[]>([]);
 

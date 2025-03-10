@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import StaffCard from "./StaffCard";
 import { User } from "@/api/dbApi";
+import { useEffect, useState } from "react";
+import StaffCard from "./StaffCard";
 
 interface Permissions {
   reportGeneration: boolean;

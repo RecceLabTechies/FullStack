@@ -4,6 +4,7 @@ import { NavUser } from "@/components/nav-user";
 import {
   Building,
   Clipboard,
+  DatabaseBackup,
   LayoutDashboard,
   Settings,
   ShieldEllipsis,
@@ -49,6 +50,11 @@ const sidebarConfig = {
       name: "Settings",
       url: "/dashboard/settings",
       icon: Settings,
+    },
+    {
+      name: "Mongo Manager",
+      url: "/dashboard/mongo_manager",
+      icon: DatabaseBackup,
     },
   ],
 };

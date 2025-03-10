@@ -1,6 +1,5 @@
 "use client";
 
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Card,
   CardContent,
@@ -16,7 +15,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, TrendingUp } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
   CartesianGrid,
@@ -109,21 +108,11 @@ const LeadDateChart = () => {
   }
 
   if (error) {
-    return (
-      <Alert variant="destructive">
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>{error}</AlertDescription>
-      </Alert>
-    );
+    return "Error";
   }
 
   if (data.length === 0) {
-    return (
-      <Alert>
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>No data available for the chart</AlertDescription>
-      </Alert>
-    );
+    return "No data available for the chart";
   }
 
   return (
