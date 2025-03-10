@@ -1,8 +1,15 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Input } from "@/components/ui/input"
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { useState } from "react";
 
 const initialData = [
   { channel: "Instagram", spend: 7.5 },
@@ -13,23 +20,26 @@ const initialData = [
   { channel: "Facebook ads", spend: 2.2 },
   { channel: "Influencer", spend: 0.5 },
   { channel: "Radio ads", spend: 6.3 },
-]
+];
 
 export default function AdSpendTable() {
-  const [adSpendData, setAdSpendData] = useState(initialData)
+  const [adSpendData, setAdSpendData] = useState(initialData);
 
   const handleSpendChange = (index: number, value: string) => {
-    const newData = [...adSpendData]
-    newData[index].spend = Number.parseFloat(value) || 0
-    setAdSpendData(newData)
-  }
+    const newData = [...adSpendData];
+    if (newData[index]) {
+      newData[index].spend = Number.parseFloat(value) || 0;
+      setAdSpendData(newData);
+    }
+  };
 
   return (
     <div>
-      <h3 className="text-lg font-medium mb-4">
-        Enter your budgeted ad spend for predictions across the next month (thousands $GD)
+      <h3 className="mb-4 text-lg font-medium">
+        Enter your budgeted ad spend for predictions across the next month
+        (thousands $GD)
       </h3>
-      <div className="rounded-lg overflow-hidden border">
+      <div className="overflow-hidden rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -57,6 +67,5 @@ export default function AdSpendTable() {
         </Table>
       </div>
     </div>
-  )
+  );
 }
-

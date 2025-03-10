@@ -1,8 +1,6 @@
-"use client"
+"use client";
 
-import { Suspense, useState, useEffect } from "react";
-import StaffList from "./StaffList";
-import SearchBar from "./SearchBar";
+import { fetchUsers, User } from "@/api/dbApi";
 import {
   Card,
   CardContent,
@@ -10,8 +8,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import React from "react";
-import { fetchUsers, User } from "@/api/dbApi";
+import { Suspense, useEffect, useState } from "react";
+import SearchBar from "./SearchBar";
+import StaffList from "./StaffList";
 
 export default function AdminPage() {
   const [users, setUsers] = useState<User[] | null>(null);
@@ -37,15 +36,16 @@ export default function AdminPage() {
 
   const handleSearch = (searchTerm: string) => {
     if (!users) return;
-    
+
     if (!searchTerm.trim()) {
       setFilteredUsers(users);
       return;
     }
 
-    const filtered = users.filter((user) =>
-      user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.role.toLowerCase().includes(searchTerm.toLowerCase())
+    const filtered = users.filter(
+      (user) =>
+        user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.role.toLowerCase().includes(searchTerm.toLowerCase()),
     );
     setFilteredUsers(filtered);
   };

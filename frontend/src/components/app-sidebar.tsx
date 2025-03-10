@@ -1,72 +1,35 @@
 "use client";
 
-import * as React from "react";
+import { NavUser } from "@/components/nav-user";
 import {
-  AudioWaveform,
+  Building,
   Clipboard,
-  Command,
-  GalleryVerticalEnd,
   LayoutDashboard,
-  Settings2,
+  Settings,
   ShieldEllipsis,
 } from "lucide-react";
+import * as React from "react";
 
-import { NavMain } from "@/components/nav-main";
-import { NavProjects } from "@/components/nav-projects";
-import { NavUser } from "@/components/nav-user";
-import { TeamSwitcher } from "@/components/team-switcher";
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
   SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
+import Link from "next/link";
 
-const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
+const sidebarConfig = {
+  currentUser: {
+    name: "user",
+    email: "user@company.com",
   },
-  teams: [
-    {
-      name: "Acme Inc",
-      logo: GalleryVerticalEnd,
-      plan: "Enterprise",
-    },
-    {
-      name: "Acme Corp.",
-      logo: AudioWaveform,
-      plan: "Startup",
-    },
-    {
-      name: "Evil Corp.",
-      logo: Command,
-      plan: "Free",
-    },
-  ],
-  navMain: [
-    {
-      title: "Settings",
-      url: "#",
-      icon: Settings2,
-      items: [
-        {
-          title: "General",
-          url: "#",
-        },
-        {
-          title: "Billing",
-          url: "#",
-        },
-        {
-          title: "Limits",
-          url: "#",
-        },
-      ],
-    },
-  ],
-  projects: [
+  navigationItems: [
     {
       name: "Home",
       url: "/dashboard",
@@ -82,6 +45,11 @@ const data = {
       url: "/dashboard/admin",
       icon: ShieldEllipsis,
     },
+    {
+      name: "Settings",
+      url: "/dashboard/settings",
+      icon: Settings,
+    },
   ],
 };
 
@@ -89,14 +57,48 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <TeamSwitcher teams={data.teams} />
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton size="lg" asChild>
+              <div>
+                <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
+                  <Building className="size-4" />
+                </div>
+                <div className="flex flex-col gap-0.5 leading-none">
+                  <span className="font-semibold">COMPANY NAME</span>
+                  <span className="">DASHBOARD</span>
+                </div>
+              </div>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavProjects projects={data.projects} />
-        <NavMain items={data.navMain} />
+        <SidebarGroup>
+          <SidebarGroupLabel>Platform</SidebarGroupLabel>
+          <SidebarMenu>
+            {sidebarConfig.navigationItems.map((item) => (
+              <SidebarMenuItem key={item.name}>
+                <SidebarMenuButton
+                  tooltip={item.name}
+                  className="transition duration-100 ease-in-out hover:bg-neutral-100"
+                >
+                  {item.icon && (
+                    <Link href={item.url}>
+                      <item.icon className="size-4" />
+                    </Link>
+                  )}
+                  <Link href={item.url}>
+                    <span>{item.name}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={sidebarConfig.currentUser} />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

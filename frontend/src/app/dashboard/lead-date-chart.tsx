@@ -1,33 +1,33 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { fetchLeadsDateChartData, LeadsDateChartData } from "../../api/dbApi";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  LabelList,
-  ResponsiveContainer,
-} from "recharts";
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
-} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TrendingUp, AlertCircle } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, TrendingUp } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  CartesianGrid,
+  LabelList,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { fetchLeadsDateChartData, LeadsDateChartData } from "../../api/dbApi";
 
 // Loading state component
 const ChartLoadingState = () => (

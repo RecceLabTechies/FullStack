@@ -1,6 +1,15 @@
-"use client"
+"use client";
 
-import { Area, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import {
+  Area,
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 const data = [
   { month: "Sep 24", revenue: 10.2, adSpend: 5.2 },
@@ -9,15 +18,20 @@ const data = [
   { month: "Dec 24", revenue: 14.8, adSpend: 4.9 },
   { month: "Jan 24", revenue: 13.2, adSpend: 5.8, projected: true },
   { month: "Feb 24", revenue: 12.8, adSpend: 5.8, projected: true },
-]
+];
 
 export default function RevenueChart() {
   return (
     <div>
-      <h3 className="text-lg font-medium mb-4">Revenue & Ad Spend across Months</h3>
+      <h3 className="mb-4 text-lg font-medium">
+        Revenue & Ad Spend across Months
+      </h3>
       <div className="h-[300px]">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+          <LineChart
+            data={data}
+            margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
+          >
             <defs>
               <linearGradient id="projectedArea" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#d1fae5" stopOpacity={0.8} />
@@ -69,21 +83,20 @@ export default function RevenueChart() {
           </LineChart>
         </ResponsiveContainer>
       </div>
-      <div className="flex justify-center mt-2 gap-6">
+      <div className="mt-2 flex justify-center gap-6">
         <div className="flex items-center">
-          <div className="w-4 h-4 bg-orange-500 rounded-full mr-2"></div>
+          <div className="mr-2 h-4 w-4 rounded-full bg-orange-500"></div>
           <span>Revenue</span>
         </div>
         <div className="flex items-center">
-          <div className="w-4 h-4 bg-gray-500 rounded-full mr-2"></div>
+          <div className="mr-2 h-4 w-4 rounded-full bg-gray-500"></div>
           <span>Ad Spend</span>
         </div>
         <div className="flex items-center">
-          <div className="w-4 h-4 bg-green-100 rounded-sm mr-2"></div>
+          <div className="mr-2 h-4 w-4 rounded-sm bg-green-100"></div>
           <span>Projected Values</span>
         </div>
       </div>
     </div>
-  )
+  );
 }
-

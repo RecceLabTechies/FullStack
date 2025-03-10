@@ -1,5 +1,5 @@
-import type { Metadata } from "next";
 import AdminPage from "@/app/dashboard/admin/AdminPage";
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Staff Management | Admin Dashboard",

@@ -1,12 +1,12 @@
 "use client";
 
-import AdSpendTable from "@/components/ad-spend-table";
-import AgeGroupBarChart from "@/components/age-group-bar-chart";
-import ChannelBarChart from "@/components/channel-bar-chart";
+import AdSpendTable from "@/app/dashboard/ad-spend-table";
+import AgeGroupBarChart from "@/app/dashboard/age-group-bar-chart";
+import ChannelBarChart from "@/app/dashboard/channel-bar-chart";
+import KpiCards from "@/app/dashboard/kpi-cards";
+import PredictionTable from "@/app/dashboard/prediction-table";
+import RevenueChart from "@/app/dashboard/revenue-chart";
 import FilterBar from "@/components/filter-bar";
-import KpiCards from "@/components/kpi-cards";
-import PredictionTable from "@/components/prediction-table";
-import RevenueChart from "@/components/revenue-chart";
 import { Card } from "@/components/ui/card";
 import { useState } from "react";
 
@@ -16,7 +16,7 @@ export default function Page() {
   const [selectedAgeGroups, setSelectedAgeGroups] = useState<string[]>([]);
 
   return (
-    <div className="container mx-auto px-4 py-6">
+    <div className="container mx-auto p-4">
       <FilterBar
         dateRange={dateRange}
         setDateRange={setDateRange}

@@ -26,14 +26,16 @@ export function UploadButton() {
         method: "POST",
         body: formData,
         headers: {
-          "Accept": "application/json",
+          Accept: "application/json",
         },
       });
 
       const result = await response.json();
 
       if (response.ok) {
-        setUploadStatus(`Success: Uploaded ${result.count} records to ${result.collection}`);
+        setUploadStatus(
+          `Success: Uploaded ${result.count} records to ${result.collection}`,
+        );
       } else {
         setUploadStatus(`Error: ${result.error}`);
       }
@@ -60,4 +62,4 @@ export function UploadButton() {
       {uploadStatus && <p className="text-sm text-white">{uploadStatus}</p>}
     </div>
   );
-} 
+}

@@ -372,7 +372,7 @@ export default function ReportGenerationPage() {
   };
 
   return (
-    <div className="flex h-full gap-3 overflow-clip p-4">
+    <div className="container mx-auto flex h-full gap-3 overflow-clip p-4">
       <section className="flex h-full w-1/3 min-w-[26rem] max-w-[52rem] flex-col justify-between rounded-lg border bg-card p-4 shadow-sm">
         <div className="mb-4">
           <h2 className="text-xl font-semibold">Chat Assistant</h2>
