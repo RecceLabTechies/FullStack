@@ -132,22 +132,40 @@ export default function ReportGenerationPage() {
         content: (
           <div className="mt-4 h-[400px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData.data}>
+              <LineChart
+                data={chartData.data}
+                margin={{ top: 20, right: 40, left: 55, bottom: 150 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
                   dataKey={chartData.xAxis.dataKey}
-                  label={chartData.xAxis.label}
+                  label={{
+                    value: chartData.xAxis.label,
+                    position: "bottom",
+                    offset: 120,
+                  }}
+                  angle={90}
+                  dy={68}
+                  fontSize={12}
                 />
                 <YAxis
                   dataKey={chartData.yAxis.dataKey}
-                  label={chartData.yAxis.label}
+                  label={{
+                    value: chartData.yAxis.label,
+                    angle: -90,
+                    position: "left",
+                    offset: 30,
+                  }}
+                  fontSize={12}
                 />
                 <Tooltip />
                 <Line
                   type="monotone"
                   dataKey={chartData.yAxis.dataKey}
                   stroke="#8884d8"
-                  dot={false}
+                  strokeWidth={2}
+                  dot={{ r: 4 }}
+                  activeDot={{ r: 6 }}
                 />
               </LineChart>
             </ResponsiveContainer>
