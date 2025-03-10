@@ -2,11 +2,31 @@
 
 import { analyzeData } from "@/api/llmApi";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Loader2 } from "lucide-react";
-import { useState } from "react";
+import {
+  DragDropContext,
+  Draggable,
+  Droppable,
+  DropResult,
+} from "@hello-pangea/dnd";
+import {
+  Check,
+  Download,
+  Edit2,
+  GripVertical,
+  Loader2,
+  Trash2,
+  X,
+} from "lucide-react";
+import { useCallback, useState } from "react";
 import {
   CartesianGrid,
   Line,
@@ -16,11 +36,13 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { toast } from "sonner";
 
 interface Message {
   id: string;
   content: string;
   sender: "user" | "assistant";
+  timestamp: Date;
 }
 
 interface ReportSection {
@@ -97,6 +119,25 @@ const parseHTMLElements = (elementsString: string): JSX.Element[] => {
   }
 };
 
+const REPORT_TEMPLATES = [
+  {
+    title: "Chart Generation",
+    suggestions: ["Generate a chart for spendings over time"],
+  },
+  {
+    title: "Description Generation",
+    suggestions: [
+      "Show key performance metrics",
+      "Analyze system response times",
+      "Compare resource utilization",
+    ],
+  },
+  {
+    title: "Report Generation",
+    suggestions: ["Generate a report"],
+  },
+];
+
 export default function ReportGenerationPage() {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -104,14 +145,56 @@ export default function ReportGenerationPage() {
       content:
         "Hello! I'm your report building assistant. What kind of report would you like to create?",
       sender: "assistant",
+      timestamp: new Date(),
     },
   ]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [report, setReport] = useState<Report>({
-    title: "Report",
+    title: "New Report",
     sections: [],
   });
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(report.title);
+
+  const handleDragEnd = useCallback(
+    (result: DropResult) => {
+      if (!result.destination) return;
+
+      const items = Array.from(report.sections);
+      const [reorderedItem] = items.splice(result.source.index, 1) as [
+        ReportSection,
+      ];
+      items.splice(result.destination.index, 0, reorderedItem);
+      setReport((prev) => ({ ...prev, sections: items }));
+    },
+    [report.sections],
+  );
+
+  const exportReport = async (format: "pdf" | "docx" | "html") => {
+    try {
+      // Placeholder for actual export logic
+      toast.success(`Report exported as ${format.toUpperCase()}`, {
+        description: `Your report has been successfully exported in ${format.toUpperCase()} format.`,
+        action: {
+          label: "Download",
+          onClick: () => console.log(`Downloading ${format} report...`),
+        },
+      });
+    } catch (error) {
+      toast.error("Failed to export report", {
+        description:
+          error instanceof Error ? error.message : "An unknown error occurred",
+      });
+    }
+  };
+
+  const handleTitleEdit = () => {
+    if (isEditingTitle) {
+      setReport((prev) => ({ ...prev, title: editedTitle }));
+    }
+    setIsEditingTitle(!isEditingTitle);
+  };
 
   const generateReportContent = async (userMessage: string) => {
     const response = await analyzeData(userMessage);
@@ -201,28 +284,26 @@ export default function ReportGenerationPage() {
 
     setIsLoading(true);
 
-    // Add user message
     const userMessage: Message = {
       id: Date.now().toString(),
       content: inputMessage,
       sender: "user",
+      timestamp: new Date(),
     };
 
     try {
-      // Generate report content based on user message
-      const response = await generateReportContent(inputMessage);
+      await generateReportContent(inputMessage);
 
-      // Add assistant response
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         content:
           "I've updated the report based on your input. What else would you like to analyze?",
         sender: "assistant",
+        timestamp: new Date(),
       };
 
       setMessages((prev) => [...prev, userMessage, assistantMessage]);
     } catch (error) {
-      // Add error message
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         content:
@@ -230,12 +311,21 @@ export default function ReportGenerationPage() {
             ? `Error: ${error.message}`
             : "Sorry, I encountered an error while generating the report. Please try again.",
         sender: "assistant",
+        timestamp: new Date(),
       };
       setMessages((prev) => [...prev, userMessage, errorMessage]);
     } finally {
       setIsLoading(false);
       setInputMessage("");
     }
+  };
+
+  const handleDeleteSection = (indexToDelete: number) => {
+    setReport((prev) => ({
+      ...prev,
+      sections: prev.sections.filter((_, index) => index !== indexToDelete),
+    }));
+    toast.success("Section deleted");
   };
 
   return (
@@ -246,6 +336,29 @@ export default function ReportGenerationPage() {
           <p className="text-sm text-muted-foreground">
             Ask questions or request analysis to build your report
           </p>
+
+          {/* Template Suggestions */}
+          <div className="mt-4">
+            <h3 className="mb-2 text-sm font-medium">Suggested Templates</h3>
+            <div className="space-y-2">
+              {REPORT_TEMPLATES.map((template) => (
+                <div key={template.title} className="rounded-md border p-2">
+                  <h4 className="text-sm font-medium">{template.title}</h4>
+                  <div className="mt-1 space-y-1">
+                    {template.suggestions.map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        onClick={() => setInputMessage(suggestion)}
+                        className="w-full text-left text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Chat History */}
@@ -296,8 +409,68 @@ export default function ReportGenerationPage() {
 
       <section className="flex-1 rounded-lg border bg-card p-4 shadow-sm">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold">{report.title}</h2>
-          <Button variant="outline">Export Report</Button>
+          <div className="flex items-center gap-2">
+            {isEditingTitle ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  value={editedTitle}
+                  onChange={(e) => setEditedTitle(e.target.value)}
+                  className="h-8 w-[200px]"
+                />
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={handleTitleEdit}
+                  className="h-8 w-8"
+                >
+                  <Check className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => {
+                    setIsEditingTitle(false);
+                    setEditedTitle(report.title);
+                  }}
+                  className="h-8 w-8"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <>
+                <h2 className="text-2xl font-bold">{report.title}</h2>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={handleTitleEdit}
+                  className="h-8 w-8"
+                >
+                  <Edit2 className="h-4 w-4" />
+                </Button>
+              </>
+            )}
+          </div>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                <Download className="mr-2 h-4 w-4" />
+                Export Report
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => exportReport("pdf")}>
+                Export as PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportReport("docx")}>
+                Export as DOCX
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportReport("html")}>
+                Export as HTML
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         <Separator className="mb-4 mt-2" />
@@ -312,11 +485,54 @@ export default function ReportGenerationPage() {
                 </p>
               </div>
             ) : (
-              report.sections.map((section, index) => (
-                <div key={index} className="mb-6">
-                  {section.content}
-                </div>
-              ))
+              <DragDropContext onDragEnd={handleDragEnd}>
+                <Droppable droppableId="report-sections">
+                  {(provided) => (
+                    <div
+                      {...provided.droppableProps}
+                      ref={provided.innerRef}
+                      className="space-y-6"
+                    >
+                      {report.sections.map((section, index) => (
+                        <Draggable
+                          key={index.toString()}
+                          draggableId={index.toString()}
+                          index={index}
+                        >
+                          {(provided) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              className="group relative rounded-lg border bg-background p-4"
+                            >
+                              <div className="absolute right-2 top-2 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                                <div
+                                  {...provided.dragHandleProps}
+                                  className="cursor-grab"
+                                >
+                                  <div className="flex h-6 w-6 items-center justify-center rounded-sm bg-accent">
+                                    <GripVertical className="h-4 w-4 text-muted-foreground" />
+                                  </div>
+                                </div>
+                                <Button
+                                  variant="destructive"
+                                  size="icon"
+                                  onClick={() => handleDeleteSection(index)}
+                                  className="h-6 w-6"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                              {section.content}
+                            </div>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </DragDropContext>
             )}
           </article>
         </ScrollArea>

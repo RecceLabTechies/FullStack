@@ -1,8 +1,9 @@
 import "@/styles/globals.css";
 
-import { GeistSans } from "geist/font/sans";
 import { ThemeProvider } from "@/components/theme-provider";
+import { GeistSans } from "geist/font/sans";
 import { type Metadata } from "next";
+import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -26,6 +27,7 @@ export default function RootLayout({
           <main className="relative flex min-h-screen flex-col">
             {children}
           </main>
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>
