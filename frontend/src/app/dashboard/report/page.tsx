@@ -49,6 +49,7 @@ interface ReportSection {
   title: string;
   content: string | JSX.Element;
   type: "text" | "chart";
+  rawContent?: string;
 }
 
 interface Report {
@@ -156,6 +157,10 @@ export default function ReportGenerationPage() {
   });
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState(report.title);
+  const [editingSectionIndex, setEditingSectionIndex] = useState<number | null>(
+    null,
+  );
+  const [editedSectionContent, setEditedSectionContent] = useState("");
 
   const handleDragEnd = useCallback(
     (result: DropResult) => {
@@ -265,6 +270,7 @@ export default function ReportGenerationPage() {
           </div>
         ),
         type: "text",
+        rawContent: response.output,
       };
     } else {
       throw new Error("Unexpected response format");
@@ -326,6 +332,43 @@ export default function ReportGenerationPage() {
       sections: prev.sections.filter((_, index) => index !== indexToDelete),
     }));
     toast.success("Section deleted");
+  };
+
+  const handleSectionEdit = (index: number) => {
+    const section = report.sections[index];
+    if (section && section.type === "text") {
+      setEditingSectionIndex(index);
+      setEditedSectionContent(section.rawContent || "");
+    }
+  };
+
+  const handleSectionEditSave = (index: number) => {
+    if (editingSectionIndex === null) return;
+
+    const section = report.sections[index];
+    if (!section) return;
+
+    setReport((prev) => {
+      const newSections = [...prev.sections];
+      newSections[index] = {
+        ...section,
+        content: (
+          <div className="prose prose-sm dark:prose-invert">
+            {parseHTMLElements(editedSectionContent)}
+          </div>
+        ),
+        rawContent: editedSectionContent,
+      };
+      return { ...prev, sections: newSections };
+    });
+    setEditingSectionIndex(null);
+    setEditedSectionContent("");
+    toast.success("Section updated successfully");
+  };
+
+  const handleSectionEditCancel = () => {
+    setEditingSectionIndex(null);
+    setEditedSectionContent("");
   };
 
   return (
@@ -514,6 +557,16 @@ export default function ReportGenerationPage() {
                                     <GripVertical className="h-4 w-4 text-muted-foreground" />
                                   </div>
                                 </div>
+                                {section.type === "text" && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleSectionEdit(index)}
+                                    className="h-6 w-6"
+                                  >
+                                    <Edit2 className="h-4 w-4" />
+                                  </Button>
+                                )}
                                 <Button
                                   variant="destructive"
                                   size="icon"
@@ -523,7 +576,35 @@ export default function ReportGenerationPage() {
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </div>
-                              {section.content}
+                              {editingSectionIndex === index ? (
+                                <div className="flex flex-col gap-4">
+                                  <textarea
+                                    value={editedSectionContent}
+                                    onChange={(e) =>
+                                      setEditedSectionContent(e.target.value)
+                                    }
+                                    className="min-h-[200px] w-full rounded-md border bg-background px-3 py-2 text-sm"
+                                    placeholder="Edit section content..."
+                                  />
+                                  <div className="flex justify-end gap-2">
+                                    <Button
+                                      variant="outline"
+                                      onClick={handleSectionEditCancel}
+                                    >
+                                      Cancel
+                                    </Button>
+                                    <Button
+                                      onClick={() =>
+                                        handleSectionEditSave(index)
+                                      }
+                                    >
+                                      Save Changes
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                section.content
+                              )}
                             </div>
                           )}
                         </Draggable>
