@@ -11,6 +11,8 @@ from pandas.api.types import (
     is_numeric_dtype,
 )
 
+print("🚀 Initializing Description Generator...")
+
 
 class ColumnSelections(BaseModel):
     """Pydantic model for storing selected columns from JSON files."""
@@ -52,11 +54,16 @@ def analyze_dataframe(df: pd.DataFrame) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: Dictionary containing detailed statistics for each column
     """
+    print("\n📊 Starting DataFrame analysis...")
+    print(f"📈 Analyzing {len(df.columns)} columns")
+
     report = {}
 
     for column in df.columns:
+        print(f"🔍 Analyzing column: {column}")
         try:
             if is_numeric_dtype(df[column]):
+                print(f"📈 Processing numeric column: {column}")
                 # Numeric column analysis
                 statistics = {
                     "Total Records": len(df),
@@ -103,6 +110,7 @@ def analyze_dataframe(df: pd.DataFrame) -> Dict[str, Any]:
                     },
                 }
             else:
+                print(f"📊 Processing categorical column: {column}")
                 # Categorical or datetime column analysis
                 value_counts = df[column].value_counts()
                 value_percentages = (value_counts / len(df)) * 100
@@ -134,10 +142,13 @@ def analyze_dataframe(df: pd.DataFrame) -> Dict[str, Any]:
                     }
 
             report[column] = statistics
+            print(f"✅ Completed analysis for {column}")
 
         except Exception as e:
+            print(f"❌ Error analyzing column {column}: {str(e)}")
             report[column] = {"error": str(e)}
 
+    print("✨ DataFrame analysis complete")
     return report
 
 
@@ -152,6 +163,9 @@ def select_relevant_columns(df: pd.DataFrame, query: str) -> pd.DataFrame:
     Returns:
         pd.DataFrame: DataFrame with only relevant columns
     """
+    print("\n🔍 Selecting relevant columns for analysis...")
+    print(f"📊 Available columns: {', '.join(df.columns)}")
+
     # Create prompt for column selection
     column_selection_prompt = ChatPromptTemplate.from_template(
         """You are a data analysis assistant. Given a user's query and available columns, select the most relevant columns for analysis.
@@ -175,6 +189,7 @@ def select_relevant_columns(df: pd.DataFrame, query: str) -> pd.DataFrame:
     )
 
     # Generate column selection
+    print("🤖 Consulting LLM for column selection...")
     model = OllamaLLM(model="wizardlm2")
     selection_chain = column_selection_prompt | model
     raw_selection = selection_chain.invoke(
@@ -202,7 +217,7 @@ def select_relevant_columns(df: pd.DataFrame, query: str) -> pd.DataFrame:
             if not isinstance(selected_columns, list):
                 raise ValueError("Response is not a list")
         except:
-            print(f"⚠️ Invalid column selection: {cleaned_response}")
+            print(f"❌ Invalid column selection: {cleaned_response}")
             return df
 
         # Filter to only existing columns
@@ -214,10 +229,13 @@ def select_relevant_columns(df: pd.DataFrame, query: str) -> pd.DataFrame:
             return df
 
         filtered_df = df[valid_columns]
+        print(
+            f"✨ Selected {len(valid_columns)} relevant columns: {', '.join(valid_columns)}"
+        )
         return filtered_df
 
     except Exception as e:
-        print(f"⚠️ Column selection error: {str(e)}")
+        print(f"❌ Column selection error: {str(e)}")
         return df
 
 
@@ -232,13 +250,18 @@ def generate_description(df: pd.DataFrame, query: str) -> StructuredDescription:
     Returns:
         StructuredDescription: A structured description containing HTML elements
     """
+    print("\n🔄 Generating structured description...")
+    print(f"📝 Query: {query}")
+
     # First, select relevant columns based on the query
     filtered_df = select_relevant_columns(df, query)
 
     # Generate statistical report on filtered DataFrame
+    print("📊 Analyzing filtered DataFrame...")
     stats_report = analyze_dataframe(filtered_df)
 
     # Create prompt for generating structured summary
+    print("🤖 Generating executive summary...")
     summary_prompt = ChatPromptTemplate.from_template(
         """As a senior data analyst, prepare a detailed executive report analyzing the following marketing campaign statistics in response to this query: {query}
         
@@ -265,82 +288,6 @@ def generate_description(df: pd.DataFrame, query: str) -> StructuredDescription:
         2. Each array element must end with comma except the last one
         3. Keep all content on a single line - NO line breaks in content
         4. ALL text must be properly escaped JSON strings
-        
-        Here are three examples of correctly formatted responses:
-
-        Example 1 (Cost Analysis):
-        [
-            ["h2", "Cost Analysis Overview: 15% Reduction in Q3"],
-            ["p", "Analysis of 10,000 transactions shows significant cost optimization across channels."],
-            ["h2", "Key Performance Metrics"],
-            ["h3", "Cost Structure"],
-            ["p", "Average cost per transaction decreased from $25.30 to $21.50, representing a 15% improvement."],
-            ["h2", "Trend Analysis"],
-            ["h3", "Monthly Patterns"],
-            ["p", "Cost reduction accelerated from 5% in July to 15% in September, indicating successful optimization."],
-            ["h2", "Market Segmentation"],
-            ["h3", "Regional Analysis"],
-            ["p", "Western region shows highest cost efficiency with 18% reduction compared to 12% average."],
-            ["h2", "Campaign Effectiveness"],
-            ["h3", "ROI Metrics"],
-            ["p", "Cost per acquisition improved from $52 to $44, driving 20% better campaign ROI."],
-            ["h2", "Areas of Opportunity"],
-            ["h3", "Process Optimization"],
-            ["p", "Data indicates potential for additional 10% cost reduction through automation."],
-            ["h2", "Risk Factors"],
-            ["h3", "Market Conditions"],
-            ["p", "Rising supplier costs may impact current savings by 3-5% in Q4."]
-        ]
-
-        Example 2 (Revenue Analysis):
-        [
-            ["h2", "Revenue Performance: 28% YoY Growth"],
-            ["p", "Q3 revenue reached $2.5M with consistent growth across all segments."],
-            ["h2", "Key Performance Metrics"],
-            ["h3", "Revenue Drivers"],
-            ["p", "Customer lifetime value increased by 23% to $850 per customer."],
-            ["h2", "Trend Analysis"],
-            ["h3", "Growth Patterns"],
-            ["p", "Monthly revenue growth averaged 2.8% with peak performance in August at 3.2%."],
-            ["h2", "Market Segmentation"],
-            ["h3", "Customer Segments"],
-            ["p", "Premium segment grew 35% while standard segment maintained 15% growth."],
-            ["h2", "Campaign Effectiveness"],
-            ["h3", "Channel Performance"],
-            ["p", "Digital channels delivered 42% of revenue with 3.1x ROI."],
-            ["h2", "Areas of Opportunity"],
-            ["h3", "Expansion Potential"],
-            ["p", "Data suggests 40% growth potential in untapped markets."],
-            ["h2", "Risk Factors"],
-            ["h3", "Market Risks"],
-            ["p", "Competitive pressure may impact growth by 5-8% in specific segments."]
-        ]
-
-        Example 3 (Customer Behavior):
-        [
-            ["h2", "Customer Engagement Analysis: 32% Higher Interaction"],
-            ["p", "Analysis of 50,000 customer interactions reveals significant engagement improvements."],
-            ["h2", "Key Performance Metrics"],
-            ["h3", "Engagement Metrics"],
-            ["p", "Average session duration increased 45% to 12.5 minutes per visit."],
-            ["h2", "Trend Analysis"],
-            ["h3", "Behavioral Patterns"],
-            ["p", "Customer return rate improved from 25% to 40% over the quarter."],
-            ["h2", "Market Segmentation"],
-            ["h3", "Demographic Insights"],
-            ["p", "25-34 age group shows 50% higher engagement than other segments."],
-            ["h2", "Campaign Effectiveness"],
-            ["h3", "Response Rates"],
-            ["p", "Email campaign engagement increased 28% with 2.5x better conversion."],
-            ["h2", "Areas of Opportunity"],
-            ["h3", "Feature Adoption"],
-            ["p", "Data indicates 60% of users haven't explored premium features."],
-            ["h2", "Risk Factors"],
-            ["h3", "Retention Risks"],
-            ["p", "Seasonal variation may reduce engagement by 15% in Q4."]
-        ]
-
-        Now, generate a similar response for the given query and statistics, following the same format exactly. Return ONLY the JSON array with no additional text or explanation.
         """
     )
 
@@ -353,6 +300,7 @@ def generate_description(df: pd.DataFrame, query: str) -> StructuredDescription:
 
     # Parse the raw elements into a list of HTMLElement objects
     try:
+        print("🔄 Parsing generated summary...")
         # Clean up the response and extract the list
         cleaned_response = raw_elements.strip()
 
@@ -401,6 +349,7 @@ def generate_description(df: pd.DataFrame, query: str) -> StructuredDescription:
         found_h2_sections = set()
         current_level = None
 
+        print("🔍 Validating generated content structure...")
         for item in elements_list:
             if not isinstance(item, list) or len(item) != 2:
                 continue
@@ -441,10 +390,11 @@ def generate_description(df: pd.DataFrame, query: str) -> StructuredDescription:
         if not html_elements:
             raise ValueError("No valid elements found after parsing")
 
+        print(f"✨ Generated structured description with {len(html_elements)} elements")
         return StructuredDescription(elements=html_elements)
 
     except Exception as e:
-        print(f"⚠️ Error generating description: {str(e)}")
+        print(f"❌ Error generating description: {str(e)}")
         return StructuredDescription(
             elements=[
                 HTMLElement(tag="h2", content="Error Generating Report"),
@@ -454,6 +404,7 @@ def generate_description(df: pd.DataFrame, query: str) -> StructuredDescription:
 
 
 if __name__ == "__main__":
+    print("\n🚀 Running description generator demo...")
     # Example usage with sample DataFrame
     sample_df = pd.DataFrame(
         {
@@ -470,6 +421,7 @@ if __name__ == "__main__":
         }
     )
 
+    print("\n💭 Please enter your analysis query")
     query = input("\n❓ Enter your analysis query: ")
     result = generate_description(sample_df, query)
 

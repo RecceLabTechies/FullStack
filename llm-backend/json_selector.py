@@ -6,6 +6,8 @@ from pydantic import BaseModel
 from langchain_ollama.llms import OllamaLLM
 from langchain_core.prompts import ChatPromptTemplate
 
+print("🚀 Initializing JSON Selector...")
+
 
 class JSONAnalysisResult(BaseModel):
     """
@@ -37,16 +39,18 @@ def extract_json_info(directory: str, unique_value_limit: int = 10) -> dict:
     Returns:
         dict: Dictionary mapping JSON filenames to their field and sample value information
     """
+    print("\n💾 Extracting JSON file information...")
     json_info = {}
 
     # Ensure directory exists
     if not os.path.exists(directory):
-        print(f"⚠️ Directory not found: {directory}")
+        print(f"❌ Directory not found: {directory}")
         return json_info
 
     for entry in os.listdir(directory):
         if entry.lower().endswith(".json"):
             try:
+                print(f"📄 Processing file: {entry}")
                 file_path = os.path.join(directory, entry)
                 with open(file_path, "r") as f:
                     data = json.load(f)
@@ -62,6 +66,8 @@ def extract_json_info(directory: str, unique_value_limit: int = 10) -> dict:
                     fields = list(data.keys())
                 else:
                     continue
+
+                print(f"📊 Found {len(fields)} fields")
 
                 # Get sample values for each field
                 sample_values = {}
@@ -93,12 +99,14 @@ def extract_json_info(directory: str, unique_value_limit: int = 10) -> dict:
                     "unique_values": unique_values,
                     "path": file_path,  # Store the full path
                 }
+                print(f"✨ Successfully processed {entry}")
             except Exception as e:
-                print(f"⚠️ Error in file {entry}: {e}")
+                print(f"❌ Error in file {entry}: {e}")
 
     if not json_info:
         print(f"⚠️ No JSON files found in {directory}")
 
+    print(f"✅ Processed {len(json_info)} JSON files")
     return json_info
 
 
@@ -112,11 +120,13 @@ def format_json_info_for_prompt(json_info: dict) -> str:
     Returns:
         str: Formatted string showing file names, fields, and sample values
     """
+    print("\n📝 Formatting JSON information for LLM...")
     if not json_info:
         return "No JSON files available for analysis."
 
     formatted_info = []
     for file_name, info in json_info.items():
+        print(f"📄 Formatting info for: {file_name}")
         file_desc = [f"File: {file_name}"]
         file_desc.append("Fields: " + ", ".join(info["fields"]))
 
@@ -147,6 +157,7 @@ def format_json_info_for_prompt(json_info: dict) -> str:
 
         formatted_info.append("\n".join(file_desc))
 
+    print("✨ Formatting complete")
     return "\n\n".join(formatted_info)
 
 
@@ -160,6 +171,7 @@ def extract_key_terms(query: str) -> List[str]:
     Returns:
         List[str]: List of potential key terms
     """
+    print("\n🔍 Extracting key terms from query...")
     # Simple extraction of potential key terms
     # This could be enhanced with NLP techniques
     words = query.lower().split()
@@ -183,8 +195,57 @@ def extract_key_terms(query: str) -> List[str]:
         "were",
     }
     key_terms = [word for word in words if word not in stop_words and len(word) > 3]
-
+    print(f"✨ Found {len(key_terms)} key terms")
     return key_terms
+
+
+def search_for_values(
+    json_info: dict, search_terms: List[str]
+) -> Dict[str, Dict[str, List[str]]]:
+    """
+    Search for specific values in the JSON files.
+
+    Args:
+        json_info (dict): Dictionary containing JSON file information
+        search_terms (List[str]): List of terms to search for
+
+    Returns:
+        Dict[str, Dict[str, List[str]]]: Dictionary mapping filenames to fields containing matching values
+    """
+    print("\n🔍 Searching for matching values...")
+    results = {}
+
+    # Convert search terms to lowercase for case-insensitive matching
+    search_terms_lower = [term.lower() for term in search_terms]
+    print(f"📝 Search terms: {', '.join(search_terms_lower)}")
+
+    for file_name, info in json_info.items():
+        print(f"🔎 Searching in file: {file_name}")
+        matching_fields = {}
+
+        for field, unique_values in info["unique_values"].items():
+            # Convert values to lowercase for case-insensitive matching
+            values_lower = [val.lower() for val in unique_values]
+
+            # Find matches
+            matches = []
+            for term in search_terms_lower:
+                for i, val in enumerate(values_lower):
+                    if term in val:
+                        # Use the original case for the result
+                        matches.append(unique_values[i])
+
+            if matches:
+                matching_fields[field] = matches
+                print(
+                    f"✨ Found matches in field '{field}': {', '.join(matches[:3])}..."
+                )
+
+        if matching_fields:
+            results[file_name] = matching_fields
+
+    print(f"✅ Found matches in {len(results)} files")
+    return results
 
 
 def select_json_for_query(query: str, data_dir: str = "./data") -> JSONAnalysisResult:
@@ -198,6 +259,9 @@ def select_json_for_query(query: str, data_dir: str = "./data") -> JSONAnalysisR
     Returns:
         JSONAnalysisResult: Selected JSON file and query
     """
+    print("\n🔄 Processing query for JSON selection...")
+    print(f"📝 Query: {query}")
+
     # Extract JSON information
     json_info = extract_json_info(data_dir)
 
@@ -206,6 +270,7 @@ def select_json_for_query(query: str, data_dir: str = "./data") -> JSONAnalysisR
 
     # If no JSON files found, return early
     if not json_info:
+        print("⚠️ No JSON files available for analysis")
         return result
 
     # Extract key terms from the query
@@ -220,6 +285,7 @@ def select_json_for_query(query: str, data_dir: str = "./data") -> JSONAnalysisR
     # Add value match information to the prompt
     value_match_info = ""
     if value_matches:
+        print("\n📊 Compiling value matches...")
         value_match_info = "\nValue matches found:\n"
         for file_name, field_matches in value_matches.items():
             value_match_info += f"File: {file_name}\n"
@@ -250,6 +316,7 @@ Important: The filename MUST be exactly as shown in the available files list."""
     )
 
     # Initialize LLM and create chain
+    print("\n🤖 Consulting LLM for file selection...")
     model = OllamaLLM(model="dolphin-mistral")
 
     try:
@@ -260,6 +327,7 @@ Important: The filename MUST be exactly as shown in the available files list."""
             )
         )
 
+        print("\n🔍 Parsing LLM response...")
         # Parse the response
         response_lines = response.strip().split("\n")
         if len(response_lines) >= 1:
@@ -270,14 +338,16 @@ Important: The filename MUST be exactly as shown in the available files list."""
                     # Validate that the selected file exists in our json_info
                     if file_name in json_info:
                         result.json_file = file_name
+                        print(f"✨ Selected file: {file_name}")
                     else:
                         print(
-                            f"Warning: Selected file '{file_name}' not found in available JSON files"
+                            f"⚠️ Selected file '{file_name}' not found in available JSON files"
                         )
 
                 # Extract reason
                 elif line.lower().startswith("reason:"):
                     result.reason = line.split(":", 1)[1].strip()
+                    print(f"📝 Selection reason: {result.reason}")
 
                 # Extract matching fields
                 elif line.lower().startswith("matching_fields:"):
@@ -286,6 +356,9 @@ Important: The filename MUST be exactly as shown in the available files list."""
                         result.matching_fields = [
                             field.strip() for field in fields_str.split(",")
                         ]
+                        print(
+                            f"🎯 Matching fields: {', '.join(result.matching_fields)}"
+                        )
 
             # Add matching values if we have a selected file and matching fields
             if (
@@ -299,70 +372,33 @@ Important: The filename MUST be exactly as shown in the available files list."""
                         result.matching_values[field] = value_matches[result.json_file][
                             field
                         ]
+                print("✨ Added matching values to result")
         else:
-            print("Warning: Invalid response format from LLM")
+            print("⚠️ Invalid response format from LLM")
 
     except Exception as e:
-        print(f"Error during JSON selection: {e}")
+        print(f"❌ Error during JSON selection: {e}")
 
+    print("✅ JSON selection complete")
     return result
 
 
-def search_for_values(
-    json_info: dict, search_terms: List[str]
-) -> Dict[str, Dict[str, List[str]]]:
-    """
-    Search for specific values in the JSON files.
-
-    Args:
-        json_info (dict): Dictionary containing JSON file information
-        search_terms (List[str]): List of terms to search for
-
-    Returns:
-        Dict[str, Dict[str, List[str]]]: Dictionary mapping filenames to fields containing matching values
-    """
-    results = {}
-
-    # Convert search terms to lowercase for case-insensitive matching
-    search_terms_lower = [term.lower() for term in search_terms]
-
-    for file_name, info in json_info.items():
-        matching_fields = {}
-
-        for field, unique_values in info["unique_values"].items():
-            # Convert values to lowercase for case-insensitive matching
-            values_lower = [val.lower() for val in unique_values]
-
-            # Find matches
-            matches = []
-            for term in search_terms_lower:
-                for i, val in enumerate(values_lower):
-                    if term in val:
-                        # Use the original case for the result
-                        matches.append(unique_values[i])
-
-            if matches:
-                matching_fields[field] = matches
-
-        if matching_fields:
-            results[file_name] = matching_fields
-
-    return results
-
-
 if __name__ == "__main__":
+    print("\n🚀 Running JSON selector demo...")
+    print("\n💭 Please enter your query")
     query = input("Enter your query: ")
     result = select_json_for_query(query)
 
+    print("\n📊 Results:")
     if result.json_file:
-        print(f"Selected File: {result.json_file}")
+        print(f"📄 Selected File: {result.json_file}")
         if result.reason:
-            print(f"Reason: {result.reason}")
+            print(f"💡 Reason: {result.reason}")
         if result.matching_fields:
-            print(f"Matching Fields: {', '.join(result.matching_fields)}")
+            print(f"🎯 Matching Fields: {', '.join(result.matching_fields)}")
         if result.matching_values:
-            print("Matching Values:")
+            print("📝 Matching Values:")
             for field, values in result.matching_values.items():
                 print(f"  {field}: {', '.join(values)}")
     else:
-        print("No matching file found")
+        print("⚠️ No matching file found")

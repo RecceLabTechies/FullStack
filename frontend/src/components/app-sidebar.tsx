@@ -9,6 +9,7 @@ import {
   Settings,
   ShieldEllipsis,
 } from "lucide-react";
+import { usePathname } from "next/navigation";
 import * as React from "react";
 
 import {
@@ -25,7 +26,23 @@ import {
 } from "@/components/ui/sidebar";
 import Link from "next/link";
 
-const sidebarConfig = {
+// Types
+interface NavigationItem {
+  name: string;
+  url: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+interface SidebarConfig {
+  currentUser: {
+    name: string;
+    email: string;
+  };
+  navigationItems: NavigationItem[];
+}
+
+// Memoized configuration
+const sidebarConfig: SidebarConfig = {
   currentUser: {
     name: "user",
     email: "user@company.com",
@@ -57,9 +74,40 @@ const sidebarConfig = {
       icon: DatabaseBackup,
     },
   ],
-};
+} as const;
+
+// Memoized Navigation Item Component
+const NavigationItem: React.FC<{
+  item: NavigationItem;
+  isActive: boolean;
+}> = React.memo(({ item, isActive }) => {
+  const Icon = item.icon;
+
+  return (
+    <SidebarMenuItem key={item.name}>
+      <SidebarMenuButton
+        tooltip={item.name}
+        className={`transition duration-100 ease-in-out hover:bg-neutral-100 ${
+          isActive ? "bg-neutral-100" : ""
+        }`}
+      >
+        <Link
+          href={item.url}
+          prefetch
+          className="flex w-full items-center gap-2"
+        >
+          <Icon className="size-4" />
+          <span>{item.name}</span>
+        </Link>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+});
+NavigationItem.displayName = "NavigationItem";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const pathname = usePathname();
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
@@ -84,21 +132,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarGroupLabel>Platform</SidebarGroupLabel>
           <SidebarMenu>
             {sidebarConfig.navigationItems.map((item) => (
-              <SidebarMenuItem key={item.name}>
-                <SidebarMenuButton
-                  tooltip={item.name}
-                  className="transition duration-100 ease-in-out hover:bg-neutral-100"
-                >
-                  {item.icon && (
-                    <Link href={item.url}>
-                      <item.icon className="size-4" />
-                    </Link>
-                  )}
-                  <Link href={item.url}>
-                    <span>{item.name}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <NavigationItem
+                key={item.name}
+                item={item}
+                isActive={pathname === item.url}
+              />
             ))}
           </SidebarMenu>
         </SidebarGroup>

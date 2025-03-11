@@ -9,9 +9,38 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Suspense, useEffect, useState } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useEffect, useState } from "react";
 import SearchBar from "./SearchBar";
 import StaffList from "./StaffList";
+
+function SkeletonStaffList() {
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <Card key={index}>
+          <CardHeader>
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="h-4 w-24" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="flex items-center justify-between">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-6 w-10" />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+          <div className="p-6 pt-0">
+            <Skeleton className="h-10 w-28" />
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+}
 
 export default function AdminPage() {
   const [users, setUsers] = useState<User[] | null>(null);
@@ -63,15 +92,13 @@ export default function AdminPage() {
         </CardHeader>
         <CardContent>
           <SearchBar onSearch={handleSearch} />
-          <Suspense fallback={<div>Loading staff list...</div>}>
-            {loading ? (
-              <div>Loading...</div>
-            ) : error ? (
-              <div>{error}</div>
-            ) : (
-              filteredUsers && <StaffList users={filteredUsers} />
-            )}
-          </Suspense>
+          {loading ? (
+            <SkeletonStaffList />
+          ) : error ? (
+            <div className="text-destructive">{error}</div>
+          ) : (
+            filteredUsers && <StaffList users={filteredUsers} />
+          )}
         </CardContent>
       </Card>
     </div>

@@ -11,6 +11,8 @@ from pandas.api.types import (
     is_numeric_dtype,
 )
 
+print("🚀 Initializing Chart Data Generator...")
+
 
 class ChartInfo(BaseModel):
     """
@@ -61,6 +63,9 @@ def select_columns_for_chart(query: str, df: pd.DataFrame) -> ChartInfo:
     Raises:
         ValueError: If LLM response is invalid or column selection fails
     """
+    print("\n🔍 Analyzing query for chart column selection...")
+    print(f"📊 Available columns: {', '.join(df.columns)}")
+
     prompt = ChatPromptTemplate.from_template(
         """Given the following DataFrame columns and query, determine the most appropriate columns for visualization.
 
@@ -83,8 +88,10 @@ chart_type: [one of: line, scatter, bar, box, heatmap]"""
     )
 
     column_info = [f"{col}: {get_column_type(df[col])}" for col in df.columns]
+    print("📋 Column types identified")
 
     try:
+        print("🤖 Consulting LLM for column selection...")
         model = OllamaLLM(model="olmo2")
         response = (prompt | model).invoke(
             {"column_info": "\n".join(column_info), "query": query}
@@ -96,8 +103,13 @@ chart_type: [one of: line, scatter, bar, box, heatmap]"""
             if line.strip() and ": " in line
         )
 
-        return ChartInfo(**parsed)
+        chart_info = ChartInfo(**parsed)
+        print(
+            f"✨ Selected columns - X: {chart_info.x_axis}, Y: {chart_info.y_axis}, Type: {chart_info.chart_type}"
+        )
+        return chart_info
     except Exception as e:
+        print(f"❌ Column selection failed: {str(e)}")
         raise ValueError(f"Failed to select columns: {str(e)}")
 
 
@@ -115,6 +127,9 @@ def generate_chart_data(df: pd.DataFrame, query: str) -> Dict[str, Any]:
     Raises:
         ValueError: If data preparation fails
     """
+    print("\n🔄 Generating chart data...")
+    print(f"📊 DataFrame shape: {df.shape}")
+
     chart_info = select_columns_for_chart(query, df)
 
     CHART_TYPE_MAPPING = {
@@ -125,9 +140,11 @@ def generate_chart_data(df: pd.DataFrame, query: str) -> Dict[str, Any]:
         "heatmap": "Heatmap",
     }
 
+    print(f"📈 Preparing {CHART_TYPE_MAPPING[chart_info.chart_type]} visualization...")
     data: List[Dict[str, Any]] = []
 
     if chart_info.chart_type == "heatmap":
+        print("🔥 Generating heatmap data...")
         crosstab = pd.crosstab(df[chart_info.x_axis], df[chart_info.y_axis])
         data = [
             {"x": str(idx), "y": str(col), "value": float(np.asarray(value))}
@@ -135,6 +152,7 @@ def generate_chart_data(df: pd.DataFrame, query: str) -> Dict[str, Any]:
             for col, value in crosstab.loc[idx].items()
         ]
     else:
+        print("📊 Processing standard chart data...")
         data = [
             {
                 chart_info.x_axis: (
@@ -149,12 +167,11 @@ def generate_chart_data(df: pd.DataFrame, query: str) -> Dict[str, Any]:
 
         # Limit to 100 data points if there are more
         if len(data) > 100:
-            step = (
-                len(data) // 100
-            )  # Calculate step size to get ~100 evenly distributed points
-            data = data[::step][
-                :100
-            ]  # Take every nth item and ensure we don't exceed 100
+            print("⚡ Optimizing data points (limiting to 100)...")
+            step = len(data) // 100
+            data = data[::step][:100]
+
+    print(f"✨ Generated {len(data)} data points")
 
     def get_axis_config(column: str, is_heatmap: bool = False) -> Dict[str, str]:
         return {
@@ -167,15 +184,19 @@ def generate_chart_data(df: pd.DataFrame, query: str) -> Dict[str, Any]:
             "label": column,
         }
 
-    return {
+    chart_data = {
         "data": data,
         "type": CHART_TYPE_MAPPING.get(chart_info.chart_type, "LineChart"),
         "xAxis": get_axis_config(chart_info.x_axis, chart_info.chart_type == "heatmap"),
         "yAxis": get_axis_config(chart_info.y_axis, chart_info.chart_type == "heatmap"),
     }
 
+    print("✅ Chart data generation complete")
+    return chart_data
+
 
 if __name__ == "__main__":
+    print("\n🚀 Running chart data generator demo...")
     # Example usage
     sample_df = pd.DataFrame(
         {
@@ -186,7 +207,10 @@ if __name__ == "__main__":
         }
     )
     try:
+        print("\n💭 Please enter your visualization query")
         query = input("Enter your visualization query: ")
+        print("\n🔄 Processing query...")
         chart_data = generate_chart_data(sample_df, query)
+        print("✨ Chart data generated successfully")
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f"❌ Error: {str(e)}")
