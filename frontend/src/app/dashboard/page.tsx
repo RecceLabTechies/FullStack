@@ -3,13 +3,12 @@
 import AdSpendTable from "@/app/dashboard/ad-spend-table";
 import AgeGroupBarChart from "@/app/dashboard/age-group-bar-chart";
 import ChannelBarChart from "@/app/dashboard/channel-bar-chart";
+import FilterBar from "@/app/dashboard/filter-bar";
 import KpiCards from "@/app/dashboard/kpi-cards";
-import PredictionTable from "@/app/dashboard/prediction-table";
-import RevenueChart from "@/app/dashboard/revenue-chart";
-import FilterBar from "@/components/filter-bar";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useState } from "react";
 import { type DateRange } from "react-day-picker";
+import RevenueChart from "./revenue-chart";
 
 export default function Page() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -27,26 +26,39 @@ export default function Page() {
         setSelectedAgeGroups={setSelectedAgeGroups}
       />
 
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card className="rounded-lg bg-white p-4 shadow">
-          <RevenueChart />
+      <section className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Revenue & Ad Spend across Months</CardTitle>
+          </CardHeader>
+          <CardContent className="h-[32rem]">
+            <RevenueChart />
+          </CardContent>
         </Card>
         <div>
           <KpiCards />
           <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
-            <Card className="rounded-lg bg-white p-4 shadow">
-              <ChannelBarChart />
+            <Card>
+              <CardHeader>
+                <CardTitle>Channels: Revenue per Dollar spend</CardTitle>
+              </CardHeader>
+              <CardContent className="h-96">
+                <ChannelBarChart />
+              </CardContent>
             </Card>
-            <Card className="rounded-lg bg-white p-4 shadow">
-              <AgeGroupBarChart />
+            <Card>
+              <CardHeader>
+                <CardTitle>Age Group: Revenue per Dollar spend</CardTitle>
+              </CardHeader>
+              <CardContent className="h-96">
+                <AgeGroupBarChart />
+              </CardContent>
             </Card>
           </div>
         </div>
-      </div>
-
+      </section>
       <div className="mt-6 space-y-6">
         <AdSpendTable />
-        <PredictionTable />
       </div>
     </div>
   );
