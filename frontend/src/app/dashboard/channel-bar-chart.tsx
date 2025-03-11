@@ -42,10 +42,7 @@ export default function ChannelBarChart() {
               width={100}
               tick={{ fontSize: 12 }}
             />
-            <Tooltip
-              formatter={(value) => [`${value}`, "Value"]}
-              labelFormatter={(label) => `Channel: ${label}`}
-            />
+            <Tooltip labelFormatter={(label) => `Channel: ${label}`} />
             <Bar
               dataKey="value"
               fill="#f97316"

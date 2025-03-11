@@ -9,7 +9,7 @@ import RevenueChart from "@/app/dashboard/revenue-chart";
 import FilterBar from "@/components/filter-bar";
 import { Card } from "@/components/ui/card";
 import { useState } from "react";
-import { DateRange } from "react-day-picker";
+import { type DateRange } from "react-day-picker";
 
 export default function Page() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();

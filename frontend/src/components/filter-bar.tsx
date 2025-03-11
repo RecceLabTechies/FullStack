@@ -18,7 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { CalendarIcon, Check, ChevronsUpDown } from "lucide-react";
-import { DateRange } from "react-day-picker";
+import { type DateRange } from "react-day-picker";
 import { Card } from "./ui/card";
 
 const channels = [

@@ -42,10 +42,7 @@ export default function AgeGroupBarChart() {
               width={60}
               tick={{ fontSize: 12 }}
             />
-            <Tooltip
-              formatter={(value) => [`${value}`, "Value"]}
-              labelFormatter={(label) => `Age Group: ${label}`}
-            />
+            <Tooltip labelFormatter={(label) => `Age Group: ${label}`} />
             <Bar
               dataKey="value"
               fill="#f97316"

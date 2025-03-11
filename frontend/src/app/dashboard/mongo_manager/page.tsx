@@ -32,6 +32,9 @@ interface UploadButtonProps {
   onUploadSuccess?: () => void;
 }
 
+// Define a type for collection documents
+type CollectionDocument = Record<string, unknown>;
+
 const LoadingSpinner = () => (
   <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-current" />
 );
@@ -52,38 +55,40 @@ const StatusMessage = ({
   return <div className={`rounded-md p-3 ${styles[type]}`}>{message}</div>;
 };
 
-const CollectionTable = React.memo(({ collection }: { collection: any[] }) => {
-  if (!collection.length) return null;
+const CollectionTable = React.memo(
+  ({ collection }: { collection: CollectionDocument[] }) => {
+    if (!collection.length) return null;
 
-  const headers = Object.keys(collection[0] || {});
+    const headers = Object.keys(collection[0] ?? {});
 
-  return (
-    <div className="rounded-lg border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            {headers.map((key) => (
-              <TableHead key={key}>{key}</TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {collection.map((doc, index) => (
-            <TableRow key={index}>
-              {Object.entries(doc).map(([key, value]) => (
-                <TableCell key={key}>
-                  {typeof value === "object"
-                    ? JSON.stringify(value)
-                    : String(value)}
-                </TableCell>
+    return (
+      <div className="rounded-lg border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {headers.map((key) => (
+                <TableHead key={key}>{key}</TableHead>
               ))}
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  );
-});
+          </TableHeader>
+          <TableBody>
+            {collection.map((doc, index) => (
+              <TableRow key={index}>
+                {Object.entries(doc).map(([key, value]) => (
+                  <TableCell key={key}>
+                    {typeof value === "object" && value !== null
+                      ? JSON.stringify(value)
+                      : String(value)}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  },
+);
 
 CollectionTable.displayName = "CollectionTable";
 
@@ -98,24 +103,22 @@ const DatabaseStructure = React.memo(
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {Object.entries(collections).map(
-                  ([collectionName, collection]) => (
-                    <div key={collectionName} className="space-y-2">
-                      <h3 className="text-lg font-semibold">
-                        Collection: {collectionName}
-                      </h3>
-                      {typeof collection === "string" ? (
-                        <p className="text-muted-foreground">{collection}</p>
-                      ) : Array.isArray(collection) && collection.length > 0 ? (
-                        <CollectionTable collection={collection} />
-                      ) : (
-                        <p className="text-muted-foreground">
-                          No data available
-                        </p>
-                      )}
-                    </div>
-                  ),
-                )}
+                {Object.entries(
+                  collections as Record<string, CollectionDocument[] | string>,
+                ).map(([collectionName, collection]) => (
+                  <div key={collectionName} className="space-y-2">
+                    <h3 className="text-lg font-semibold">
+                      Collection: {collectionName}
+                    </h3>
+                    {typeof collection === "string" ? (
+                      <p className="text-muted-foreground">{collection}</p>
+                    ) : Array.isArray(collection) && collection.length > 0 ? (
+                      <CollectionTable collection={collection} />
+                    ) : (
+                      <p className="text-muted-foreground">No data available</p>
+                    )}
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
@@ -174,14 +177,13 @@ function UploadButton({ onUploadSuccess }: UploadButtonProps) {
           `Success: Uploaded ${result.count} records to ${result.collection}`,
         );
         setSelectedFile(null);
-        if (document.querySelector('input[type="file"]')) {
-          (
-            document.querySelector('input[type="file"]') as HTMLInputElement
-          ).value = "";
+        const fileInput = document.querySelector('input[type="file"]');
+        if (fileInput instanceof HTMLInputElement) {
+          fileInput.value = "";
         }
         onUploadSuccess?.();
       } else {
-        setUploadStatus(`Error: ${result.error || "Unknown error occurred"}`);
+        setUploadStatus(`Error: ${result.error ?? "Unknown error occurred"}`);
       }
     } catch (error) {
       console.error("Error uploading file:", error);
@@ -255,7 +257,7 @@ export default function DatabaseHelper() {
   }, []);
 
   React.useEffect(() => {
-    loadDbStructure();
+    void loadDbStructure();
   }, [loadDbStructure]);
 
   return (
@@ -303,7 +305,7 @@ export default function DatabaseHelper() {
           </CardHeader>
           <CardContent className="space-y-4">
             <Button
-              onClick={loadDbStructure}
+              onClick={() => void loadDbStructure()}
               disabled={isLoading}
               variant="secondary"
               className="w-full sm:w-auto"
@@ -317,7 +319,7 @@ export default function DatabaseHelper() {
                 "Refresh Database Structure"
               )}
             </Button>
-            <UploadButton onUploadSuccess={loadDbStructure} />
+            <UploadButton onUploadSuccess={() => void loadDbStructure()} />
           </CardContent>
         </Card>
       </div>

@@ -15,7 +15,7 @@ import {
   DragDropContext,
   Draggable,
   Droppable,
-  DropResult,
+  type DropResult,
 } from "@hello-pangea/dnd";
 import {
   Check,
@@ -58,7 +58,7 @@ interface Report {
 }
 
 interface ChartData {
-  data: Record<any, any>[];
+  data: Record<string, unknown>[];
   type: string;
   xAxis: {
     dataKey: string;
@@ -83,9 +83,14 @@ const parseHTMLElements = (elementsString: string): JSX.Element[] => {
         '{"tag":"$1","content":"$2"}',
       );
 
-    const elements = JSON.parse(cleanedString);
+    interface HtmlElement {
+      tag: string;
+      content: string;
+    }
 
-    return elements.map((el: any, index: number) => {
+    const elements = JSON.parse(cleanedString) as HtmlElement[];
+
+    return elements.map((el: HtmlElement, index: number) => {
       switch (el.tag) {
         case "h2":
           return (
@@ -212,54 +217,100 @@ export default function ReportGenerationPage() {
 
     if (
       response.query_type === "chart" &&
-      typeof response.output === "object"
+      typeof response.output === "object" &&
+      response.output !== null
     ) {
-      const chartData = response.output as ChartData;
-      newSection = {
-        title: `Chart Analysis`,
-        content: (
-          <div className="mt-4 h-[400px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={chartData.data}
-                margin={{ top: 20, right: 40, left: 55, bottom: 150 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey={chartData.xAxis.dataKey}
-                  label={{
-                    value: chartData.xAxis.label,
-                    position: "bottom",
-                    offset: 120,
-                  }}
-                  angle={90}
-                  dy={68}
-                  fontSize={12}
-                />
-                <YAxis
-                  dataKey={chartData.yAxis.dataKey}
-                  label={{
-                    value: chartData.yAxis.label,
-                    angle: -90,
-                    position: "left",
-                    offset: 30,
-                  }}
-                  fontSize={12}
-                />
-                <Tooltip />
-                <Line
-                  type="monotone"
-                  dataKey={chartData.yAxis.dataKey}
-                  strokeWidth={2}
-                  dot={{ r: 4 }}
-                  activeDot={{ r: 6 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        ),
-        type: "chart",
-      };
+      // Validate that response.output has the required ChartData properties
+      const output = response.output;
+
+      // Check if output has all required properties of ChartData
+      if (
+        Array.isArray(output.data) &&
+        typeof output.type === "string" &&
+        typeof output.xAxis === "object" &&
+        output.xAxis !== null &&
+        typeof output.yAxis === "object" &&
+        output.yAxis !== null
+      ) {
+        // Create type-safe references to xAxis and yAxis
+        const xAxis = output.xAxis as Record<string, unknown>;
+        const yAxis = output.yAxis as Record<string, unknown>;
+
+        // Verify all required properties exist with correct types
+        if (
+          typeof xAxis.dataKey === "string" &&
+          typeof xAxis.label === "string" &&
+          typeof xAxis.type === "string" &&
+          typeof yAxis.dataKey === "string" &&
+          typeof yAxis.label === "string" &&
+          typeof yAxis.type === "string"
+        ) {
+          const chartData: ChartData = {
+            data: output.data as Record<string, unknown>[],
+            type: output.type,
+            xAxis: {
+              dataKey: xAxis.dataKey,
+              label: xAxis.label,
+              type: xAxis.type,
+            },
+            yAxis: {
+              dataKey: yAxis.dataKey,
+              label: yAxis.label,
+              type: yAxis.type,
+            },
+          };
+
+          newSection = {
+            title: `Chart Analysis`,
+            content: (
+              <div className="mt-4 h-[400px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={chartData.data}
+                    margin={{ top: 20, right: 40, left: 55, bottom: 150 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey={chartData.xAxis.dataKey}
+                      label={{
+                        value: chartData.xAxis.label,
+                        position: "bottom",
+                        offset: 120,
+                      }}
+                      angle={90}
+                      dy={68}
+                      fontSize={12}
+                    />
+                    <YAxis
+                      dataKey={chartData.yAxis.dataKey}
+                      label={{
+                        value: chartData.yAxis.label,
+                        angle: -90,
+                        position: "left",
+                        offset: 30,
+                      }}
+                      fontSize={12}
+                    />
+                    <Tooltip />
+                    <Line
+                      type="monotone"
+                      dataKey={chartData.yAxis.dataKey}
+                      strokeWidth={2}
+                      dot={{ r: 4 }}
+                      activeDot={{ r: 6 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            ),
+            type: "chart",
+          };
+        } else {
+          throw new Error("Invalid chart data format");
+        }
+      } else {
+        throw new Error("Invalid chart data format");
+      }
     } else if (typeof response.output === "string") {
       // Handle description/report type
       newSection = {
@@ -338,7 +389,7 @@ export default function ReportGenerationPage() {
     const section = report.sections[index];
     if (section && section.type === "text") {
       setEditingSectionIndex(index);
-      setEditedSectionContent(section.rawContent || "");
+      setEditedSectionContent(section.rawContent ?? "");
     }
   };
 
@@ -347,23 +398,6 @@ export default function ReportGenerationPage() {
 
     const section = report.sections[index];
     if (!section) return;
-
-    setReport((prev) => {
-      const newSections = [...prev.sections];
-      newSections[index] = {
-        ...section,
-        content: (
-          <div className="prose prose-sm dark:prose-invert">
-            {parseHTMLElements(editedSectionContent)}
-          </div>
-        ),
-        rawContent: editedSectionContent,
-      };
-      return { ...prev, sections: newSections };
-    });
-    setEditingSectionIndex(null);
-    setEditedSectionContent("");
-    toast.success("Section updated successfully");
   };
 
   const handleSectionEditCancel = () => {

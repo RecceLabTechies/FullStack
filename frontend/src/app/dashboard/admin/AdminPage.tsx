@@ -1,6 +1,7 @@
 "use client";
 
-import { fetchUsers, User } from "@/api/dbApi";
+import type { User } from "@/api/dbApi";
+import { fetchUsers } from "@/api/dbApi";
 import {
   Card,
   CardContent,
@@ -24,14 +25,15 @@ export default function AdminPage() {
         const fetchedUsers = await fetchUsers();
         setUsers(fetchedUsers);
         setFilteredUsers(fetchedUsers);
-      } catch (err) {
+      } catch (error) {
         setError("Failed to load users.");
+        console.error(error);
       } finally {
         setLoading(false);
       }
     };
 
-    getUsers();
+    void getUsers();
   }, []);
 
   const handleSearch = (searchTerm: string) => {

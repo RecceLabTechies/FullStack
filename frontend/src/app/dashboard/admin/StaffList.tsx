@@ -1,6 +1,6 @@
 "use client";
 
-import { User } from "@/api/dbApi";
+import { type User } from "@/api/dbApi";
 import { useEffect, useState } from "react";
 import StaffCard from "./StaffCard";
 

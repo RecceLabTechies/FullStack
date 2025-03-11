@@ -61,7 +61,7 @@ const defaultValues: Partial<SettingsFormValues> = {
 };
 
 export default function SettingsPage() {
-  const [currentPlan, setCurrentPlan] = useState("pro");
+  const [currentPlan] = useState("pro");
 
   const form = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsFormSchema),

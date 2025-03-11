@@ -4,7 +4,7 @@ export interface AnalysisResponse {
   selected_json: string;
   original_query: string;
   query_type: "chart" | "description" | "report";
-  output: string | Record<string, any> | null;
+  output: string | Record<string, unknown> | null;
   error?: string;
 }
 
@@ -26,9 +26,11 @@ export const analyzeData = async (query: string): Promise<AnalysisResponse> => {
 
 export const checkHealth = async (): Promise<{ status: string }> => {
   try {
-    const response = await axios.get(`${LLM_API_BASE_URL}/api/health`);
+    const response = await axios.get<{ status: string }>(
+      `${LLM_API_BASE_URL}/api/health`,
+    );
     return response.data;
-  } catch (error) {
+  } catch (error: unknown) {
     throw new Error("Health check failed");
   }
 };

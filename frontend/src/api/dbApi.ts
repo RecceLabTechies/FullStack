@@ -50,7 +50,13 @@ export const fetchUsers = async (): Promise<User[] | null> => {
 
 export const addUser = async (user: User): Promise<string | null> => {
   try {
-    const response = await axios.post("http://localhost:5001/api/users", user);
+    interface AddUserResponse {
+      message: string;
+    }
+    const response = await axios.post<AddUserResponse>(
+      "http://localhost:5001/api/users",
+      user,
+    );
     return response.data.message;
   } catch (error) {
     console.error("Failed to add user", error);
