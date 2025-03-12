@@ -8,8 +8,6 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.tools import Tool
 from langchain_experimental.utilities import PythonREPL
 
-print("🚀 Initializing JSON Processor...")
-
 
 def validate_filter_values(filter_code: str, df: pd.DataFrame) -> str:
     """
@@ -22,7 +20,6 @@ def validate_filter_values(filter_code: str, df: pd.DataFrame) -> str:
     Returns:
         str: Validated and potentially adjusted filter code
     """
-    print("\n🔍 Validating filter values...")
     # Match patterns like df['column'] == 'value' or df["column"] == "value"
     pattern = r"df\[[\'\"](\w+)[\'\"]\]\s*==\s*[\'\"](\w+)[\'\"]"
     match = re.search(pattern, filter_code)
@@ -32,7 +29,6 @@ def validate_filter_values(filter_code: str, df: pd.DataFrame) -> str:
         target_value = match.group(2)
 
         if column_name in df.columns:
-            print(f"📊 Checking values in column: {column_name}")
             unique_values = df[column_name].unique()
             # Convert all values to strings for comparison
             unique_values = [str(val).lower() for val in unique_values]
@@ -44,16 +40,14 @@ def validate_filter_values(filter_code: str, df: pd.DataFrame) -> str:
                 actual_value = df[df[column_name].str.lower() == target_value][
                     column_name
                 ].iloc[0]
-                print(f"✨ Found matching value: {actual_value}")
                 return f"df[df['{column_name}'] == '{actual_value}']"
             else:
                 print(f"⚠️ Value '{target_value}' not found in column '{column_name}'")
                 print(
-                    f"📋 Available values: {', '.join(map(str, df[column_name].unique()))}"
+                    f"Available values: {', '.join(map(str, df[column_name].unique()))}"
                 )
                 return "No filtering required"
 
-    print("ℹ️ No specific filter validation needed")
     return filter_code
 
 
@@ -71,7 +65,6 @@ def process_json_query(
     Returns:
         Tuple[pd.DataFrame, str]: Processed DataFrame and the original query
     """
-    print(f"\n🔄 Processing JSON query for file: {json_file}")
     # Initialize Python REPL
     python_repl = PythonREPL()
     repl_tool = Tool(
@@ -82,13 +75,11 @@ def process_json_query(
 
     # Load the JSON file into a DataFrame
     try:
-        print("💾 Loading JSON file...")
         with open(f"{data_dir}/{json_file}", "r") as f:
             data = json.load(f)
 
         # Convert to DataFrame
         df = pd.DataFrame(data if isinstance(data, list) else [data])
-        print(f"📊 Created DataFrame with shape: {df.shape}")
 
         # Create a prompt to analyze if filtering is needed
         prompt = ChatPromptTemplate.from_template(
@@ -113,7 +104,6 @@ Response format - ONLY provide the filtering code or "No filtering required":"""
         )
 
         # Initialize LLM
-        print("🤖 Consulting LLM for filtering requirements...")
         model = OllamaLLM(model="granite-code:8b")
 
         # Get sample data for context
@@ -126,17 +116,13 @@ Response format - ONLY provide the filtering code or "No filtering required":"""
             )
         ).strip()
 
-        print(f"🔍 LLM response: {response}")
-
         # Apply filtering if needed
         if response.lower() != "no filtering required":
             try:
-                print("🔄 Validating and applying filters...")
                 # Validate and adjust filter code if needed
                 validated_response = validate_filter_values(response, df)
 
                 if validated_response != "No filtering required":
-                    print("📊 Applying filter to DataFrame...")
                     # Set up the environment for the REPL
                     setup_code = f"""
 import pandas as pd
@@ -149,33 +135,27 @@ result = {validated_response}
                     filtered_df = eval("result", python_repl.locals)
                     if isinstance(filtered_df, pd.DataFrame):
                         df = filtered_df
-                        print(f"✨ Filtered DataFrame shape: {df.shape}")
             except Exception as e:
-                print(f"❌ Filter application error: {e}")
+                print(f"⚠️ Filter application error: {e}")
 
-        print("✅ JSON processing complete")
         return df, query
 
     except Exception as e:
-        print(f"❌ JSON processing error: {e}")
+        print(f"⚠️ JSON processing error: {e}")
         # Return empty DataFrame if there's an error
         return pd.DataFrame(), query
 
 
 if __name__ == "__main__":
-    print("\n🚀 Running JSON processor demo...")
     # Get user input
-    print("\n💭 Please enter the JSON file name and query")
     json_file = input("Enter JSON file name: ")
     query = input("Enter your query: ")
 
     # Process the query
-    print("\n🔄 Processing query...")
     df, original_query = process_json_query(json_file, query)
 
     if not df.empty:
-        print(f"\n✨ Results:")
-        print(f"📊 Data Size: {df.shape[0]} rows × {df.shape[1]} columns")
+        print(f"Data Size: {df.shape[0]} rows × {df.shape[1]} columns")
         pd.set_option("display.max_columns", None)
         pd.set_option("display.expand_frame_repr", False)
         pd.set_option("display.max_rows", 5)

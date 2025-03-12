@@ -132,16 +132,12 @@ const REPORT_TEMPLATES = [
   },
   {
     title: "Description Generation",
-    suggestions: [
-      "Show key performance metrics",
-      "Analyze system response times",
-      "Compare resource utilization",
-    ],
+    suggestions: ["Generate a description on spendings"],
   },
-  {
-    title: "Report Generation",
-    suggestions: ["Generate a report"],
-  },
+  // {
+  //   title: "Report Generation",
+  //   suggestions: ["Generate a report"],
+  // },
 ];
 
 export default function ReportGenerationPage() {
