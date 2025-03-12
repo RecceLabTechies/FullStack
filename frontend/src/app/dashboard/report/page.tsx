@@ -394,6 +394,30 @@ export default function ReportGenerationPage() {
 
     const section = report.sections[index];
     if (!section) return;
+
+    setReport((prev) => ({
+      ...prev,
+      sections: prev.sections.map((s, i) => {
+        if (i === index) {
+          return {
+            ...s,
+            content: (
+              <div className="prose prose-sm dark:prose-invert">
+                {parseHTMLElements(editedSectionContent)}
+              </div>
+            ),
+            rawContent: editedSectionContent,
+          };
+        }
+        return s;
+      }),
+    }));
+
+    // Reset editing state
+    setEditingSectionIndex(null);
+    setEditedSectionContent("");
+
+    toast.success("Section updated successfully");
   };
 
   const handleSectionEditCancel = () => {
