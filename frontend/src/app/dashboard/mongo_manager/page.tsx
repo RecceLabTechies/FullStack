@@ -261,10 +261,10 @@ export default function DatabaseHelper() {
   }, [loadDbStructure]);
 
   return (
-    <div className="container mx-auto flex-1 space-y-4 p-4 pt-6 md:p-8">
-      <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold tracking-tight">Mongo Manager</h2>
-      </div>
+    <main className="container mx-auto flex-1 space-y-4 p-4 pt-6 md:p-8">
+      <header className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold tracking-tight">Mongo Manager</h1>
+      </header>
 
       <div className="grid gap-4">
         <Card>
@@ -275,7 +275,7 @@ export default function DatabaseHelper() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
+            <section className="space-y-4">
               {isLoading && (
                 <div className="flex items-center space-x-4">
                   <LoadingSpinner />
@@ -292,7 +292,7 @@ export default function DatabaseHelper() {
                 />
               )}
               {dbStructure && <DatabaseStructure dbStructure={dbStructure} />}
-            </div>
+            </section>
           </CardContent>
         </Card>
 
@@ -323,6 +323,6 @@ export default function DatabaseHelper() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </main>
   );
 }

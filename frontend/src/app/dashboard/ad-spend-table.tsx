@@ -119,7 +119,7 @@ export default function AdSpendAndPredictionTable() {
   };
 
   return (
-    <div className="space-y-8">
+    <section className="space-y-8">
       {/* Ad Spend Section */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -131,7 +131,7 @@ export default function AdSpendAndPredictionTable() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-lg border bg-card">
+          <section className="rounded-lg border bg-card">
             <div className="p-1">
               <Table>
                 <TableHeader>
@@ -182,8 +182,8 @@ export default function AdSpendAndPredictionTable() {
                 </TableBody>
               </Table>
             </div>
-          </div>
-          <div className="mt-4 flex items-center justify-between">
+          </section>
+          <footer className="mt-4 flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
               Enter your budgeted ad spend for predictions across the next month
               (thousands $GD)
@@ -200,7 +200,7 @@ export default function AdSpendAndPredictionTable() {
               )}
               Update Predictions
             </Button>
-          </div>
+          </footer>
         </CardContent>
       </Card>
 
@@ -212,7 +212,7 @@ export default function AdSpendAndPredictionTable() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-hidden rounded-lg border bg-white">
+          <section className="overflow-hidden rounded-lg border bg-white">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -244,13 +244,13 @@ export default function AdSpendAndPredictionTable() {
                 ))}
               </TableBody>
             </Table>
-          </div>
-          <div className="mt-3 text-sm text-gray-600">
+          </section>
+          <footer className="mt-3 text-sm text-gray-600">
             <span className="font-medium">Note:</span> High and Low values
             represent the 95% and 5% threshold of predicted values respectively
-          </div>
+          </footer>
         </CardContent>
       </Card>
-    </div>
+    </section>
   );
 }

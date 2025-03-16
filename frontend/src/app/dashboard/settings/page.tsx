@@ -74,21 +74,21 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="container mx-auto max-w-2xl space-y-6 p-4 pb-16">
-      <div className="space-y-0.5">
-        <h2 className="text-2xl font-bold tracking-tight">Settings</h2>
+    <main className="container mx-auto max-w-2xl space-y-6 p-4 pb-16">
+      <header className="space-y-0.5">
+        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground">
           Manage your account settings, billing information, and view your usage
           limits.
         </p>
-      </div>
+      </header>
       <Separator className="my-6" />
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
           {/* General Settings */}
-          <div className="space-y-6">
-            <h3 className="text-lg font-medium">General</h3>
+          <section className="space-y-6">
+            <h2 className="text-lg font-medium">General</h2>
             <FormField
               control={form.control}
               name="name"
@@ -142,13 +142,13 @@ export default function SettingsPage() {
                 </FormItem>
               )}
             />
-          </div>
+          </section>
 
           <Separator />
 
           {/* Billing Settings */}
-          <div className="space-y-6">
-            <h3 className="text-lg font-medium">Billing</h3>
+          <section className="space-y-6">
+            <h2 className="text-lg font-medium">Billing</h2>
             <Card>
               <CardHeader>
                 <CardTitle>Current Plan</CardTitle>
@@ -159,26 +159,26 @@ export default function SettingsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
+                <dl className="space-y-2">
                   <div className="flex justify-between">
-                    <span>Plan</span>
-                    <span className="font-medium">
+                    <dt>Plan</dt>
+                    <dd className="font-medium">
                       {currentPlan.charAt(0).toUpperCase() +
                         currentPlan.slice(1)}
-                    </span>
+                    </dd>
                   </div>
                   <div className="flex justify-between">
-                    <span>Price</span>
-                    <span className="font-medium">$19.99 / month</span>
+                    <dt>Price</dt>
+                    <dd className="font-medium">$19.99 / month</dd>
                   </div>
                   <div className="flex justify-between">
-                    <span>Billing Cycle</span>
-                    <span className="font-medium">Monthly</span>
+                    <dt>Billing Cycle</dt>
+                    <dd className="font-medium">Monthly</dd>
                   </div>
-                </div>
+                </dl>
               </CardContent>
             </Card>
-            <div className="space-y-4">
+            <section className="space-y-4">
               <FormField
                 control={form.control}
                 name="cardNumber"
@@ -233,15 +233,15 @@ export default function SettingsPage() {
                   )}
                 />
               </div>
-            </div>
-          </div>
+            </section>
+          </section>
 
           <Separator />
 
           {/* Limits */}
-          <div className="space-y-6">
-            <h3 className="text-lg font-medium">Limits</h3>
-            <div className="space-y-4">
+          <section className="space-y-6">
+            <h2 className="text-lg font-medium">Limits</h2>
+            <section className="space-y-4">
               <Card>
                 <CardHeader>
                   <CardTitle>API Requests</CardTitle>
@@ -289,12 +289,12 @@ export default function SettingsPage() {
                   </div>
                 </CardContent>
               </Card>
-            </div>
-          </div>
+            </section>
+          </section>
 
           <Button type="submit">Save Changes</Button>
         </form>
       </Form>
-    </div>
+    </main>
   );
 }

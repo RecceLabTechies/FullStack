@@ -82,7 +82,7 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="container mx-auto p-4">
+    <section className="container mx-auto p-4">
       <Card>
         <CardHeader>
           <CardTitle>Staff Management</CardTitle>
@@ -95,12 +95,14 @@ export default function AdminPage() {
           {loading ? (
             <SkeletonStaffList />
           ) : error ? (
-            <div className="text-destructive">{error}</div>
+            <div className="text-destructive" role="alert">
+              {error}
+            </div>
           ) : (
             filteredUsers && <StaffList users={filteredUsers} />
           )}
         </CardContent>
       </Card>
-    </div>
+    </section>
   );
 }

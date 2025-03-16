@@ -16,7 +16,7 @@ export default function Page() {
   const [selectedAgeGroups, setSelectedAgeGroups] = useState<string[]>([]);
 
   return (
-    <div className="container mx-auto p-4">
+    <main className="container mx-auto p-4">
       <FilterBar
         dateRange={dateRange}
         setDateRange={setDateRange}
@@ -35,9 +35,9 @@ export default function Page() {
             <RevenueChart />
           </CardContent>
         </Card>
-        <div>
+        <section>
           <KpiCards />
-          <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+          <section className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
             <Card>
               <CardHeader>
                 <CardTitle>Channels: Revenue per Dollar spend</CardTitle>
@@ -54,12 +54,12 @@ export default function Page() {
                 <AgeGroupBarChart />
               </CardContent>
             </Card>
-          </div>
-        </div>
+          </section>
+        </section>
       </section>
-      <div className="mt-6 space-y-6">
+      <section className="mt-6 space-y-6">
         <AdSpendTable />
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }

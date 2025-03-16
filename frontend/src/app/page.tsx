@@ -1,110 +1,328 @@
+"use client";
+
 import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Bot, TrendingUp } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
 
-export default function Home() {
+const loginSchema = z.object({
+  email: z
+    .string()
+    .min(1, "Email is required")
+    .email("Please enter a valid email address")
+    .transform((email) => email.toLowerCase().trim()),
+  password: z
+    .string()
+    .min(1, "Password is required")
+    .min(8, "Password must be at least 8 characters")
+    .regex(
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
+      "Password must contain at least one uppercase letter, one lowercase letter, and one number",
+    )
+    .max(100, "Password is too long"),
+});
+
+const signUpSchema = loginSchema
+  .extend({
+    confirmPassword: z.string(),
+    name: z.string().min(1, "Name is required").max(50, "Name is too long"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  });
+
+type LoginValues = z.infer<typeof loginSchema>;
+type SignUpValues = z.infer<typeof signUpSchema>;
+
+export default function AuthPage() {
+  const [isSignUp, setIsSignUp] = useState(false);
+
+  const loginForm = useForm<LoginValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
+
+  const signUpForm = useForm<SignUpValues>({
+    resolver: zodResolver(signUpSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+      confirmPassword: "",
+      name: "",
+    },
+  });
+
+  async function onLoginSubmit(values: LoginValues) {
+    try {
+      console.log("Login submitted:", values);
+    } catch (error) {
+      console.error("Login error:", error);
+    }
+  }
+
+  async function onSignUpSubmit(values: SignUpValues) {
+    try {
+      console.log("Sign up submitted:", values);
+    } catch (error) {
+      console.error("Sign up error:", error);
+    }
+  }
+
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="bg-white shadow-sm">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-          <h1 className="text-2xl font-bold text-gray-900">Recce Labs</h1>
-          <Link href="/login">
-            <Button>Login</Button>
-          </Link>
-        </div>
-      </header>
-
-      <main className="flex-grow">
-        <section className="bg-gray-50 py-20">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="text-center">
-              <h2 className="text-4xl font-extrabold text-gray-900 sm:text-5xl sm:tracking-tight lg:text-6xl">
-                Welcome to Recce Labs
-              </h2>
-              <p className="mx-auto mt-5 max-w-xl text-xl text-gray-500">
-                Empowering your reconnaissance with cutting-edge technology and
-                insights.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <section className="py-20">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <h2 className="mb-8 text-3xl font-extrabold text-gray-900">
-              Our Features
-            </h2>
-            <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="rounded-lg bg-white p-6 shadow">
-                  <div className="mb-4 h-40 w-full rounded-lg bg-gray-200"></div>
-                  <h3 className="mb-2 text-xl font-semibold text-gray-900">
-                    Feature {i}
-                  </h3>
-                  <p className="text-gray-600">
-                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed
-                    do eiusmod tempor incididunt ut labore et dolore magna
-                    aliqua.
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="bg-gray-50 py-20">
-          <div className="mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
-            <h2 className="mb-4 text-3xl font-extrabold text-gray-900">
-              Ready to get started?
-            </h2>
-            <p className="mb-8 text-xl text-gray-600">
-              Join Recce Labs today and transform your reconnaissance
-              capabilities.
+    <main className="flex min-h-screen flex-col lg:flex-row">
+      {/* Product Information Section */}
+      <section className="flex flex-1 flex-col justify-center bg-muted/40 p-8 lg:p-12">
+        <div className="mx-auto w-full max-w-md space-y-8">
+          <header className="space-y-3">
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              RecceLabs LLM Dashboard
+            </h1>
+            <p className="text-lg text-muted-foreground">
+              Powerful analytics and AI-driven reports for your marketing needs
             </p>
-            <Link href="/login">
-              <Button size="lg">Get Started</Button>
-            </Link>
-          </div>
-        </section>
-      </main>
+          </header>
 
-      <footer className="bg-gray-800 py-12 text-white">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-            <div>
-              <h3 className="mb-4 text-lg font-semibold">About Us</h3>
-              <p className="text-gray-400">
-                Recce Labs is dedicated to providing top-notch reconnaissance
-                solutions for businesses and organizations.
-              </p>
-            </div>
-            <div>
-              <h3 className="mb-4 text-lg font-semibold">Contact</h3>
-              <p className="text-gray-400">
-                Email: info@reccelabs.com
-                <br />
-                Phone: (123) 456-7890
-              </p>
-            </div>
-            <div>
-              <h3 className="mb-4 text-lg font-semibold">Follow Us</h3>
-              <div className="flex space-x-4">
-                <a href="#" className="text-gray-400 hover:text-white">
-                  Twitter
-                </a>
-                <a href="#" className="text-gray-400 hover:text-white">
-                  LinkedIn
-                </a>
-                <a href="#" className="text-gray-400 hover:text-white">
-                  Facebook
-                </a>
+          <div className="space-y-6">
+            <article className="flex items-start gap-3">
+              <TrendingUp
+                className="mt-1 h-5 w-5 text-primary"
+                aria-hidden="true"
+              />
+              <div>
+                <h2 className="font-medium">Real-time Analytics</h2>
+                <p className="text-sm text-muted-foreground">
+                  Monitor marketing performance with interactive dashboards
+                </p>
+              </div>
+            </article>
+
+            <article className="flex items-start gap-3">
+              <Bot className="mt-1 h-5 w-5 text-primary" aria-hidden="true" />
+              <div>
+                <h2 className="font-medium">AI-Powered Reports</h2>
+                <p className="text-sm text-muted-foreground">
+                  Generate custom reports using natural language queries
+                </p>
+              </div>
+            </article>
+          </div>
+
+          <footer className="pt-4">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-muted/40 px-2 text-muted-foreground">
+                  Prototype
+                </span>
               </div>
             </div>
-          </div>
-          <div className="mt-8 border-t border-gray-700 pt-8 text-center text-gray-400">
-            <p>&copy; 2023 Recce Labs. All rights reserved.</p>
-          </div>
+          </footer>
         </div>
-      </footer>
-    </div>
+      </section>
+
+      {/* Auth Form Section */}
+      <section className="flex flex-1 flex-col justify-center p-8 lg:p-12">
+        <div className="mx-auto w-full max-w-sm space-y-6">
+          <header className="space-y-2 text-center">
+            <h1 className="text-3xl font-bold">
+              {isSignUp ? "Sign Up" : "Login"}
+            </h1>
+            <p className="text-muted-foreground">
+              {isSignUp
+                ? "Create a new account to get started"
+                : "Enter your email below to login to your account"}
+            </p>
+          </header>
+          {isSignUp ? (
+            <Form {...signUpForm}>
+              <form
+                onSubmit={signUpForm.handleSubmit(onSignUpSubmit)}
+                className="space-y-4"
+              >
+                <FormField
+                  control={signUpForm.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel htmlFor="name">Full Name</FormLabel>
+                      <FormControl>
+                        <Input
+                          id="name"
+                          placeholder="John Doe"
+                          {...field}
+                          aria-describedby="name-error"
+                        />
+                      </FormControl>
+                      <FormMessage id="name-error" />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={signUpForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel htmlFor="email">Email</FormLabel>
+                      <FormControl>
+                        <Input
+                          id="email"
+                          type="email"
+                          placeholder="m@example.com"
+                          {...field}
+                          aria-describedby="email-error"
+                        />
+                      </FormControl>
+                      <FormMessage id="email-error" />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={signUpForm.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <div className="flex items-center justify-between">
+                        <FormLabel htmlFor="password">Password</FormLabel>
+                        <span className="text-sm text-muted-foreground">
+                          Required
+                        </span>
+                      </div>
+                      <FormControl>
+                        <Input
+                          id="password"
+                          type="password"
+                          placeholder="••••••••"
+                          {...field}
+                          aria-describedby="password-error"
+                        />
+                      </FormControl>
+                      <FormMessage id="password-error" />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={signUpForm.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <div className="flex items-center justify-between">
+                        <FormLabel htmlFor="confirmPassword">
+                          Confirm Password
+                        </FormLabel>
+                        <span className="text-sm text-muted-foreground">
+                          Required
+                        </span>
+                      </div>
+                      <FormControl>
+                        <Input
+                          id="confirmPassword"
+                          type="password"
+                          placeholder="••••••••"
+                          {...field}
+                          aria-describedby="confirm-password-error"
+                        />
+                      </FormControl>
+                      <FormMessage id="confirm-password-error" />
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit" className="w-full">
+                  Create Account
+                </Button>
+              </form>
+            </Form>
+          ) : (
+            <Form {...loginForm}>
+              <form
+                onSubmit={loginForm.handleSubmit(onLoginSubmit)}
+                className="space-y-4"
+              >
+                <FormField
+                  control={loginForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel htmlFor="email">Email</FormLabel>
+                      <FormControl>
+                        <Input
+                          id="email"
+                          type="email"
+                          placeholder="m@example.com"
+                          {...field}
+                          aria-describedby="email-error"
+                        />
+                      </FormControl>
+                      <FormMessage id="email-error" />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={loginForm.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <div className="flex items-center justify-between">
+                        <FormLabel htmlFor="password">Password</FormLabel>
+                        <Link
+                          href="/forgot-password"
+                          className="text-sm text-muted-foreground underline underline-offset-4 hover:text-primary"
+                        >
+                          Forgot your password?
+                        </Link>
+                      </div>
+                      <FormControl>
+                        <Input
+                          id="password"
+                          type="password"
+                          placeholder="••••••••"
+                          {...field}
+                          aria-describedby="password-error"
+                        />
+                      </FormControl>
+                      <FormMessage id="password-error" />
+                    </FormItem>
+                  )}
+                />
+                <Button
+                  // type="submit"
+                  className="w-full"
+                >
+                  <Link href={"./dashboard"}>Sign In</Link>
+                </Button>
+              </form>
+            </Form>
+          )}
+          <footer className="text-center text-sm">
+            <small>
+              {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
+              <button
+                onClick={() => setIsSignUp(!isSignUp)}
+                className="font-medium text-primary underline underline-offset-4 hover:text-primary/90"
+              >
+                {isSignUp ? "Sign in" : "Create account"}
+              </button>
+            </small>
+          </footer>
+        </div>
+      </section>
+    </main>
   );
 }

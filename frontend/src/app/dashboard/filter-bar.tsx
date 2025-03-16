@@ -139,7 +139,7 @@ export default function FilterBar({
 
   return (
     <Card className="flex flex-col items-center gap-4 p-4 md:flex-row">
-      <div className="flex items-center gap-2">
+      <header className="flex items-center gap-2">
         <h2 className="text-lg font-bold">Filter By</h2>
         {hasActiveFilters && (
           <Button
@@ -152,8 +152,8 @@ export default function FilterBar({
             Clear
           </Button>
         )}
-      </div>
-      <div className="flex-1">
+      </header>
+      <section className="flex-1">
         <Popover>
           <PopoverTrigger asChild>
             <Button
@@ -182,9 +182,9 @@ export default function FilterBar({
             />
           </PopoverContent>
         </Popover>
-      </div>
+      </section>
 
-      <div className="flex-1">
+      <section className="flex-1">
         <FilterPopover
           options={channels}
           selected={selectedChannels}
@@ -193,9 +193,9 @@ export default function FilterBar({
           searchPlaceholder="Search channels..."
           emptyMessage="No channel found."
         />
-      </div>
+      </section>
 
-      <div className="flex-1">
+      <section className="flex-1">
         <FilterPopover
           options={ageGroups}
           selected={selectedAgeGroups}
@@ -204,7 +204,7 @@ export default function FilterBar({
           searchPlaceholder="Search age groups..."
           emptyMessage="No age group found."
         />
-      </div>
+      </section>
     </Card>
   );
 }

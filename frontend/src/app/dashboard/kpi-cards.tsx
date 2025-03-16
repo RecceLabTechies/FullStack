@@ -52,7 +52,7 @@ function KpiCard({ title, value, trend, icon, loading = false }: KpiCardProps) {
 
 export default function KpiCards() {
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <KpiCard
         title="Revenue past month"
         value="$4,654"
@@ -77,6 +77,6 @@ export default function KpiCards() {
         trend={5}
         icon={<BarChart className="h-4 w-4" />}
       />
-    </div>
+    </section>
   );
 }
