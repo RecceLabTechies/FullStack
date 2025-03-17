@@ -1,3 +1,9 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import axios from "axios";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -8,13 +14,53 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
-import Link from "next/link";
+import { AlertCircle } from "lucide-react";
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<"div">) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [users, setUsers] = useState<User[] | null>(null);
+  const [error, setError] = useState("");
+  const router = useRouter();
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await axios.get("http://localhost:5001/api/users");
+        setUsers(response.data);
+      } catch (error) {
+        console.error("Failed to fetch users", error);
+        setError("Failed to load user data.");
+      }
+    };
+
+    fetchUsers();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    if (!users) {
+      setError("User data is not available. Try again later.");
+      return;
+    }
+
+    const user = users.find(
+      (u) => u.email === email && u.password === password,
+    );
+    if (!user) {
+      setError("Invalid email or password");
+      return;
+    }
+
+    localStorage.setItem("user", JSON.stringify(user)); // Save user session
+    router.push("/dashboard"); // Redirect to dashboard
+  };
+
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
@@ -25,7 +71,7 @@ export function LoginForm({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form>
+          <form onSubmit={handleSubmit}>
             <div className="flex flex-col gap-6">
               <div className="grid gap-2">
                 <Label htmlFor="email">Email</Label>
@@ -33,6 +79,8 @@ export function LoginForm({
                   id="email"
                   type="email"
                   placeholder="m@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
                 />
               </div>
@@ -46,14 +94,23 @@ export function LoginForm({
                     Forgot your password?
                   </a>
                 </div>
-                <Input id="password" type="password" required />
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
               </div>
-              {/* <Button type="submit" className="w-full">
+              {error && (
+                <div className="flex items-center space-x-2 text-red-600">
+                  <AlertCircle size={16} />
+                  <span className="text-sm">{error}</span>
+                </div>
+              )}
+              <Button type="submit" className="w-full">
                 Login
-              </Button> */}
-              <Link href="/dashboard">
-                <Button className="w-full">Login</Button>
-              </Link>
+              </Button>
               <Button variant="outline" className="w-full">
                 Login with Google
               </Button>
