@@ -1,5 +1,6 @@
 "use client";
 
+import { type User } from "@/api/dbApi";
 import { NavUser } from "@/components/nav-user";
 import {
   Building,
@@ -11,6 +12,7 @@ import {
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import * as React from "react";
+import { useEffect, useState } from "react";
 
 import {
   Sidebar,
@@ -34,19 +36,13 @@ interface NavigationItem {
 }
 
 interface SidebarConfig {
-  currentUser: {
-    name: string;
-    email: string;
-  };
+  currentUser: User | null;
   navigationItems: NavigationItem[];
 }
 
 // Memoized configuration
 const sidebarConfig: SidebarConfig = {
-  currentUser: {
-    name: "user",
-    email: "user@company.com",
-  },
+  currentUser: null,
   navigationItems: [
     {
       name: "Home",
@@ -107,6 +103,19 @@ NavigationItem.displayName = "NavigationItem";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const userStr = localStorage.getItem("user");
+    if (userStr) {
+      try {
+        const userData = JSON.parse(userStr) as User;
+        setUser(userData);
+      } catch (error) {
+        console.error("Error parsing user data from localStorage:", error);
+      }
+    }
+  }, []);
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -119,8 +128,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   <Building className="size-4" />
                 </div>
                 <div className="flex flex-col gap-0.5 leading-none">
-                  <span className="font-semibold">COMPANY NAME</span>
-                  <span className="">DASHBOARD</span>
+                  <span className="font-semibold">
+                    {user?.company ?? "COMPANY NAME"}
+                  </span>
                 </div>
               </div>
             </SidebarMenuButton>
@@ -142,7 +152,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={sidebarConfig.currentUser} />
+        <NavUser
+          user={
+            user
+              ? {
+                  name: user.username,
+                  email: user.email,
+                }
+              : {
+                  name: "Guest",
+                  email: "guest@example.com",
+                }
+          }
+        />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

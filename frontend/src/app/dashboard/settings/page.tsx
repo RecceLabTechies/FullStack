@@ -1,13 +1,7 @@
 "use client";
 
+import { type User } from "@/api/dbApi";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Form,
   FormControl,
@@ -18,46 +12,39 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
 const settingsFormSchema = z.object({
-  name: z.string().min(2, {
-    message: "Name must be at least 2 characters.",
+  username: z.string().min(2, {
+    message: "Username must be at least 2 characters.",
   }),
   email: z.string().email({
     message: "Please enter a valid email address.",
   }),
-  bio: z.string().max(160).optional(),
-  cardNumber: z.string().regex(/^\d{16}$/, {
-    message: "Card number must be 16 digits.",
+  company: z.string().min(1, {
+    message: "Company name is required.",
   }),
-  expiryDate: z.string().regex(/^\d{2}\/\d{2}$/, {
-    message: "Expiry date must be in MM/YY format.",
-  }),
-  cvc: z.string().regex(/^\d{3}$/, {
-    message: "CVC must be 3 digits.",
-  }),
-  zip: z.string().regex(/^\d{5}$/, {
-    message: "ZIP code must be 5 digits.",
-  }),
+  role: z.string(),
+  chart_access: z.boolean(),
+  report_generation_access: z.boolean(),
+  user_management_access: z.boolean(),
 });
 
 type SettingsFormValues = z.infer<typeof settingsFormSchema>;
 
 const defaultValues: Partial<SettingsFormValues> = {
-  name: "",
+  username: "",
   email: "",
-  bio: "",
-  cardNumber: "",
-  expiryDate: "",
-  cvc: "",
-  zip: "",
+  company: "",
+  role: "",
+  chart_access: false,
+  report_generation_access: false,
+  user_management_access: false,
 };
 
 export default function SettingsPage() {
@@ -68,9 +55,34 @@ export default function SettingsPage() {
     defaultValues,
   });
 
+  useEffect(() => {
+    const userStr = localStorage.getItem("user");
+    if (userStr) {
+      const user = JSON.parse(userStr) as User;
+      form.reset({
+        username: user.username,
+        email: user.email,
+        company: user.company,
+        role: user.role,
+        chart_access: user.chart_access,
+        report_generation_access: user.report_generation_access,
+        user_management_access: user.user_management_access,
+      });
+    }
+  }, [form]);
+
   function onSubmit(data: SettingsFormValues) {
-    console.log(data);
-    // TODO: Implement the actual update logic
+    // Update localStorage with new user data
+    const userStr = localStorage.getItem("user");
+    if (userStr) {
+      const user = JSON.parse(userStr) as User;
+      const updatedUser = {
+        ...user,
+        ...data,
+      };
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+      // TODO: Implement API call to update user data on the server
+    }
   }
 
   return (
@@ -78,8 +90,7 @@ export default function SettingsPage() {
       <header className="space-y-0.5">
         <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground">
-          Manage your account settings, billing information, and view your usage
-          limits.
+          Manage your account settings and permissions.
         </p>
       </header>
       <Separator className="my-6" />
@@ -91,15 +102,15 @@ export default function SettingsPage() {
             <h2 className="text-lg font-medium">General</h2>
             <FormField
               control={form.control}
-              name="name"
+              name="username"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Name</FormLabel>
+                  <FormLabel>Username</FormLabel>
                   <FormControl>
-                    <Input placeholder="Your name" {...field} />
+                    <Input placeholder="Your username" {...field} />
                   </FormControl>
                   <FormDescription>
-                    This is your public display name.
+                    This is your display username.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -115,8 +126,7 @@ export default function SettingsPage() {
                     <Input placeholder="Your email" {...field} />
                   </FormControl>
                   <FormDescription>
-                    You can manage verified email addresses in your email
-                    settings.
+                    Your registered email address.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -124,19 +134,29 @@ export default function SettingsPage() {
             />
             <FormField
               control={form.control}
-              name="bio"
+              name="company"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Bio</FormLabel>
+                  <FormLabel>Company</FormLabel>
                   <FormControl>
-                    <Textarea
-                      placeholder="Tell us a little bit about yourself"
-                      className="resize-none"
-                      {...field}
-                    />
+                    <Input placeholder="Your company" {...field} />
+                  </FormControl>
+                  <FormDescription>The company you represent.</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="role"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Role</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Your role" {...field} disabled />
                   </FormControl>
                   <FormDescription>
-                    Brief description for your profile. URLs are hyperlinked.
+                    Your current role in the system.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -146,150 +166,73 @@ export default function SettingsPage() {
 
           <Separator />
 
-          {/* Billing Settings */}
+          {/* Access Permissions */}
           <section className="space-y-6">
-            <h2 className="text-lg font-medium">Billing</h2>
-            <Card>
-              <CardHeader>
-                <CardTitle>Current Plan</CardTitle>
-                <CardDescription>
-                  You are currently on the{" "}
-                  {currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1)}{" "}
-                  plan.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <dl className="space-y-2">
-                  <div className="flex justify-between">
-                    <dt>Plan</dt>
-                    <dd className="font-medium">
-                      {currentPlan.charAt(0).toUpperCase() +
-                        currentPlan.slice(1)}
-                    </dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt>Price</dt>
-                    <dd className="font-medium">$19.99 / month</dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt>Billing Cycle</dt>
-                    <dd className="font-medium">Monthly</dd>
-                  </div>
-                </dl>
-              </CardContent>
-            </Card>
-            <section className="space-y-4">
+            <h2 className="text-lg font-medium">Access Permissions</h2>
+            <div className="space-y-4">
               <FormField
                 control={form.control}
-                name="cardNumber"
+                name="chart_access"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Card Number</FormLabel>
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">Chart Access</FormLabel>
+                      <FormDescription>
+                        Access to view and analyze charts
+                      </FormDescription>
+                    </div>
                     <FormControl>
-                      <Input placeholder="1234 5678 9012 3456" {...field} />
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
                     </FormControl>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
-              <div className="grid grid-cols-3 gap-4">
-                <FormField
-                  control={form.control}
-                  name="expiryDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Expiry Date</FormLabel>
-                      <FormControl>
-                        <Input placeholder="MM/YY" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="cvc"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>CVC</FormLabel>
-                      <FormControl>
-                        <Input placeholder="123" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="zip"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>ZIP</FormLabel>
-                      <FormControl>
-                        <Input placeholder="12345" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </section>
-          </section>
-
-          <Separator />
-
-          {/* Limits */}
-          <section className="space-y-6">
-            <h2 className="text-lg font-medium">Limits</h2>
-            <section className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>API Requests</CardTitle>
-                  <CardDescription>Monthly API request limit</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>15,000 / 20,000 requests</span>
-                      <span className="text-muted-foreground">75% used</span>
+              <FormField
+                control={form.control}
+                name="report_generation_access"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">
+                        Report Generation
+                      </FormLabel>
+                      <FormDescription>
+                        Access to generate reports
+                      </FormDescription>
                     </div>
-                    <Progress value={75} />
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Storage</CardTitle>
-                  <CardDescription>Total storage space used</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>7.5 GB / 10 GB</span>
-                      <span className="text-muted-foreground">75% used</span>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="user_management_access"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">
+                        User Management
+                      </FormLabel>
+                      <FormDescription>Access to manage users</FormDescription>
                     </div>
-                    <Progress value={75} />
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Team Members</CardTitle>
-                  <CardDescription>
-                    Number of team members in your account
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>3 / 5 members</span>
-                      <span className="text-muted-foreground">60% used</span>
-                    </div>
-                    <Progress value={60} />
-                  </div>
-                </CardContent>
-              </Card>
-            </section>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            </div>
           </section>
 
           <Button type="submit">Save Changes</Button>

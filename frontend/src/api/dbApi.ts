@@ -18,16 +18,6 @@ export interface User {
   user_management_access: boolean;
 }
 
-export interface LeadsDateChartData {
-  date: string;
-  leads: number;
-}
-
-export interface RevenueDateChartData {
-  date: string;
-  revenue: number;
-}
-
 export const fetchDbStructure = async (): Promise<DbStructure | null> => {
   try {
     const response = await axios.get("http://localhost:5001/api/db-structure");
@@ -74,32 +64,6 @@ export const fetchUserByUsername = async (
     return response.data as User;
   } catch (error) {
     console.error("Failed to fetch user by username", error);
-    return null;
-  }
-};
-
-export const fetchLeadsDateChartData = async (): Promise<
-  LeadsDateChartData[] | null
-> => {
-  try {
-    const response = await axios.get(
-      "http://localhost:5001/api/campaign_data_mock",
-    );
-    return response.data as LeadsDateChartData[];
-  } catch (error) {
-    console.error("Failed to fetch leads date chart data", error);
-    return null;
-  }
-};
-
-export const fetchRevenueDateChartData = async (): Promise<
-  RevenueDateChartData[] | null
-> => {
-  try {
-    const response = await axios.get("http://localhost:5001/api/revenue_data");
-    return response.data as RevenueDateChartData[];
-  } catch (error) {
-    console.error("Failed to fetch revenue date chart data", error);
     return null;
   }
 };
