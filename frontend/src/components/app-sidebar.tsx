@@ -1,5 +1,6 @@
 "use client";
 
+import { type User } from "@/api/dbApi";
 import { NavUser } from "@/components/nav-user";
 import {
   Building,
@@ -9,7 +10,9 @@ import {
   Settings,
   ShieldEllipsis,
 } from "lucide-react";
+import { usePathname } from "next/navigation";
 import * as React from "react";
+import { useEffect, useState } from "react";
 
 import {
   Sidebar,
@@ -25,11 +28,21 @@ import {
 } from "@/components/ui/sidebar";
 import Link from "next/link";
 
-const sidebarConfig = {
-  currentUser: {
-    name: "user",
-    email: "user@company.com",
-  },
+// Types
+interface NavigationItem {
+  name: string;
+  url: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+interface SidebarConfig {
+  currentUser: User | null;
+  navigationItems: NavigationItem[];
+}
+
+// Memoized configuration
+const sidebarConfig: SidebarConfig = {
+  currentUser: null,
   navigationItems: [
     {
       name: "Home",
@@ -57,9 +70,53 @@ const sidebarConfig = {
       icon: DatabaseBackup,
     },
   ],
-};
+} as const;
+
+// Memoized Navigation Item Component
+const NavigationItem: React.FC<{
+  item: NavigationItem;
+  isActive: boolean;
+}> = React.memo(({ item, isActive }) => {
+  const Icon = item.icon;
+
+  return (
+    <SidebarMenuItem key={item.name}>
+      <SidebarMenuButton
+        tooltip={item.name}
+        className={`transition duration-100 ease-in-out hover:bg-neutral-100 ${
+          isActive ? "bg-neutral-100" : ""
+        }`}
+      >
+        <Link
+          href={item.url}
+          prefetch
+          className="flex w-full items-center gap-2"
+        >
+          <Icon className="size-4" />
+          <span>{item.name}</span>
+        </Link>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+});
+NavigationItem.displayName = "NavigationItem";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const pathname = usePathname();
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const userStr = localStorage.getItem("user");
+    if (userStr) {
+      try {
+        const userData = JSON.parse(userStr) as User;
+        setUser(userData);
+      } catch (error) {
+        console.error("Error parsing user data from localStorage:", error);
+      }
+    }
+  }, []);
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
@@ -71,8 +128,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   <Building className="size-4" />
                 </div>
                 <div className="flex flex-col gap-0.5 leading-none">
-                  <span className="font-semibold">COMPANY NAME</span>
-                  <span className="">DASHBOARD</span>
+                  <span className="font-semibold">
+                    {user?.company ?? "COMPANY NAME"}
+                  </span>
                 </div>
               </div>
             </SidebarMenuButton>
@@ -84,27 +142,29 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarGroupLabel>Platform</SidebarGroupLabel>
           <SidebarMenu>
             {sidebarConfig.navigationItems.map((item) => (
-              <SidebarMenuItem key={item.name}>
-                <SidebarMenuButton
-                  tooltip={item.name}
-                  className="transition duration-100 ease-in-out hover:bg-neutral-100"
-                >
-                  {item.icon && (
-                    <Link href={item.url}>
-                      <item.icon className="size-4" />
-                    </Link>
-                  )}
-                  <Link href={item.url}>
-                    <span>{item.name}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <NavigationItem
+                key={item.name}
+                item={item}
+                isActive={pathname === item.url}
+              />
             ))}
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={sidebarConfig.currentUser} />
+        <NavUser
+          user={
+            user
+              ? {
+                  name: user.username,
+                  email: user.email,
+                }
+              : {
+                  name: "Guest",
+                  email: "guest@example.com",
+                }
+          }
+        />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

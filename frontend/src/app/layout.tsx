@@ -6,8 +6,21 @@ import { type Metadata } from "next";
 import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
-  title: "Dashboard",
-  description: "A modern dashboard built with Next.js and shadcn/ui.",
+  title: {
+    default: "RecceLabs LLM Dashboard",
+    template: "%s | RecceLabs LLM Dashboard",
+  },
+  description:
+    "Powerful analytics and AI-driven reports for your marketing needs",
+  keywords: [
+    "analytics",
+    "marketing",
+    "AI",
+    "dashboard",
+    "reports",
+    "LLM",
+    "business intelligence",
+  ],
 };
 
 export default function RootLayout({
@@ -16,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={GeistSans.className}>
         <ThemeProvider
           attribute="class"
@@ -24,9 +37,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <main className="relative flex min-h-screen flex-col">
+          <div className="relative min-h-screen bg-background antialiased">
             {children}
-          </main>
+          </div>
           <Toaster />
         </ThemeProvider>
       </body>

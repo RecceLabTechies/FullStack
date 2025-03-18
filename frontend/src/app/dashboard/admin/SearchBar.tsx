@@ -17,13 +17,14 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
   };
 
   return (
-    <div className="mb-4">
+    <form className="mb-4" role="search">
       <Input
-        type="text"
+        type="search"
         placeholder="Search staff members..."
         value={search}
         onChange={handleSearch}
+        aria-label="Search staff members"
       />
-    </div>
+    </form>
   );
 }

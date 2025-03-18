@@ -119,28 +119,30 @@ export default function StaffCard({
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{staff.name}</CardTitle>
-        <CardDescription>{staff.role}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          {mounted ? (
-            <ClientSideContent
-              permissions={permissions}
-              handlePermissionChange={handlePermissionChange}
-            />
-          ) : (
-            <div>Loading permissions...</div>
-          )}
-        </div>
-      </CardContent>
-      <CardFooter>
-        <Button onClick={handleSave} disabled={!isDirty}>
-          Save Changes
-        </Button>
-      </CardFooter>
-    </Card>
+    <article>
+      <Card>
+        <CardHeader>
+          <CardTitle>{staff.name}</CardTitle>
+          <CardDescription>{staff.role}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <section className="space-y-4">
+            {mounted ? (
+              <ClientSideContent
+                permissions={permissions}
+                handlePermissionChange={handlePermissionChange}
+              />
+            ) : (
+              <div>Loading permissions...</div>
+            )}
+          </section>
+        </CardContent>
+        <CardFooter>
+          <Button onClick={handleSave} disabled={!isDirty}>
+            Save Changes
+          </Button>
+        </CardFooter>
+      </Card>
+    </article>
   );
 }

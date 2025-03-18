@@ -48,7 +48,10 @@ export default function StaffList({ users }: StaffListProps) {
   };
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <section
+      className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+      aria-label="Staff members list"
+    >
       {staffMembers.map((staff) => (
         <StaffCard
           key={staff.id}
@@ -56,6 +59,6 @@ export default function StaffList({ users }: StaffListProps) {
           updatePermissions={updateStaffMember}
         />
       ))}
-    </div>
+    </section>
   );
 }

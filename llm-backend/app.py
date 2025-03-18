@@ -1,7 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pipeline import run_pipeline, PipelineResult
-import pandas as pd
 
 app = Flask(__name__)
 CORS(app)

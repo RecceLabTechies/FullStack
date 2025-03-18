@@ -132,16 +132,12 @@ const REPORT_TEMPLATES = [
   },
   {
     title: "Description Generation",
-    suggestions: [
-      "Show key performance metrics",
-      "Analyze system response times",
-      "Compare resource utilization",
-    ],
+    suggestions: ["Generate a description on spendings"],
   },
-  {
-    title: "Report Generation",
-    suggestions: ["Generate a report"],
-  },
+  // {
+  //   title: "Report Generation",
+  //   suggestions: ["Generate a report"],
+  // },
 ];
 
 export default function ReportGenerationPage() {
@@ -398,6 +394,30 @@ export default function ReportGenerationPage() {
 
     const section = report.sections[index];
     if (!section) return;
+
+    setReport((prev) => ({
+      ...prev,
+      sections: prev.sections.map((s, i) => {
+        if (i === index) {
+          return {
+            ...s,
+            content: (
+              <div className="prose prose-sm dark:prose-invert">
+                {parseHTMLElements(editedSectionContent)}
+              </div>
+            ),
+            rawContent: editedSectionContent,
+          };
+        }
+        return s;
+      }),
+    }));
+
+    // Reset editing state
+    setEditingSectionIndex(null);
+    setEditedSectionContent("");
+
+    toast.success("Section updated successfully");
   };
 
   const handleSectionEditCancel = () => {
@@ -406,21 +426,21 @@ export default function ReportGenerationPage() {
   };
 
   return (
-    <div className="container mx-auto flex h-full gap-3 overflow-clip p-4">
-      <section className="flex h-full w-1/3 min-w-[26rem] max-w-[52rem] flex-col justify-between rounded-lg border bg-card p-4 shadow-sm">
-        <div className="mb-4">
-          <h2 className="text-xl font-semibold">Chat Assistant</h2>
+    <main className="container mx-auto flex h-full gap-3 overflow-clip p-4">
+      <aside className="flex h-full w-1/3 min-w-[26rem] max-w-[52rem] flex-col justify-between rounded-lg border bg-card p-4 shadow-sm">
+        <header className="mb-4">
+          <h1 className="text-xl font-semibold">Chat Assistant</h1>
           <p className="text-sm text-muted-foreground">
             Ask questions or request analysis to build your report
           </p>
 
           {/* Template Suggestions */}
-          <div className="mt-4">
-            <h3 className="mb-2 text-sm font-medium">Suggested Templates</h3>
+          <section className="mt-4">
+            <h2 className="mb-2 text-sm font-medium">Suggested Templates</h2>
             <div className="space-y-2">
               {REPORT_TEMPLATES.map((template) => (
-                <div key={template.title} className="rounded-md border p-2">
-                  <h4 className="text-sm font-medium">{template.title}</h4>
+                <article key={template.title} className="rounded-md border p-2">
+                  <h3 className="text-sm font-medium">{template.title}</h3>
                   <div className="mt-1 space-y-1">
                     {template.suggestions.map((suggestion) => (
                       <button
@@ -432,17 +452,17 @@ export default function ReportGenerationPage() {
                       </button>
                     ))}
                   </div>
-                </div>
+                </article>
               ))}
             </div>
-          </div>
-        </div>
+          </section>
+        </header>
 
         {/* Chat History */}
         <ScrollArea className="flex-1 px-2">
-          <div className="space-y-4">
+          <section className="space-y-4">
             {messages.map((message) => (
-              <div
+              <article
                 key={message.id}
                 className={`flex ${
                   message.sender === "user" ? "justify-end" : "justify-start"
@@ -457,9 +477,9 @@ export default function ReportGenerationPage() {
                 >
                   <p className="text-sm">{message.content}</p>
                 </div>
-              </div>
+              </article>
             ))}
-          </div>
+          </section>
         </ScrollArea>
 
         {/* Input Form */}
@@ -482,10 +502,10 @@ export default function ReportGenerationPage() {
             )}
           </Button>
         </form>
-      </section>
+      </aside>
 
       <section className="flex-1 rounded-lg border bg-card p-4 shadow-sm">
-        <div className="flex items-center justify-between">
+        <header className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {isEditingTitle ? (
               <div className="flex items-center gap-2">
@@ -548,7 +568,7 @@ export default function ReportGenerationPage() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
+        </header>
 
         <Separator className="mb-4 mt-2" />
 
@@ -565,7 +585,7 @@ export default function ReportGenerationPage() {
               <DragDropContext onDragEnd={handleDragEnd}>
                 <Droppable droppableId="report-sections">
                   {(provided) => (
-                    <div
+                    <section
                       {...provided.droppableProps}
                       ref={provided.innerRef}
                       className="space-y-6"
@@ -577,7 +597,7 @@ export default function ReportGenerationPage() {
                           index={index}
                         >
                           {(provided) => (
-                            <div
+                            <article
                               ref={provided.innerRef}
                               {...provided.draggableProps}
                               className="group relative rounded-lg border bg-background p-4"
@@ -639,12 +659,12 @@ export default function ReportGenerationPage() {
                               ) : (
                                 section.content
                               )}
-                            </div>
+                            </article>
                           )}
                         </Draggable>
                       ))}
                       {provided.placeholder}
-                    </div>
+                    </section>
                   )}
                 </Droppable>
               </DragDropContext>
@@ -652,6 +672,6 @@ export default function ReportGenerationPage() {
           </article>
         </ScrollArea>
       </section>
-    </div>
+    </main>
   );
 }
