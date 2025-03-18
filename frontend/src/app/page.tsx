@@ -1,5 +1,6 @@
 "use client";
 
+import { type User } from "@/api/dbApi";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -11,9 +12,11 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Bot, TrendingUp } from "lucide-react";
+import axios from "axios";
+import { Bot, Loader2, TrendingUp } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
@@ -49,6 +52,24 @@ type SignUpValues = z.infer<typeof signUpSchema>;
 
 export default function AuthPage() {
   const [isSignUp, setIsSignUp] = useState(false);
+  const [users, setUsers] = useState<User[] | null>(null);
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await axios.get("http://localhost:5001/api/users");
+        setUsers(response.data as User[]);
+      } catch (error) {
+        console.error("Failed to fetch users", error);
+        setError("Failed to load user data.");
+      }
+    };
+
+    void fetchUsers();
+  }, []);
 
   const loginForm = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -70,9 +91,51 @@ export default function AuthPage() {
 
   async function onLoginSubmit(values: LoginValues) {
     try {
-      console.log("Login submitted:", values);
+      setIsLoading(true);
+      setError("");
+
+      // Master login credentials check
+      if (
+        values.email === "admin@recce.com" &&
+        values.password === "Admin@123"
+      ) {
+        const masterUser: User = {
+          username: "admin",
+          email: values.email,
+          password: values.password,
+          role: "admin",
+          company: "RecceLabs",
+          chart_access: true,
+          report_generation_access: true,
+          user_management_access: true,
+        };
+        localStorage.setItem("user", JSON.stringify(masterUser));
+        router.push("/dashboard");
+        return;
+      }
+
+      // Regular user check from database
+      if (!users) {
+        setError("User data is not available. Try again later.");
+        return;
+      }
+
+      const user = users.find(
+        (u) => u.email === values.email && u.password === values.password,
+      );
+
+      if (!user) {
+        setError("Invalid email or password");
+        return;
+      }
+
+      localStorage.setItem("user", JSON.stringify(user));
+      router.push("/dashboard");
     } catch (error) {
       console.error("Login error:", error);
+      setError("An unexpected error occurred during login.");
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -255,6 +318,11 @@ export default function AuthPage() {
                 onSubmit={loginForm.handleSubmit(onLoginSubmit)}
                 className="space-y-4"
               >
+                {error && (
+                  <div className="flex items-center space-x-2 text-red-600">
+                    <span className="text-sm">{error}</span>
+                  </div>
+                )}
                 <FormField
                   control={loginForm.control}
                   name="email"
@@ -301,11 +369,15 @@ export default function AuthPage() {
                     </FormItem>
                   )}
                 />
-                <Button
-                  // type="submit"
-                  className="w-full"
-                >
-                  <Link href={"./dashboard"}>Sign In</Link>
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Signing in...
+                    </>
+                  ) : (
+                    "Sign In"
+                  )}
                 </Button>
               </form>
             </Form>
