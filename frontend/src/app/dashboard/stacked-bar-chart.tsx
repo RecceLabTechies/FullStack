@@ -10,88 +10,67 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-// will update with API
-const rawData = [
+// Transform data to be grouped by percentage categories instead of channels
+const transformedData = [
   {
-    time: "Apr-15",
-    channel: "Influencer",
-    percentage_spending: 10,
-    percentage_views: 10,
-    percentage_leads: 0,
-    percentage_accounts: 5,
-    percentage_revenue: 30,
+    category: "Spending",
+    Influencer: 10,
+    "Sponsored search ads": 20,
+    "TikTok ads": 20,
+    "Instagram Ads": 4,
+    Email: 2,
+    LinkedIn: 4,
+    "Radio ads": 3,
+    "TV ads": 3,
+    "Google banner ads": 34,
   },
   {
-    time: "Apr-15",
-    channel: "Sponsored search ads",
-    percentage_spending: 20,
-    percentage_views: 15,
-    percentage_leads: 0,
-    percentage_accounts: 10,
-    percentage_revenue: 40,
+    category: "Views",
+    Influencer: 10,
+    "Sponsored search ads": 15,
+    "TikTok ads": 11,
+    "Instagram Ads": 10,
+    Email: 4,
+    LinkedIn: 15,
+    "Radio ads": 10,
+    "TV ads": 15,
+    "Google banner ads": 10,
   },
   {
-    time: "Apr-15",
-    channel: "TikTok ads",
-    percentage_spending: 20,
-    percentage_views: 31,
-    percentage_leads: 0,
-    percentage_accounts: 20,
-    percentage_revenue: 50,
+    category: "Leads",
+    Influencer: 11,
+    "Sponsored search ads": 11,
+    "TikTok ads": 25,
+    "Instagram Ads": 10,
+    Email: 13,
+    LinkedIn: 6,
+    "Radio ads": 10,
+    "TV ads": 4,
+    "Google banner ads": 10,
   },
   {
-    time: "Apr-15",
-    channel: "Instagram Ads",
-    percentage_spending: 4,
-    percentage_views: 19,
-    percentage_leads: 0,
-    percentage_accounts: 30,
-    percentage_revenue: 60,
+    category: "New Accounts",
+    Influencer: 5,
+    "Sponsored search ads": 10,
+    "TikTok ads": 20,
+    "Instagram Ads": 30,
+    Email: 18,
+    LinkedIn: 5,
+    "Radio ads": 5,
+    "TV ads": 5,
+    "Google banner ads": 2,
   },
   {
-    time: "Apr-15",
-    channel: "Email",
-    percentage_spending: 2,
-    percentage_views: 4,
-    percentage_leads: 0,
-    percentage_accounts: 40,
-    percentage_revenue: 10,
-  },
-  {
-    time: "Apr-15",
-    channel: "LinkedIn",
-    percentage_spending: 4,
-    percentage_views: 15,
-    percentage_leads: 26,
-    percentage_accounts: 10,
-    percentage_revenue: 35,
-  },
-  {
-    time: "Apr-15",
-    channel: "Radio ads",
-    percentage_spending: 3,
-    percentage_views: 17,
-    percentage_leads: 26,
-    percentage_accounts: 10,
-    percentage_revenue: 40,
-  },
-  {
-    time: "Apr-15",
-    channel: "TV ads",
-    percentage_spending: 3,
-    percentage_views: 13,
-    percentage_leads: 26,
-    percentage_accounts: 10,
-    percentage_revenue: 30,
-  },
-  {
-    time: "Apr-15",
-    channel: "Google banner ads",
-    percentage_spending: 4,
-    percentage_views: 14,
-    percentage_leads: 0,
-    percentage_accounts: 10,
-    percentage_revenue: 20,
+    category: "Revenue",
+    Influencer: 15,
+    "Sponsored search ads": 25,
+    "TikTok ads": 10,
+    "Instagram Ads": 10,
+    Email: 5,
+    LinkedIn: 10,
+    "Radio ads": 10,
+    "TV ads": 10,
+    "Google banner ads": 5,
   },
 ];
 
@@ -99,51 +78,49 @@ export default function StackedBarChart() {
   return (
     <section className="mt-6">
       <h2 className="mb-4 text-lg font-semibold">
-        Stacked Bar Chart: Percentage Contribution by Channel
+        Stacked Bar Chart: Percentage Contribution by Category
       </h2>
 
       <ResponsiveContainer width="100%" height={400}>
         <BarChart
-          data={rawData}
+          data={transformedData}
           margin={{ top: 20, right: 30, left: 20, bottom: 10 }}
         >
-          <XAxis dataKey="channel" angle={45} textAnchor="start" />
+          <XAxis dataKey="category" />
           <YAxis tickFormatter={(tick) => `${tick}%`} />
           <Tooltip />
           <Legend />
 
-          <Bar
-            dataKey="percentage_spending"
-            stackId="a"
-            fill="#8884d8"
-            name="Spending"
-          />
-          <Bar
-            dataKey="percentage_views"
-            stackId="a"
-            fill="#82ca9d"
-            name="Views"
-          />
-          <Bar
-            dataKey="percentage_leads"
-            stackId="a"
-            fill="#ffc658"
-            name="Leads"
-          />
-          <Bar
-            dataKey="percentage_accounts"
-            stackId="a"
-            fill="#d84d4d"
-            name="New Accounts"
-          />
-          <Bar
-            dataKey="percentage_revenue"
-            stackId="a"
-            fill="#4d79d8"
-            name="Revenue"
-          />
+          {/* Dynamically generate Bars for each channel */}
+          {Object.keys(transformedData[0])
+            .filter((key) => key !== "category")
+            .map((channel, index) => (
+              <Bar
+                key={channel}
+                dataKey={channel}
+                stackId="a"
+                fill={getColor(index)}
+                name={channel}
+              />
+            ))}
         </BarChart>
       </ResponsiveContainer>
     </section>
   );
 }
+
+// Helper function to assign colors dynamically
+const getColor = (index) => {
+  const colors = [
+    "#8884d8",
+    "#82ca9d",
+    "#ffc658",
+    "#d84d4d",
+    "#4d79d8",
+    "#a832a8",
+    "#32a852",
+    "#a89d32",
+    "#d8a832",
+  ];
+  return colors[index % colors.length];
+};
