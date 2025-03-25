@@ -1,9 +1,11 @@
 import { type AdCampaignData } from "@/types/adCampaignTypes";
+import { type datasynth } from "@/types/data_synth_22mar";
 import axios from "axios";
 
 export interface DbStructure {
   test_database: {
     campaign_data_mock: AdCampaignData[];
+    datasynth: datasynth[];
   };
 }
 
@@ -66,4 +68,38 @@ export const fetchUserByUsername = async (
     console.error("Failed to fetch user by username", error);
     return null;
   }
+};
+
+export interface DataSynthFilters {
+  countries: string[];
+  age_groups: string[];
+  channels: string[];
+}
+
+export const fetchDataSynthFilters = async (): Promise<DataSynthFilters | null> => {
+  try {
+    const response = await axios.get("http://localhost:5001/api/data_synth_22mar/filters");
+    return response.data as DataSynthFilters;
+  } catch (error) {
+    console.error("Failed to fetch datasynth filters", error);
+    return null;
+  }
+};
+
+export const fetchFilteredData = async ({
+  channels,
+  ageGroups,
+  countries,
+}: {
+  channels?: string[];
+  ageGroups?: string[];
+  countries?: string[];
+}) => {
+  const response = await axios.post("http://localhost:5001/api/filter-data", {
+    channels,
+    ageGroups,
+    countries,
+  });
+
+  return response.data;
 };

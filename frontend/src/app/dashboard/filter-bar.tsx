@@ -20,30 +20,17 @@ import { format } from "date-fns";
 import { CalendarIcon, Check, ChevronsUpDown, X } from "lucide-react";
 import { type DateRange } from "react-day-picker";
 import { Card } from "../../components/ui/card";
+import { useEffect, useState } from "react";
+import { fetchDataSynthFilters } from "@/api/dbApi";
+import { fetchFilteredData } from "@/api/dbApi";
 
 interface FilterOption {
   label: string;
   value: string;
 }
 
-const channels: FilterOption[] = [
-  { label: "Instagram", value: "instagram" },
-  { label: "Email", value: "email" },
-  { label: "Google Banner Ads", value: "google" },
-  { label: "Influencer", value: "influencer" },
-  { label: "Facebook", value: "facebook" },
-  { label: "LinkedIn", value: "linkedin" },
-  { label: "Newspaper", value: "newspaper" },
-  { label: "Radio", value: "radio" },
-];
 
-const ageGroups: FilterOption[] = [
-  { label: "18-24", value: "18-24" },
-  { label: "25-34", value: "25-34" },
-  { label: "35-44", value: "35-44" },
-  { label: "45-54", value: "45-54" },
-  { label: "55+", value: "55+" },
-];
+
 
 interface FilterPopoverProps {
   options: FilterOption[];
@@ -128,6 +115,78 @@ export default function FilterBar({
   selectedAgeGroups,
   setSelectedAgeGroups,
 }: FilterBarProps) {
+  
+  const [channels, setChannels] = useState<FilterOption[]>([]);
+  const [loadingChannels, setLoadingChannels] = useState(true);
+
+  const [ageGroups, setAgeGroups] = useState<FilterOption[]>([]);
+  const [loadingAgeGroups, setLoadingAgeGroups] = useState(true);
+
+  const [countries, setCountries] = useState<FilterOption[]>([]);
+  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
+  const [loadingCountries, setLoadingCountries] = useState(true);
+
+  const [filteredData, setFilteredData] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadFilters = async () => {
+      const filters = await fetchDataSynthFilters();
+  
+      if (filters?.channels) {
+        const options = filters.channels.map((ch) => ({
+          label: formatLabel(ch),
+          value: ch.toLowerCase().replace(/\s+/g, "-"),
+        }));
+        setChannels(options);
+      }
+  
+      if (filters?.age_groups) {
+        const ageOptions = filters.age_groups.map((age) => ({
+          label: age,
+          value: age,
+        }));
+        setAgeGroups(ageOptions);
+      }
+
+      if (filters?.countries) {
+        const countryOptions = filters.countries.map((country) => ({
+          label: formatLabel(country),
+          value: country.toLowerCase().replace(/\s+/g, "-"),
+        }));
+        setCountries(countryOptions);
+      }
+      setLoadingCountries(false);    
+      setLoadingChannels(false);
+      setLoadingAgeGroups(false);
+    };
+  
+    loadFilters();
+  }, []);
+   
+  useEffect(() => {
+    const fetchData = async () => {
+  
+      const data = await fetchFilteredData({
+        channels: selectedChannels,
+        ageGroups: selectedAgeGroups,
+        countries: selectedCountries,
+      });
+      
+      console.log("🎯 Filtered data:", data);
+      setFilteredData(data); // or setState for charts/cards etc.
+    };
+  
+    fetchData();
+  }, [selectedChannels, selectedAgeGroups, selectedCountries]);
+  
+  
+
+  const formatLabel = (str: string) =>
+    str
+      .split(" ")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(" ");
+      
   const hasActiveFilters =
     dateRange ?? selectedChannels.length > 0 ?? selectedAgeGroups.length > 0;
 
@@ -185,25 +244,47 @@ export default function FilterBar({
       </section>
 
       <section className="flex-1">
-        <FilterPopover
-          options={channels}
-          selected={selectedChannels}
-          onSelectionChange={setSelectedChannels}
-          placeholder="Channels"
-          searchPlaceholder="Search channels..."
-          emptyMessage="No channel found."
-        />
+        {loadingChannels ? (
+          <p className="text-muted-foreground text-sm">Loading channels...</p>
+        ) : (
+          <FilterPopover
+            options={channels}
+            selected={selectedChannels}
+            onSelectionChange={setSelectedChannels}
+            placeholder="Channels"
+            searchPlaceholder="Search channels..."
+            emptyMessage="No channel found."
+          />
+        )}
       </section>
 
       <section className="flex-1">
-        <FilterPopover
-          options={ageGroups}
-          selected={selectedAgeGroups}
-          onSelectionChange={setSelectedAgeGroups}
-          placeholder="Age Group"
-          searchPlaceholder="Search age groups..."
-          emptyMessage="No age group found."
-        />
+        {loadingAgeGroups ? (
+          <p className="text-muted-foreground text-sm">Loading age groups...</p>
+        ) : (
+          <FilterPopover
+            options={ageGroups}
+            selected={selectedAgeGroups}
+            onSelectionChange={setSelectedAgeGroups}
+            placeholder="Age Group"
+            searchPlaceholder="Search age groups..."
+            emptyMessage="No age group found."
+          />
+        )}
+      </section>
+      <section className="flex-1">
+        {loadingCountries ? (
+          <p className="text-muted-foreground text-sm">Loading countries...</p>
+        ) : (
+          <FilterPopover
+            options={countries}
+            selected={selectedCountries}
+            onSelectionChange={setSelectedCountries}
+            placeholder="Country"
+            searchPlaceholder="Search countries..."
+            emptyMessage="No country found."
+          />
+        )}
       </section>
     </Card>
   );

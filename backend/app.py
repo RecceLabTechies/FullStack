@@ -9,6 +9,8 @@ from pymongo import MongoClient
 from bson import json_util
 from werkzeug.utils import secure_filename
 from flask import Flask, jsonify, request, make_response
+import re
+
 
 # Initialize Flask application
 app = Flask(__name__)
@@ -282,6 +284,47 @@ def get_user_by_username():
     except Exception as e:
         print(f"Error retrieving user: {e}")
         return jsonify({"error": str(e)}), 500
+    
+@app.route("/api/data_synth_22mar/filters", methods=["GET"])
+def get_data_synth_filters():
+    try:
+        collection = db["data_synth_22mar"]
+
+        # Use MongoDB's distinct() to get unique values for each field
+        countries = collection.distinct("country")
+        age_groups = collection.distinct("age_group")
+        channels = collection.distinct("channel")
+
+        return jsonify({
+            "countries": countries,
+            "age_groups": age_groups,
+            "channels": channels
+        })
+    except Exception as e:
+        print(f"Error getting filters: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/filter-data", methods=["POST"])
+def filter_data():
+    data = request.json
+    query = {}
+
+    if data.get("channels"):
+        query["channel"] = {
+            "$in": [re.compile(f"^{c.replace('-', ' ')}$", re.IGNORECASE) for c in data["channels"]]
+        }
+
+    if data.get("countries"):
+        query["country"] = {
+            "$in": [re.compile(f"^{c.replace('-', ' ')}$", re.IGNORECASE) for c in data["countries"]]
+        }
+
+    if data.get("ageGroups"):
+        query["age_group"] = {"$in": data["ageGroups"]}
+
+
+    results = list(db["data_synth_22mar"].find(query, {"_id": 0}))
+    return jsonify(results)
 
 
 if __name__ == "__main__":
