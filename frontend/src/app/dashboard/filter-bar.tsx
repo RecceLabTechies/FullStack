@@ -23,6 +23,7 @@ import { Card } from "../../components/ui/card";
 import { useEffect, useState } from "react";
 import { fetchDataSynthFilters } from "@/api/dbApi";
 import { fetchFilteredData } from "@/api/dbApi";
+import DatePicker from "@/components/ui/DatePicker";
 
 interface FilterOption {
   label: string;
@@ -128,6 +129,25 @@ export default function FilterBar({
 
   const [filteredData, setFilteredData] = useState<any[]>([]);
 
+  const [dateMode, setDateMode] = useState<"single" | "range">("single");
+  const [singleDate, setSingleDate] = useState<{ year: string; month: string }>({ year: "", month: "" });
+  const [fromDate, setFromDate] = useState<string>("");
+  const [toDate, setToDate] = useState<string>("");
+
+// In FilterBar.tsx
+  const [appliedFromDate, setAppliedFromDate] = useState<string>("");
+  const [appliedToDate, setAppliedToDate] = useState<string>("");
+  const [appliedSingleDate, setAppliedSingleDate] = useState<{ year: string; month: string }>({ year: "", month: "" });
+
+  const [datePopoverOpen, setDatePopoverOpen] = useState(false);
+
+  const handleDateApply = () => {
+    setAppliedFromDate(fromDate);
+    setAppliedToDate(toDate);
+    setAppliedSingleDate({ ...singleDate });
+  };
+
+
   useEffect(() => {
     const loadFilters = async () => {
       const filters = await fetchDataSynthFilters();
@@ -165,21 +185,34 @@ export default function FilterBar({
    
   useEffect(() => {
     const fetchData = async () => {
+      const from = dateMode === "range" ? appliedFromDate : buildFromSingle(appliedSingleDate);
+      const to = dateMode === "range" ? appliedToDate : buildToSingle(appliedSingleDate);
   
       const data = await fetchFilteredData({
         channels: selectedChannels,
         ageGroups: selectedAgeGroups,
         countries: selectedCountries,
+        from,
+        to,
       });
-      
-      console.log("🎯 Filtered data:", data);
-      setFilteredData(data); // or setState for charts/cards etc.
+  
+      console.log("Filtered data:", data);
+      setFilteredData(data);
     };
   
     fetchData();
-  }, [selectedChannels, selectedAgeGroups, selectedCountries]);
+  }, [selectedChannels, selectedAgeGroups, selectedCountries, appliedFromDate, appliedToDate, appliedSingleDate]);
   
   
+  const buildFromSingle = (date: { year: string; month: string }) => {
+    if (!date.year) return "";
+    return date.month ? `${date.month}/1/${date.year}` : `1/1/${date.year}`;
+  };
+
+  const buildToSingle = (date: { year: string; month: string }) => {
+    if (!date.year) return "";
+    return date.month ? `${date.month}/31/${date.year}` : `12/31/${date.year}`;
+  };
 
   const formatLabel = (str: string) =>
     str
@@ -188,13 +221,25 @@ export default function FilterBar({
       .join(" ");
       
   const hasActiveFilters =
-    dateRange ?? selectedChannels.length > 0 ?? selectedAgeGroups.length > 0;
+    selectedChannels.length > 0 ||
+    selectedAgeGroups.length > 0 ||
+    selectedCountries.length > 0 ||
+    (dateMode === "range" && fromDate && toDate) ||
+    (dateMode === "single" && singleDate.year);
 
   const clearFilters = () => {
-    setDateRange(undefined);
+    setDateRange(undefined); // if you're using this somewhere else
     setSelectedChannels([]);
     setSelectedAgeGroups([]);
+    setSelectedCountries([]);
+    setFromDate("");
+    setToDate("");
+    setSingleDate({ year: "", month: "" });
+    setAppliedFromDate("");
+    setAppliedToDate("");
+    setAppliedSingleDate({ year: "", month: "" }); // ✅ resets the *applied* date filter
   };
+    
 
   return (
     <Card className="flex flex-col items-center gap-4 p-4 md:flex-row">
@@ -213,35 +258,35 @@ export default function FilterBar({
         )}
       </header>
       <section className="flex-1">
-        <Popover>
+        <Popover open={datePopoverOpen} onOpenChange={setDatePopoverOpen}>
           <PopoverTrigger asChild>
             <Button
               variant="outline"
-              className="w-full justify-start bg-white text-left font-normal transition-colors hover:bg-gray-50"
+              className="w-full justify-between bg-white transition-colors hover:bg-gray-50"
             >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {dateRange?.from && dateRange?.to ? (
-                <>
-                  {format(dateRange.from, "LLL dd, y")} -{" "}
-                  {format(dateRange.to, "LLL dd, y")}
-                </>
-              ) : (
-                <span>Date Range</span>
-              )}
+              Date
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              initialFocus
-              mode="range"
-              defaultMonth={new Date()}
-              selected={dateRange}
-              onSelect={setDateRange}
-              numberOfMonths={2}
+          <PopoverContent className="w-auto p-0">
+            <DatePicker
+              dateMode={dateMode}
+              setDateMode={setDateMode}
+              singleDate={singleDate}
+              setSingleDate={setSingleDate}
+              fromDate={fromDate}
+              toDate={toDate}
+              setFromDate={setFromDate}
+              setToDate={setToDate}
+              onApply={() => {
+                handleDateApply();
+                setDatePopoverOpen(false); // ✅ collapse after apply
+              }}
             />
           </PopoverContent>
         </Popover>
       </section>
+
 
       <section className="flex-1">
         {loadingChannels ? (

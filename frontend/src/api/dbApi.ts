@@ -90,15 +90,21 @@ export const fetchFilteredData = async ({
   channels,
   ageGroups,
   countries,
+  from,
+  to,
 }: {
   channels?: string[];
   ageGroups?: string[];
   countries?: string[];
+  from?: string;   
+  to?: string; 
 }) => {
   const response = await axios.post("http://localhost:5001/api/filter-data", {
     channels,
     ageGroups,
     countries,
+    from,
+    to,
   });
 
   return response.data;

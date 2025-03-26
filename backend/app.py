@@ -322,9 +322,82 @@ def filter_data():
     if data.get("ageGroups"):
         query["age_group"] = {"$in": data["ageGroups"]}
 
+    from_date = data.get("from")
+    to_date = data.get("to")
+
+    if from_date and to_date:
+        try:
+            # Wrap the match condition in $expr so MongoDB can evaluate dates
+            results = list(db["data_synth_22mar"].find({
+                "$and": [
+                    query,
+                    {
+                        "$expr": {
+                            "$and": [
+                                {"$gte": [{"$dateFromString": {"dateString": "$Date"}}, {"$dateFromString": {"dateString": from_date}}]},
+                                {"$lte": [{"$dateFromString": {"dateString": "$Date"}}, {"$dateFromString": {"dateString": to_date}}]},
+                            ]
+                        }
+                    }
+                ]
+            }, {"_id": 0}))
+            return jsonify(results)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 400
+
 
     results = list(db["data_synth_22mar"].find(query, {"_id": 0}))
     return jsonify(results)
+
+
+@app.route("/api/inspect-date-type", methods=["GET"])
+def inspect_date_type():
+    try:
+        # Fetch one sample document
+        sample = db["data_synth_22mar"].find_one({}, {"Date": 1, "_id": 0})
+
+        if not sample or "Date" not in sample:
+            return jsonify({"message": "No Date field found in sample."}), 404
+
+        date_value = sample["Date"]
+        return jsonify({
+            "value": date_value,
+            "type": str(type(date_value))
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+
+@app.route("/api/test-date-filter", methods=["GET"])
+def test_date_filter():
+    try:
+        # Example hardcoded date range
+        from_date = "1/1/2022"
+        to_date = "1/10/2022"
+
+        results = list(db["data_synth_22mar"].find({
+            "$expr": {
+                "$and": [
+                    {"$gte": [{"$dateFromString": {"dateString": "$Date"}}, {"$dateFromString": {"dateString": from_date}}]},
+                    {"$lte": [{"$dateFromString": {"dateString": "$Date"}}, {"$dateFromString": {"dateString": to_date}}]},
+                ]
+            }
+        }, {"_id": 0}))
+
+        return jsonify({
+            "from": from_date,
+            "to": to_date,
+            "count": len(results),
+            "sample": results[:10]  # Return sample results
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+
+
 
 
 if __name__ == "__main__":
