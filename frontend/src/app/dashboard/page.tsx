@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useState } from "react";
 import { type DateRange } from "react-day-picker";
 import RevenueChart from "./revenue-chart";
+import HeatmapChart from "@/app/dashboard/cost-heatmap";
+import StackedBarChart from "./stacked-bar-chart";
 
 export default function Page() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -59,6 +61,12 @@ export default function Page() {
       </section>
       <section className="mt-6 space-y-6">
         <AdSpendTable />
+      </section>
+
+      {/* New */}
+      <section className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <HeatmapChart />
+        <StackedBarChart />
       </section>
     </main>
   );
