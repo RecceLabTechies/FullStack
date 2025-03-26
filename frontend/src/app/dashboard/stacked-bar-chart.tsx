@@ -92,17 +92,18 @@ export default function StackedBarChart() {
           <Legend />
 
           {/* Dynamically generate Bars for each channel */}
-          {Object.keys(transformedData[0])
-            .filter((key) => key !== "category")
-            .map((channel, index) => (
-              <Bar
-                key={channel}
-                dataKey={channel}
-                stackId="a"
-                fill={getColor(index)}
-                name={channel}
-              />
-            ))}
+          {transformedData.length > 0 &&
+            Object.keys(transformedData[0] as Record<string, number | string>)
+              .filter((key) => key !== "category")
+              .map((channel, index) => (
+                <Bar
+                  key={channel}
+                  dataKey={channel}
+                  stackId="a"
+                  fill={getColor(index)}
+                  name={channel}
+                />
+              ))}
         </BarChart>
       </ResponsiveContainer>
     </section>
@@ -110,7 +111,7 @@ export default function StackedBarChart() {
 }
 
 // Helper function to assign colors dynamically
-const getColor = (index) => {
+const getColor = (index: number): string => {
   const colors = [
     "#8884d8",
     "#82ca9d",
@@ -122,5 +123,5 @@ const getColor = (index) => {
     "#a89d32",
     "#d8a832",
   ];
-  return colors[index % colors.length];
+  return colors[index % colors.length] ?? "#000000"; // Fallback color to ensure string return
 };
