@@ -94,26 +94,6 @@ export default function AuthPage() {
       setIsLoading(true);
       setError("");
 
-      // Master login credentials check
-      if (
-        values.email === "admin@recce.com" &&
-        values.password === "Admin@123"
-      ) {
-        const masterUser: User = {
-          username: "admin",
-          email: values.email,
-          password: values.password,
-          role: "admin",
-          company: "RecceLabs",
-          chart_access: true,
-          report_generation_access: true,
-          user_management_access: true,
-        };
-        localStorage.setItem("user", JSON.stringify(masterUser));
-        router.push("/dashboard");
-        return;
-      }
-
       // Regular user check from database
       if (!users) {
         setError("User data is not available. Try again later.");

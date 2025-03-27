@@ -22,10 +22,6 @@ build/
 *.swp
 *.swo
 
-# Jupyter Notebook
-.ipynb_checkpoints
-*.ipynb
-
 # Logs
 *.log
 logs/
