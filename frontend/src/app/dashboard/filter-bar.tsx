@@ -127,7 +127,20 @@ export default function FilterBar({
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
   const [loadingCountries, setLoadingCountries] = useState(true);
 
-  const [filteredData, setFilteredData] = useState<any[]>([]);
+  interface DataRecord {
+    Date: string;
+    ad_spend: string;
+    age_group: string;
+    campaign_id: string;
+    channel: string;
+    country: string;
+    leads: string;
+    new_accounts: string;
+    revenue: string;
+    views: string;
+  }
+
+  const [filteredData, setFilteredData] = useState<DataRecord[]>([]);
 
   const [dateMode, setDateMode] = useState<"single" | "range">("single");
   const [singleDate, setSingleDate] = useState<{ year: string; month: string }>({ year: "", month: "" });
@@ -150,58 +163,78 @@ export default function FilterBar({
 
   useEffect(() => {
     const loadFilters = async () => {
-      const filters = await fetchDataSynthFilters();
+      try {
+        const filters = await fetchDataSynthFilters();
   
-      if (filters?.channels) {
-        const options = filters.channels.map((ch) => ({
-          label: formatLabel(ch),
-          value: ch.toLowerCase().replace(/\s+/g, "-"),
-        }));
-        setChannels(options);
-      }
+        if (filters?.channels) {
+          const options = filters.channels.map((ch) => ({
+            label: formatLabel(ch),
+            value: ch.toLowerCase().replace(/\s+/g, "-"),
+          }));
+          setChannels(options);
+        }
   
-      if (filters?.age_groups) {
-        const ageOptions = filters.age_groups.map((age) => ({
-          label: age,
-          value: age,
-        }));
-        setAgeGroups(ageOptions);
+        if (filters?.age_groups) {
+          const ageOptions = filters.age_groups.map((age) => ({
+            label: age,
+            value: age,
+          }));
+          setAgeGroups(ageOptions);
+        }
+  
+        if (filters?.countries) {
+          const countryOptions = filters.countries.map((country) => ({
+            label: formatLabel(country),
+            value: country.toLowerCase().replace(/\s+/g, "-"),
+          }));
+          setCountries(countryOptions);
+        }
+  
+        setLoadingChannels(false);
+        setLoadingAgeGroups(false);
+        setLoadingCountries(false);
+      } catch (err) {
+        console.error("Failed to load filter options:", err);
       }
-
-      if (filters?.countries) {
-        const countryOptions = filters.countries.map((country) => ({
-          label: formatLabel(country),
-          value: country.toLowerCase().replace(/\s+/g, "-"),
-        }));
-        setCountries(countryOptions);
-      }
-      setLoadingCountries(false);    
-      setLoadingChannels(false);
-      setLoadingAgeGroups(false);
     };
   
-    loadFilters();
+    void loadFilters(); // this avoids eslint warning for "no-floating-promises"
   }, []);
+  
    
   useEffect(() => {
     const fetchData = async () => {
-      const from = dateMode === "range" ? appliedFromDate : buildFromSingle(appliedSingleDate);
-      const to = dateMode === "range" ? appliedToDate : buildToSingle(appliedSingleDate);
+      try {
+        const from = dateMode === "range" ? appliedFromDate : buildFromSingle(appliedSingleDate);
+        const to = dateMode === "range" ? appliedToDate : buildToSingle(appliedSingleDate);
   
-      const data = await fetchFilteredData({
-        channels: selectedChannels,
-        ageGroups: selectedAgeGroups,
-        countries: selectedCountries,
-        from,
-        to,
-      });
+        const data = await fetchFilteredData({
+          channels: selectedChannels,
+          ageGroups: selectedAgeGroups,
+          countries: selectedCountries,
+          from,
+          to,
+        });
   
-      console.log("Filtered data:", data);
-      setFilteredData(data);
+        console.log("Filtered data:", data);
+        setFilteredData(data);
+      } catch (error) {
+        console.error("Error fetching filtered data:", error);
+      }
     };
   
-    fetchData();
-  }, [selectedChannels, selectedAgeGroups, selectedCountries, appliedFromDate, appliedToDate, appliedSingleDate]);
+    void fetchData();
+  }, [
+    selectedChannels,
+    selectedAgeGroups,
+    selectedCountries,
+    appliedFromDate,
+    appliedToDate,
+    appliedSingleDate,
+    dateMode // ✅ include this
+  ]);
+  
+  
   
   
   const buildFromSingle = (date: { year: string; month: string }) => {
