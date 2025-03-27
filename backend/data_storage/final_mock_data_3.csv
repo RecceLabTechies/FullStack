@@ -1,4 +1,4 @@
-Date,campaign_id,channel,age_group,ad_spend,views,leads,new_accounts,country,revenue
+date,campaign_id,channel,age_group,ad_spend,views,leads,new_accounts,country,revenue
 2023-10-29,October_2023_1,Instagram Ads,55-64,272,9845.217391304346,196.90434782608693,39.38086956521739,Singapore,443.47826086956513
 2023-10-29,October_2023_1,Instagram Ads,55-64,232,8397.391304347824,167.9478260869565,33.5895652173913,Malaysia,378.2608695652174
 2023-10-29,October_2023_1,Instagram Ads,55-64,226,8180.217391304347,163.60434782608695,32.72086956521739,Indonesia,368.4782608695652

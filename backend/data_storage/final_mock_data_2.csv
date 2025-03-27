@@ -1,4 +1,4 @@
-Date,campaign_id,channel,age_group,ad_spend,views,leads,new_accounts,country,revenue
+date,campaign_id,channel,age_group,ad_spend,views,leads,new_accounts,country,revenue
 2022-11-27,November_2022_1,TV ads,35-44,973,,,,Singapore,
 2022-11-27,November_2022_1,TV ads,35-44,191,,,,Malaysia,
 2022-11-27,November_2022_1,TV ads,35-44,162,,,,Indonesia,

@@ -1,4 +1,4 @@
-Date,campaign_id,channel,age_group,ad_spend,views,leads,new_accounts,country,revenue
+date,campaign_id,channel,age_group,ad_spend,views,leads,new_accounts,country,revenue
 2022-01-02,January_2022_1,Influencer,18-24,233,6746.869565217391,134.9373913043478,26.987478260869565,Singapore,303.9130434782609
 2022-01-02,January_2022_1,Influencer,18-24,737,21340.95652173913,426.81913043478266,85.36382608695654,Malaysia,961.304347826087
 2022-01-02,January_2022_1,Influencer,18-24,271,7847.217391304348,156.94434782608695,31.38886956521739,Indonesia,353.47826086956525
