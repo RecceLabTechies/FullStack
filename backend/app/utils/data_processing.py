@@ -1,13 +1,10 @@
 import csv
 import json
 import logging
-from datetime import datetime
 from io import StringIO
-
-import pandas as pd
 from bson import json_util
 from werkzeug.utils import secure_filename
-
+from app.models.data_types import CampaignData
 from app.database.schema import CAMPAIGN_FIELDS, matches_campaign_schema
 from app.database.connection import Database
 
@@ -53,7 +50,7 @@ def process_csv_data(file):
 
 def process_campaign_data(records):
     """
-    Process campaign data records with type conversions
+    Process campaign data records with type conversions using CampaignData model
 
     Args:
         records: List of campaign data records
@@ -61,43 +58,30 @@ def process_campaign_data(records):
     Returns:
         list: Processed records
     """
-    for record in records:
-        # Convert date string to datetime object for MongoDB
-        if "date" in record and record["date"]:
-            try:
-                # Parse date string in YYYY-MM-DD format
-                date_parts = record["date"].split("-")
-                if len(date_parts) == 3:
-                    year, month, day = map(int, date_parts)
-                    # Use datetime instead of date for MongoDB compatibility
-                    record["date"] = datetime(year, month, day)
-            except (ValueError, TypeError) as e:
-                logger.warning(f"Error converting date field: {e}")
-                # Skip records with invalid dates to avoid MongoDB validation errors
-                continue
-
-        # Convert numeric fields to float (double in MongoDB) as required by schema
-        for field in [
-            "ad_spend",
-            "views",
-            "leads",
-            "new_accounts",
-            "revenue",
-        ]:
-            if field in record:
-                try:
-                    record[field] = float(record[field]) if record[field] else 0.0
-                except (ValueError, TypeError):
-                    record[field] = 0.0  # Default to 0.0 if conversion fails
-
-    # Filter out records with missing required fields
     valid_records = []
     original_count = len(records)
+
     for record in records:
-        if all(
-            field in record and record[field] is not None for field in CAMPAIGN_FIELDS
-        ):
-            valid_records.append(record)
+        try:
+            # Use CampaignData class for validation and type conversion
+            campaign_obj = CampaignData(**record)
+            # Convert object to dict for MongoDB insertion
+            processed_record = {
+                "date": campaign_obj.date,
+                "campaign_id": campaign_obj.campaign_id,
+                "channel": campaign_obj.channel,
+                "age_group": campaign_obj.age_group,
+                "ad_spend": campaign_obj.ad_spend,
+                "views": campaign_obj.views,
+                "leads": campaign_obj.leads,
+                "new_accounts": campaign_obj.new_accounts,
+                "country": campaign_obj.country,
+                "revenue": campaign_obj.revenue,
+            }
+            valid_records.append(processed_record)
+        except Exception as e:
+            logger.warning(f"Error processing campaign record: {e}")
+            continue
 
     if len(valid_records) < original_count:
         logger.warning(

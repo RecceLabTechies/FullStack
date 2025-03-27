@@ -2,7 +2,6 @@
 Main application entry point
 """
 
-import os
 from app import create_app
 from app.config import HOST, PORT, DEBUG
 

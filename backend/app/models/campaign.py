@@ -1,5 +1,6 @@
 import logging
 import pandas as pd
+from app.models.data_types import CampaignData
 from app.database.connection import get_campaign_performance_collection
 
 logger = logging.getLogger(__name__)
@@ -18,7 +19,22 @@ def get_revenue_by_date():
     if not data:
         return []
 
-    df = pd.DataFrame(data)
+    # Convert raw data to CampaignData objects for proper typing
+    validated_data = []
+    for item in data:
+        try:
+            campaign_obj = CampaignData(**item)
+            validated_data.append(
+                {"date": campaign_obj.date, "revenue": campaign_obj.revenue}
+            )
+        except Exception as e:
+            logger.warning(f"Error converting campaign data: {e}")
+
+    if not validated_data:
+        df = pd.DataFrame(data)
+    else:
+        df = pd.DataFrame(validated_data)
+
     df = df[["date", "revenue"]]
     df["revenue"] = df["revenue"].astype(float)  # Convert to float for decimal values
     df_grouped = df.groupby("date", as_index=False).sum()

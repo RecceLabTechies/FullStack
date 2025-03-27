@@ -1,5 +1,5 @@
 import logging
-from data_types import UserData
+from app.models.data_types import UserData
 from app.database.connection import get_users_collection
 
 logger = logging.getLogger(__name__)
