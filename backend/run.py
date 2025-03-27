@@ -1,14 +1,10 @@
+#!/usr/bin/env python3
 """
-Main application entry point
+Alternative entry point for running the application
 """
-
-import os
 from app import create_app
 from app.config import HOST, PORT, DEBUG
 
-# Create Flask application
-app = create_app()
-
 if __name__ == "__main__":
-    # Start the Flask development server
+    app = create_app()
     app.run(host=HOST, port=PORT, debug=DEBUG)

@@ -1,21 +1,10 @@
-import { type AdCampaignData } from "@/types/adCampaignTypes";
+import { type CampaignData, type UserData } from "@/types/types";
 import axios from "axios";
 
 export interface DbStructure {
   test_database: {
-    campaign_data_mock: AdCampaignData[];
+    campaign_data_mock: CampaignData[];
   };
-}
-
-export interface User {
-  username: string;
-  email: string;
-  role: string;
-  company: string;
-  password: string;
-  chart_access: boolean;
-  report_generation_access: boolean;
-  user_management_access: boolean;
 }
 
 export const fetchDbStructure = async (): Promise<DbStructure | null> => {
@@ -28,17 +17,17 @@ export const fetchDbStructure = async (): Promise<DbStructure | null> => {
   }
 };
 
-export const fetchUsers = async (): Promise<User[] | null> => {
+export const fetchUsers = async (): Promise<UserData[] | null> => {
   try {
     const response = await axios.get("http://localhost:5001/api/users");
-    return response.data as User[];
+    return response.data as UserData[];
   } catch (error) {
     console.error("Failed to fetch users", error);
     return null;
   }
 };
 
-export const addUser = async (user: User): Promise<string | null> => {
+export const addUser = async (user: UserData): Promise<string | null> => {
   try {
     interface AddUserResponse {
       message: string;
@@ -56,12 +45,12 @@ export const addUser = async (user: User): Promise<string | null> => {
 
 export const fetchUserByUsername = async (
   username: string,
-): Promise<User | null> => {
+): Promise<UserData | null> => {
   try {
     const response = await axios.get(
       `http://localhost:5001/api/user?username=${username}`,
     );
-    return response.data as User;
+    return response.data as UserData;
   } catch (error) {
     console.error("Failed to fetch user by username", error);
     return null;

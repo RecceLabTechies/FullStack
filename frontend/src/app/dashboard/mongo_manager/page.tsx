@@ -22,7 +22,8 @@ import {
 import React, { useCallback, useState } from "react";
 
 interface UploadResponse {
-  success: boolean;
+  success?: boolean;
+  message?: string;
   count?: number;
   collection?: string;
   error?: string;
@@ -172,7 +173,7 @@ function UploadButton({ onUploadSuccess }: UploadButtonProps) {
 
       const result = (await response.json()) as UploadResponse;
 
-      if (response.ok && result.success) {
+      if (response.ok && (result.success || result.message)) {
         setUploadStatus(
           `Success: Uploaded ${result.count} records to ${result.collection}`,
         );
