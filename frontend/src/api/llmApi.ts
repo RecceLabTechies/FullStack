@@ -1,10 +1,28 @@
 import axios from "axios";
 
+// Define the chart data types based on backend types
+export interface AxisConfig {
+  dataKey: string;
+  label: string;
+  type: string;
+}
+
+export interface ChartDataType {
+  data: Record<string, unknown>[];
+  type: string;
+  xAxis: AxisConfig;
+  yAxis: AxisConfig;
+}
+
+// Define report results type
+export interface ReportResults {
+  results: Array<string | ChartDataType>;
+}
+
+// Response from the backend API
 export interface AnalysisResponse {
-  selected_json: string;
+  output: string | ChartDataType | ReportResults | null;
   original_query: string;
-  query_type: "chart" | "description" | "report";
-  output: string | Record<string, unknown> | null;
   error?: string;
 }
 
@@ -24,23 +42,23 @@ export const analyzeData = async (query: string): Promise<AnalysisResponse> => {
   }
 };
 
-export const checkHealth = async (): Promise<{ status: string }> => {
-  try {
-    const response = await axios.get<{ status: string }>(
-      `${LLM_API_BASE_URL}/api/health`,
-    );
-    return response.data;
-  } catch (error: unknown) {
-    throw new Error("Health check failed");
-  }
-};
-
-// Helper function to check if the response contains a chart
+// Helper function to check if the response is a chart
 export const isChartResponse = (response: AnalysisResponse): boolean => {
-  return response.query_type === "chart";
+  return (
+    response.output !== null &&
+    typeof response.output === "object" &&
+    "type" in response.output &&
+    "data" in response.output &&
+    "xAxis" in response.output &&
+    "yAxis" in response.output
+  );
 };
 
-// Helper function to check if the response contains a report
+// Helper function to check if the response is a report
 export const isReportResponse = (response: AnalysisResponse): boolean => {
-  return response.query_type === "report";
+  return (
+    response.output !== null &&
+    typeof response.output === "object" &&
+    "results" in response.output
+  );
 };

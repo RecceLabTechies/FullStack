@@ -1,6 +1,11 @@
 "use client";
 
-import { analyzeData } from "@/api/llmApi";
+import {
+  analyzeData,
+  isChartResponse,
+  isReportResponse,
+  type ChartDataType,
+} from "@/api/llmApi";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -56,74 +61,6 @@ interface Report {
   title: string;
   sections: ReportSection[];
 }
-
-interface ChartData {
-  data: Record<string, unknown>[];
-  type: string;
-  xAxis: {
-    dataKey: string;
-    label: string;
-    type: string;
-  };
-  yAxis: {
-    dataKey: string;
-    label: string;
-    type: string;
-  };
-}
-
-// Helper function to parse HTML elements from the description response
-const parseHTMLElements = (elementsString: string): JSX.Element[] => {
-  try {
-    // Clean up the string to get valid JSON
-    const cleanedString = elementsString
-      .replace(/^elements=\[/, "[") // Remove the "elements=" prefix
-      .replace(
-        /HTMLElement\(tag='([^']+)', content='([^']+)'\)/g,
-        '{"tag":"$1","content":"$2"}',
-      );
-
-    interface HtmlElement {
-      tag: string;
-      content: string;
-    }
-
-    const elements = JSON.parse(cleanedString) as HtmlElement[];
-
-    return elements.map((el: HtmlElement, index: number) => {
-      switch (el.tag) {
-        case "h2":
-          return (
-            <h2 key={index} className="mb-3 mt-6 text-2xl font-bold">
-              {el.content}
-            </h2>
-          );
-        case "h3":
-          return (
-            <h3 key={index} className="mb-2 mt-4 text-xl font-semibold">
-              {el.content}
-            </h3>
-          );
-        case "p":
-          return (
-            <p key={index} className="mb-4 text-muted-foreground">
-              {el.content}
-            </p>
-          );
-        default:
-          return <div key={index}>{el.content}</div>;
-      }
-    });
-  } catch (error) {
-    console.error(
-      "Failed to parse HTML elements:",
-      error,
-      "\nInput string:",
-      elementsString,
-    );
-    return [<p key="error">Error parsing content</p>];
-  }
-};
 
 const REPORT_TEMPLATES = [
   {
@@ -211,53 +148,80 @@ export default function ReportGenerationPage() {
 
     let newSection: ReportSection;
 
-    if (
-      response.query_type === "chart" &&
-      typeof response.output === "object" &&
-      response.output !== null
+    // Handle chart output type
+    if (isChartResponse(response)) {
+      // We know that response.output is a ChartDataType
+      const chartData = response.output as ChartDataType;
+
+      newSection = {
+        title: "Chart Analysis",
+        content: (
+          <div className="mt-4 h-[400px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={chartData.data}
+                margin={{ top: 20, right: 40, left: 55, bottom: 150 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey={chartData.xAxis.dataKey}
+                  label={{
+                    value: chartData.xAxis.label,
+                    position: "bottom",
+                    offset: 120,
+                  }}
+                  angle={90}
+                  dy={68}
+                  fontSize={12}
+                />
+                <YAxis
+                  dataKey={chartData.yAxis.dataKey}
+                  label={{
+                    value: chartData.yAxis.label,
+                    angle: -90,
+                    position: "left",
+                    offset: 30,
+                  }}
+                  fontSize={12}
+                />
+                <Tooltip />
+                <Line
+                  type="monotone"
+                  dataKey={chartData.yAxis.dataKey}
+                  strokeWidth={2}
+                  dot={{ r: 4 }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        ),
+        type: "chart",
+      };
+    }
+    // Handle report output type
+    else if (
+      isReportResponse(response) &&
+      response.output !== null &&
+      typeof response.output === "object"
     ) {
-      // Validate that response.output has the required ChartData properties
-      const output = response.output;
+      // Process report results
+      const reportResults = response.output;
+      if ("results" in reportResults && reportResults.results.length > 0) {
+        const firstResult = reportResults.results[0];
 
-      // Check if output has all required properties of ChartData
-      if (
-        Array.isArray(output.data) &&
-        typeof output.type === "string" &&
-        typeof output.xAxis === "object" &&
-        output.xAxis !== null &&
-        typeof output.yAxis === "object" &&
-        output.yAxis !== null
-      ) {
-        // Create type-safe references to xAxis and yAxis
-        const xAxis = output.xAxis as Record<string, unknown>;
-        const yAxis = output.yAxis as Record<string, unknown>;
-
-        // Verify all required properties exist with correct types
-        if (
-          typeof xAxis.dataKey === "string" &&
-          typeof xAxis.label === "string" &&
-          typeof xAxis.type === "string" &&
-          typeof yAxis.dataKey === "string" &&
-          typeof yAxis.label === "string" &&
-          typeof yAxis.type === "string"
-        ) {
-          const chartData: ChartData = {
-            data: output.data as Record<string, unknown>[],
-            type: output.type,
-            xAxis: {
-              dataKey: xAxis.dataKey,
-              label: xAxis.label,
-              type: xAxis.type,
-            },
-            yAxis: {
-              dataKey: yAxis.dataKey,
-              label: yAxis.label,
-              type: yAxis.type,
-            },
-          };
-
+        if (typeof firstResult === "string") {
           newSection = {
-            title: `Chart Analysis`,
+            title: "Report Analysis",
+            content: firstResult,
+            type: "text",
+            rawContent: firstResult,
+          };
+        } else {
+          // It's a chart in the report, we know it's ChartDataType
+          const chartData = firstResult!;
+          newSection = {
+            title: "Report Chart",
             content: (
               <div className="mt-4 h-[400px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
@@ -301,21 +265,16 @@ export default function ReportGenerationPage() {
             ),
             type: "chart",
           };
-        } else {
-          throw new Error("Invalid chart data format");
         }
       } else {
-        throw new Error("Invalid chart data format");
+        throw new Error("Report has no results");
       }
-    } else if (typeof response.output === "string") {
-      // Handle description/report type
+    }
+    // Handle string output (descriptions)
+    else if (typeof response.output === "string") {
       newSection = {
-        title: `Analysis`,
-        content: (
-          <div className="prose prose-sm dark:prose-invert">
-            {parseHTMLElements(response.output)}
-          </div>
-        ),
+        title: "Analysis",
+        content: response.output,
         type: "text",
         rawContent: response.output,
       };
@@ -401,11 +360,7 @@ export default function ReportGenerationPage() {
         if (i === index) {
           return {
             ...s,
-            content: (
-              <div className="prose prose-sm dark:prose-invert">
-                {parseHTMLElements(editedSectionContent)}
-              </div>
-            ),
+            content: editedSectionContent,
             rawContent: editedSectionContent,
           };
         }

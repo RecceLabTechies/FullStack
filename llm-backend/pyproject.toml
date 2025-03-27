@@ -1,0 +1,81 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "RecceLab LLM Backend"
+version = "0.1.0"
+description = "A data analysis and reporting tool"
+readme = "README.md"
+authors = [
+    {name = "Javian Ng", email = "javian.ng.z.h@gmail.com"}
+]
+license = {file = "LICENSE"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "pandas>=2.2.0",
+    "numpy>=2.2.0",
+    "matplotlib>=3.10.0",
+    "scikit-learn>=1.4.0",
+    "jupyter>=1.1.0",
+    "seaborn>=0.13.0",
+    "pydantic>=2.10.0",
+    "langchain>=0.3.0",
+    "langchain-ollama>=0.3.0",
+    "flask>=3.1.0",
+    "flask-cors>=5.0.0",
+    "flask-socketio>=5.5.0",
+    "httpx>=0.28.0",
+    "python-engineio>=4.11.0",
+    "python-socketio>=5.11.0",
+    "ollama>=0.4.0",
+    "beautifulsoup4>=4.13.0",
+    "nbformat>=5.10.0",
+    "jupyterlab>=4.3.0",
+    "ipykernel>=6.29.0",
+    "ipython>=9.0.0",
+    "notebook>=7.3.0",
+    "pillow>=11.1.0",
+    "orjson>=3.10.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.1.0",
+    "black>=24.0.0",
+    "isort>=5.13.0",
+    "flake8>=7.0.0",
+    "mypy>=1.8.0",
+    "jupyterlab>=4.3.0",
+    "ipykernel>=6.29.0",
+    "notebook>=7.3.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/RecceLabTechies/backend"
+"Bug Tracker" = "https://github.com/RecceLabTechies/backend/issues"
+
+[tool.black]
+line-length = 88
+target-version = ["py38"]
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"

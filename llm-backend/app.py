@@ -1,6 +1,10 @@
-from flask import Flask, request, jsonify
+from typing import Union
+
+from flask import Flask, jsonify, request
 from flask_cors import CORS
-from pipeline import run_pipeline, PipelineResult
+from mypackage.c_regular_generator import ChartDataType
+from mypackage.d_report_generator import ReportResults
+from pipeline import main as run_pipeline
 
 app = Flask(__name__)
 CORS(app)
@@ -21,24 +25,10 @@ def process_query():
 
     query = data["query"]
     try:
-        result: PipelineResult = run_pipeline(query)
+        result: Union[str, ChartDataType, ReportResults] = run_pipeline(query)
 
         # Convert the result to a JSON-serializable format
-        response = {
-            "selected_json": result.selected_json,
-            "original_query": result.original_query,
-            "query_type": result.query_type,
-        }
-
-        # Handle different output types
-        if result.query_type == "chart":
-            response["output"] = (
-                result.output if isinstance(result.output, dict) else str(result.output)
-            )
-        elif result.query_type in ["description", "report"]:
-            response["output"] = str(result.output)
-        else:
-            response["output"] = None
+        response = {"output": result, "original_query": query}
 
         return jsonify(response)
 
