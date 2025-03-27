@@ -1,6 +1,6 @@
 "use client";
 
-import { fetchDataSynthFilters, fetchFilteredData } from "@/api/dbApi";
+import { fetchDataSynthFilters, fetchFilteredData } from "@/api/backendApi";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {

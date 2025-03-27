@@ -1,6 +1,6 @@
 "use client";
 
-import { fetchUsers } from "@/api/dbApi";
+import { fetchUsers } from "@/api/backendApi";
 import {
   Card,
   CardContent,

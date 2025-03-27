@@ -11,8 +11,8 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { type UserData } from "@/types/types";
+import { fetchUsers } from "@/api/backendApi";
 import { zodResolver } from "@hookform/resolvers/zod";
-import axios from "axios";
 import { Bot, Loader2, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -58,17 +58,21 @@ export default function AuthPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const fetchUsers = async () => {
+    const fetchUserData = async () => {
       try {
-        const response = await axios.get("http://localhost:5001/api/users");
-        setUsers(response.data as UserData[]);
+        const data = await fetchUsers();
+        if (data) {
+          setUsers(data);
+        } else {
+          setError("Failed to load user data.");
+        }
       } catch (error) {
         console.error("Failed to fetch users", error);
         setError("Failed to load user data.");
       }
     };
 
-    void fetchUsers();
+    void fetchUserData();
   }, []);
 
   const loginForm = useForm<LoginValues>({

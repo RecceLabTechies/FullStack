@@ -1,6 +1,6 @@
 import { type CampaignData, type UserData } from "@/types/types";
-import axios from "axios";
 import type { AxiosResponse } from "axios";
+import axios from "axios";
 
 export interface DbStructure {
   test_database: {
@@ -10,7 +10,9 @@ export interface DbStructure {
 
 export const fetchDbStructure = async (): Promise<DbStructure | null> => {
   try {
-    const response = await axios.get("http://localhost:5001/api/db-structure");
+    const response = await axios.get(
+      "http://localhost:5001/api/v1/database-structures",
+    );
     return response.data as DbStructure;
   } catch (error) {
     console.error("Failed to fetch database structure", error);
@@ -64,15 +66,18 @@ export interface DataSynthFilters {
   channels: string[];
 }
 
-export const fetchDataSynthFilters = async (): Promise<DataSynthFilters | null> => {
-  try {
-    const response = await axios.get("http://localhost:5001/api/data_synth_22mar/filters");
-    return response.data as DataSynthFilters;
-  } catch (error) {
-    console.error("Failed to fetch datasynth filters", error);
-    return null;
-  }
-};
+export const fetchDataSynthFilters =
+  async (): Promise<DataSynthFilters | null> => {
+    try {
+      const response = await axios.get(
+        "http://localhost:5001/api/v1/campaigns/filter-options",
+      );
+      return response.data as DataSynthFilters;
+    } catch (error) {
+      console.error("Failed to fetch datasynth filters", error);
+      return null;
+    }
+  };
 
 type FilteredData = {
   Date: string;
@@ -87,8 +92,6 @@ type FilteredData = {
   views: string;
 };
 
-
-
 export const fetchFilteredData = async ({
   channels,
   ageGroups,
@@ -102,13 +105,60 @@ export const fetchFilteredData = async ({
   from?: string;
   to?: string;
 }): Promise<FilteredData[]> => {
-  const response: AxiosResponse<FilteredData[]> = await axios.post("http://localhost:5001/api/filter-data", {
-    channels,
-    ageGroups,
-    countries,
-    from,
-    to,
-  });
+  const response: AxiosResponse<FilteredData[]> = await axios.post(
+    "http://localhost:5001/api/v1/campaigns",
+    {
+      channels,
+      ageGroups,
+      countries,
+      from,
+      to,
+    },
+  );
 
   return response.data;
+};
+
+export interface RevenueData {
+  date: string;
+  revenue: number;
+}
+
+export const fetchRevenueData = async (): Promise<RevenueData[] | null> => {
+  try {
+    const response = await axios.get("http://localhost:5001/api/v1/revenues");
+    return response.data as RevenueData[];
+  } catch (error) {
+    console.error("Failed to fetch revenue data", error);
+    return null;
+  }
+};
+
+export interface CsvUploadResponse {
+  message: string;
+  count: number;
+  collection: string;
+}
+
+export const uploadCsv = async (
+  file: File,
+): Promise<CsvUploadResponse | null> => {
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await axios.post<CsvUploadResponse>(
+      "http://localhost:5001/api/v1/csv-imports",
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      },
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Failed to upload CSV", error);
+    return null;
+  }
 };

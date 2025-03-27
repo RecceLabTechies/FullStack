@@ -1,15 +1,16 @@
 #!/usr/bin/env python
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
 import numpy as np
 import pandas as pd
-from pydantic import BaseModel
-from langchain_ollama.llms import OllamaLLM
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_experimental.utilities import PythonREPL
-from scipy import stats
+from langchain_ollama.llms import OllamaLLM
 from pandas.api.types import (
     is_numeric_dtype,
 )
+from pydantic import BaseModel
+from scipy import stats
 
 
 class ColumnSelections(BaseModel):
