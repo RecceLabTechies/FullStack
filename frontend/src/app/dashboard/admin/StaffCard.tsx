@@ -19,7 +19,7 @@ import {
 import { useEffect, useState } from "react";
 
 interface StaffMember {
-  id: number;
+  username: string;
   name: string;
   role: string;
   permissions: {
@@ -33,7 +33,7 @@ type StaffPermissions = StaffMember["permissions"];
 
 interface StaffCardProps {
   staff: StaffMember;
-  updatePermissions: (id: number, permissions: StaffPermissions) => void;
+  updatePermissions: (username: string, permissions: StaffPermissions) => void;
 }
 
 function ClientSideContent({
@@ -71,9 +71,9 @@ function ClientSideContent({
       </div>
       <div className="flex items-center justify-between">
         <Tooltip>
-          <TooltipTrigger>Chart Viewing</TooltipTrigger>
+          <TooltipTrigger>User Management</TooltipTrigger>
           <TooltipContent>
-            <p>Allow user to view charts</p>
+            <p>Allow user to manage other users</p>
           </TooltipContent>
         </Tooltip>
         <Switch
@@ -114,7 +114,7 @@ export default function StaffCard({
   };
 
   const handleSave = () => {
-    updatePermissions(staff.id, permissions);
+    updatePermissions(staff.username, permissions);
     setIsDirty(false);
   };
 

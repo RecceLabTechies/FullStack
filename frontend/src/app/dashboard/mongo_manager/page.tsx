@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  fetchDbStructure,
-  uploadCsv,
-  type DbStructure,
-} from "@/api/backendApi";
+import { fetchDbStructure, uploadCsv } from "@/api/backendApi";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -23,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { type DbStructure } from "@/types/types";
 import React, { useCallback, useState } from "react";
 
 interface UploadButtonProps {

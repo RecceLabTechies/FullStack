@@ -11,6 +11,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import type { UserData } from "@/types/types";
 import { useEffect, useState } from "react";
+import { Toaster } from "sonner";
 import SearchBar from "./SearchBar";
 import StaffList from "./StaffList";
 
@@ -141,6 +142,7 @@ export default function AdminPage() {
 
   return (
     <section className="container mx-auto p-4">
+      <Toaster richColors position="top-right" />
       <Card>
         <CardHeader>
           <CardTitle>Staff Management</CardTitle>

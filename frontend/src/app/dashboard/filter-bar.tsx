@@ -1,366 +1,338 @@
 "use client";
 
-import { fetchDataSynthFilters, fetchFilteredData } from "@/api/backendApi";
+import { fetchCampaignFilterOptions } from "@/api/backendApi";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Calendar } from "@/components/ui/calendar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import DatePicker from "@/components/ui/DatePicker";
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+} from "@/components/ui/form";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { Check, ChevronsUpDown, X } from "lucide-react";
+import {
+  type CampaignFilterOptions,
+  type CampaignFilters,
+} from "@/types/types";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { format } from "date-fns";
+import { CalendarIcon } from "lucide-react";
 import { useEffect, useState } from "react";
-import { type DateRange } from "react-day-picker";
-
-interface FilterOption {
-  label: string;
-  value: string;
-}
-
-interface FilterPopoverProps {
-  options: FilterOption[];
-  selected: string[];
-  onSelectionChange: (selection: string[]) => void;
-  placeholder: string;
-  searchPlaceholder: string;
-  emptyMessage: string;
-}
-
-function FilterPopover({
-  options,
-  selected,
-  onSelectionChange,
-  placeholder,
-  searchPlaceholder,
-  emptyMessage,
-}: FilterPopoverProps) {
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          className="w-full justify-between bg-white transition-colors hover:bg-gray-50"
-        >
-          {selected.length > 0 ? `${selected.length} selected` : placeholder}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-full p-0">
-        <Command>
-          <CommandInput placeholder={searchPlaceholder} />
-          <CommandList>
-            <CommandEmpty>{emptyMessage}</CommandEmpty>
-            <CommandGroup>
-              {options.map((option) => (
-                <CommandItem
-                  key={option.value}
-                  value={option.value}
-                  onSelect={() => {
-                    onSelectionChange(
-                      selected.includes(option.value)
-                        ? selected.filter((s) => s !== option.value)
-                        : [...selected, option.value],
-                    );
-                  }}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4 transition-opacity",
-                      selected.includes(option.value)
-                        ? "opacity-100"
-                        : "opacity-0",
-                    )}
-                  />
-                  {option.label}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  );
-}
+import { useForm } from "react-hook-form";
+import * as z from "zod";
 
 interface FilterBarProps {
-  dateRange: DateRange | undefined;
-  setDateRange: (date: DateRange | undefined) => void;
-  selectedChannels: string[];
-  setSelectedChannels: (channels: string[]) => void;
-  selectedAgeGroups: string[];
-  setSelectedAgeGroups: (ageGroups: string[]) => void;
+  onFilterChange: (filters: Partial<CampaignFilters>) => void;
 }
 
-export default function FilterBar({
-  dateRange,
-  setDateRange,
-  selectedChannels,
-  setSelectedChannels,
-  selectedAgeGroups,
-  setSelectedAgeGroups,
-}: FilterBarProps) {
-  const [channels, setChannels] = useState<FilterOption[]>([]);
-  const [loadingChannels, setLoadingChannels] = useState(true);
+// Define form schema
+const FormSchema = z.object({
+  channel: z.string().optional().nullable(),
+  country: z.string().optional().nullable(),
+  ageGroup: z.string().optional().nullable(),
+  fromDate: z.date().optional(),
+  toDate: z.date().optional(),
+});
 
-  const [ageGroups, setAgeGroups] = useState<FilterOption[]>([]);
-  const [loadingAgeGroups, setLoadingAgeGroups] = useState(true);
+type FilterFormValues = z.infer<typeof FormSchema>;
 
-  const [countries, setCountries] = useState<FilterOption[]>([]);
-  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
-  const [loadingCountries, setLoadingCountries] = useState(true);
+export default function FilterBar({ onFilterChange }: FilterBarProps) {
+  // State for filter options
+  const [filterOptions, setFilterOptions] =
+    useState<CampaignFilterOptions | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  interface DataRecord {
-    Date: string;
-    ad_spend: string;
-    age_group: string;
-    campaign_id: string;
-    channel: string;
-    country: string;
-    leads: string;
-    new_accounts: string;
-    revenue: string;
-    views: string;
-  }
+  // Initialize form
+  const form = useForm<FilterFormValues>({
+    resolver: zodResolver(FormSchema),
+    defaultValues: {
+      channel: null,
+      country: null,
+      ageGroup: null,
+      fromDate: undefined,
+      toDate: undefined,
+    },
+  });
 
-  const [filteredData, setFilteredData] = useState<DataRecord[]>([]);
-
-  const [dateMode, setDateMode] = useState<"single" | "range">("single");
-  const [singleDate, setSingleDate] = useState<{ year: string; month: string }>(
-    { year: "", month: "" },
-  );
-  const [fromDate, setFromDate] = useState<string>("");
-  const [toDate, setToDate] = useState<string>("");
-
-  // In FilterBar.tsx
-  const [appliedFromDate, setAppliedFromDate] = useState<string>("");
-  const [appliedToDate, setAppliedToDate] = useState<string>("");
-  const [appliedSingleDate, setAppliedSingleDate] = useState<{
-    year: string;
-    month: string;
-  }>({ year: "", month: "" });
-
-  const [datePopoverOpen, setDatePopoverOpen] = useState(false);
-
-  const handleDateApply = () => {
-    setAppliedFromDate(fromDate);
-    setAppliedToDate(toDate);
-    setAppliedSingleDate({ ...singleDate });
-  };
-
+  // Watch for form changes and update filters automatically
   useEffect(() => {
-    const loadFilters = async () => {
+    const subscription = form.watch((values) => {
+      const filters: Partial<CampaignFilters> = {};
+
+      if (values.channel) {
+        filters.channels = [values.channel];
+      }
+
+      if (values.country) {
+        filters.countries = [values.country];
+      }
+
+      if (values.ageGroup) {
+        filters.age_groups = [values.ageGroup];
+      }
+
+      if (values.fromDate) {
+        filters.from_date = format(values.fromDate, "yyyy-MM-dd");
+      }
+
+      if (values.toDate) {
+        filters.to_date = format(values.toDate, "yyyy-MM-dd");
+      }
+
+      onFilterChange(filters);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [form, onFilterChange]);
+
+  // Fetch filter options on component mount
+  useEffect(() => {
+    const loadFilterOptions = async () => {
+      setLoading(true);
       try {
-        const filters = await fetchDataSynthFilters();
-
-        if (filters?.channels) {
-          const options = filters.channels.map((ch) => ({
-            label: formatLabel(ch),
-            value: ch.toLowerCase().replace(/\s+/g, "-"),
-          }));
-          setChannels(options);
+        const options = await fetchCampaignFilterOptions();
+        if (options) {
+          setFilterOptions(options);
+          setError(null);
+          console.log("Filter options loaded:", options);
+        } else {
+          setError("Failed to load filter options");
         }
-
-        if (filters?.age_groups) {
-          const ageOptions = filters.age_groups.map((age) => ({
-            label: age,
-            value: age,
-          }));
-          setAgeGroups(ageOptions);
-        }
-
-        if (filters?.countries) {
-          const countryOptions = filters.countries.map((country) => ({
-            label: formatLabel(country),
-            value: country.toLowerCase().replace(/\s+/g, "-"),
-          }));
-          setCountries(countryOptions);
-        }
-
-        setLoadingChannels(false);
-        setLoadingAgeGroups(false);
-        setLoadingCountries(false);
       } catch (err) {
-        console.error("Failed to load filter options:", err);
+        setError("An error occurred while fetching filter options");
+        console.error(err);
+      } finally {
+        setLoading(false);
       }
     };
 
-    void loadFilters(); // this avoids eslint warning for "no-floating-promises"
+    void loadFilterOptions();
   }, []);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const from =
-          dateMode === "range"
-            ? appliedFromDate
-            : buildFromSingle(appliedSingleDate);
-        const to =
-          dateMode === "range"
-            ? appliedToDate
-            : buildToSingle(appliedSingleDate);
+  if (loading) {
+    return <div className="p-4">Loading filter options...</div>;
+  }
 
-        const data = await fetchFilteredData({
-          channels: selectedChannels,
-          ageGroups: selectedAgeGroups,
-          countries: selectedCountries,
-          from,
-          to,
-        });
+  if (error) {
+    return <div className="p-4 text-destructive">{error}</div>;
+  }
 
-        console.log("Filtered data:", data);
-        setFilteredData(data);
-      } catch (error) {
-        console.error("Error fetching filtered data:", error);
-      }
-    };
-
-    void fetchData();
-  }, [
-    selectedChannels,
-    selectedAgeGroups,
-    selectedCountries,
-    appliedFromDate,
-    appliedToDate,
-    appliedSingleDate,
-    dateMode, // ✅ include this
-  ]);
-
-  const buildFromSingle = (date: { year: string; month: string }) => {
-    if (!date.year) return "";
-    return date.month ? `${date.month}/1/${date.year}` : `1/1/${date.year}`;
-  };
-
-  const buildToSingle = (date: { year: string; month: string }) => {
-    if (!date.year) return "";
-    return date.month ? `${date.month}/31/${date.year}` : `12/31/${date.year}`;
-  };
-
-  const formatLabel = (str: string) =>
-    str
-      .split(" ")
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-      .join(" ");
-
-  const hasActiveFilters =
-    selectedChannels.length > 0 ||
-    selectedAgeGroups.length > 0 ||
-    selectedCountries.length > 0 ||
-    (dateMode === "range" && fromDate && toDate) ||
-    (dateMode === "single" && singleDate.year);
-
-  const clearFilters = () => {
-    setDateRange(undefined); // if you're using this somewhere else
-    setSelectedChannels([]);
-    setSelectedAgeGroups([]);
-    setSelectedCountries([]);
-    setFromDate("");
-    setToDate("");
-    setSingleDate({ year: "", month: "" });
-    setAppliedFromDate("");
-    setAppliedToDate("");
-    setAppliedSingleDate({ year: "", month: "" }); // ✅ resets the *applied* date filter
-  };
+  if (!filterOptions?.categorical) {
+    return <div className="text-warning p-4">No filter options available</div>;
+  }
 
   return (
-    <Card className="flex flex-col items-center gap-4 p-4 md:flex-row">
-      <header className="flex items-center gap-2">
-        <h2 className="text-lg font-bold">Filter By</h2>
-        {hasActiveFilters && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearFilters}
-            className="h-8 px-2 text-muted-foreground hover:text-foreground"
-          >
-            <X className="mr-1 h-4 w-4" />
-            Clear
-          </Button>
-        )}
-      </header>
-      <section className="flex-1">
-        <Popover open={datePopoverOpen} onOpenChange={setDatePopoverOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              className="w-full justify-between bg-white transition-colors hover:bg-gray-50"
-            >
-              Date
-              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0">
-            <DatePicker
-              dateMode={dateMode}
-              setDateMode={setDateMode}
-              singleDate={singleDate}
-              setSingleDate={setSingleDate}
-              fromDate={fromDate}
-              toDate={toDate}
-              setFromDate={setFromDate}
-              setToDate={setToDate}
-              onApply={() => {
-                handleDateApply();
-                setDatePopoverOpen(false); // ✅ collapse after apply
-              }}
-            />
-          </PopoverContent>
-        </Popover>
-      </section>
+    <Card className="mb-4">
+      <CardHeader>
+        <CardTitle>Filter Dashboard Data</CardTitle>
+      </CardHeader>
+      <Form {...form}>
+        <form>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
+              {/* Channel Filter */}
+              <FormField
+                control={form.control}
+                name="channel"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Channel</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value ?? undefined}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="All Channels" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {filterOptions.categorical.channels.map((channel) => (
+                          <SelectItem key={channel} value={channel}>
+                            {channel}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )}
+              />
 
-      <section className="flex-1">
-        {loadingChannels ? (
-          <p className="text-sm text-muted-foreground">Loading channels...</p>
-        ) : (
-          <FilterPopover
-            options={channels}
-            selected={selectedChannels}
-            onSelectionChange={setSelectedChannels}
-            placeholder="Channels"
-            searchPlaceholder="Search channels..."
-            emptyMessage="No channel found."
-          />
-        )}
-      </section>
+              {/* Country Filter */}
+              <FormField
+                control={form.control}
+                name="country"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Country</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value ?? undefined}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="All Countries" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {filterOptions.categorical.countries.map((country) => (
+                          <SelectItem key={country} value={country}>
+                            {country}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )}
+              />
 
-      <section className="flex-1">
-        {loadingAgeGroups ? (
-          <p className="text-sm text-muted-foreground">Loading age groups...</p>
-        ) : (
-          <FilterPopover
-            options={ageGroups}
-            selected={selectedAgeGroups}
-            onSelectionChange={setSelectedAgeGroups}
-            placeholder="Age Group"
-            searchPlaceholder="Search age groups..."
-            emptyMessage="No age group found."
-          />
-        )}
-      </section>
-      <section className="flex-1">
-        {loadingCountries ? (
-          <p className="text-sm text-muted-foreground">Loading countries...</p>
-        ) : (
-          <FilterPopover
-            options={countries}
-            selected={selectedCountries}
-            onSelectionChange={setSelectedCountries}
-            placeholder="Country"
-            searchPlaceholder="Search countries..."
-            emptyMessage="No country found."
-          />
-        )}
-      </section>
+              {/* Age Group Filter */}
+              <FormField
+                control={form.control}
+                name="ageGroup"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Age Group</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value ?? undefined}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="All Age Groups" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {filterOptions.categorical.age_groups.map(
+                          (ageGroup) => (
+                            <SelectItem key={ageGroup} value={ageGroup}>
+                              {ageGroup}
+                            </SelectItem>
+                          ),
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )}
+              />
+
+              {/* From Date Filter */}
+              <FormField
+                control={form.control}
+                name="fromDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>From Date</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !field.value && "text-muted-foreground",
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {field.value
+                              ? format(field.value, "PPP")
+                              : "Select date"}
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={field.onChange}
+                          initialFocus
+                          fromDate={
+                            filterOptions.date_range
+                              ? new Date(filterOptions.date_range.min_date)
+                              : undefined
+                          }
+                          toDate={
+                            filterOptions.date_range
+                              ? new Date(filterOptions.date_range.max_date)
+                              : undefined
+                          }
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </FormItem>
+                )}
+              />
+
+              {/* To Date Filter */}
+              <FormField
+                control={form.control}
+                name="toDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>To Date</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !field.value && "text-muted-foreground",
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {field.value
+                              ? format(field.value, "PPP")
+                              : "Select date"}
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={field.onChange}
+                          initialFocus
+                          fromDate={
+                            form.getValues().fromDate ??
+                            (filterOptions.date_range
+                              ? new Date(filterOptions.date_range.min_date)
+                              : undefined)
+                          }
+                          toDate={
+                            filterOptions.date_range
+                              ? new Date(filterOptions.date_range.max_date)
+                              : undefined
+                          }
+                          disabled={(date) => {
+                            const fromDate = form.getValues().fromDate;
+                            return fromDate ? date < fromDate : false;
+                          }}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </FormItem>
+                )}
+              />
+            </div>
+          </CardContent>
+        </form>
+      </Form>
     </Card>
   );
 }
