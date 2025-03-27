@@ -1,6 +1,5 @@
 "use client";
 
-import type { User } from "@/api/dbApi";
 import { fetchUsers } from "@/api/dbApi";
 import {
   Card,
@@ -10,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { UserData } from "@/types/types";
 import { useEffect, useState } from "react";
 import SearchBar from "./SearchBar";
 import StaffList from "./StaffList";
@@ -43,17 +43,17 @@ function SkeletonStaffList() {
 }
 
 export default function AdminPage() {
-  const [users, setUsers] = useState<User[] | null>(null);
-  const [filteredUsers, setFilteredUsers] = useState<User[] | null>(null);
+  const [users, setUsers] = useState<UserData[] | null>(null);
+  const [filteredUsers, setFilteredUsers] = useState<UserData[] | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserData | null>(null);
 
   useEffect(() => {
     // Get current user from localStorage
     const userStr = localStorage.getItem("user");
     if (userStr) {
-      const user = JSON.parse(userStr) as User;
+      const user = JSON.parse(userStr) as UserData;
       setCurrentUser(user);
     }
   }, []);

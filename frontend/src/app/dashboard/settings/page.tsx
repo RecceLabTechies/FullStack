@@ -1,6 +1,5 @@
 "use client";
 
-import { type User } from "@/api/dbApi";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -14,6 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import { type UserData } from "@/types/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -58,7 +58,7 @@ export default function SettingsPage() {
   useEffect(() => {
     const userStr = localStorage.getItem("user");
     if (userStr) {
-      const user = JSON.parse(userStr) as User;
+      const user = JSON.parse(userStr) as UserData;
       form.reset({
         username: user.username,
         email: user.email,
@@ -75,7 +75,7 @@ export default function SettingsPage() {
     // Update localStorage with new user data
     const userStr = localStorage.getItem("user");
     if (userStr) {
-      const user = JSON.parse(userStr) as User;
+      const user = JSON.parse(userStr) as UserData;
       const updatedUser = {
         ...user,
         ...data,

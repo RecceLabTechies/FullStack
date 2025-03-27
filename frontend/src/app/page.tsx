@@ -1,6 +1,5 @@
 "use client";
 
-import { type User } from "@/api/dbApi";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -11,6 +10,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { type UserData } from "@/types/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import axios from "axios";
 import { Bot, Loader2, TrendingUp } from "lucide-react";
@@ -52,7 +52,7 @@ type SignUpValues = z.infer<typeof signUpSchema>;
 
 export default function AuthPage() {
   const [isSignUp, setIsSignUp] = useState(false);
-  const [users, setUsers] = useState<User[] | null>(null);
+  const [users, setUsers] = useState<UserData[] | null>(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
@@ -61,7 +61,7 @@ export default function AuthPage() {
     const fetchUsers = async () => {
       try {
         const response = await axios.get("http://localhost:5001/api/users");
-        setUsers(response.data as User[]);
+        setUsers(response.data as UserData[]);
       } catch (error) {
         console.error("Failed to fetch users", error);
         setError("Failed to load user data.");

@@ -1,6 +1,6 @@
 "use client";
 
-import { type User } from "@/api/dbApi";
+import { type UserData } from "@/types/types";
 import { useEffect, useState } from "react";
 import StaffCard from "./StaffCard";
 
@@ -18,7 +18,7 @@ interface StaffMember {
 }
 
 interface StaffListProps {
-  users: User[];
+  users: UserData[];
 }
 
 export default function StaffList({ users }: StaffListProps) {
