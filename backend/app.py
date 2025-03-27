@@ -1,16 +1,15 @@
-import os
 import csv
 import json
-import pandas as pd
-from io import StringIO
-from flask_cors import CORS
-from datetime import datetime
-from pymongo import MongoClient
-from bson import json_util
-from werkzeug.utils import secure_filename
-from flask import Flask, jsonify, request, make_response
+import os
 import re
+from io import StringIO
 
+import pandas as pd
+from bson import json_util
+from flask import Flask, jsonify, make_response, request
+from flask_cors import CORS
+from pymongo import MongoClient
+from werkzeug.utils import secure_filename
 
 # Initialize Flask application
 app = Flask(__name__)
@@ -284,7 +283,8 @@ def get_user_by_username():
     except Exception as e:
         print(f"Error retrieving user: {e}")
         return jsonify({"error": str(e)}), 500
-    
+
+
 @app.route("/api/data_synth_22mar/filters", methods=["GET"])
 def get_data_synth_filters():
     try:
@@ -295,14 +295,13 @@ def get_data_synth_filters():
         age_groups = collection.distinct("age_group")
         channels = collection.distinct("channel")
 
-        return jsonify({
-            "countries": countries,
-            "age_groups": age_groups,
-            "channels": channels
-        })
+        return jsonify(
+            {"countries": countries, "age_groups": age_groups, "channels": channels}
+        )
     except Exception as e:
         print(f"Error getting filters: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 @app.route("/api/filter-data", methods=["POST"])
 def filter_data():
@@ -311,12 +310,18 @@ def filter_data():
 
     if data.get("channels"):
         query["channel"] = {
-            "$in": [re.compile(f"^{c.replace('-', ' ')}$", re.IGNORECASE) for c in data["channels"]]
+            "$in": [
+                re.compile(f"^{c.replace('-', ' ')}$", re.IGNORECASE)
+                for c in data["channels"]
+            ]
         }
 
     if data.get("countries"):
         query["country"] = {
-            "$in": [re.compile(f"^{c.replace('-', ' ')}$", re.IGNORECASE) for c in data["countries"]]
+            "$in": [
+                re.compile(f"^{c.replace('-', ' ')}$", re.IGNORECASE)
+                for c in data["countries"]
+            ]
         }
 
     if data.get("ageGroups"):
@@ -328,23 +333,53 @@ def filter_data():
     if from_date and to_date:
         try:
             # Wrap the match condition in $expr so MongoDB can evaluate dates
-            results = list(db["data_synth_22mar"].find({
-                "$and": [
-                    query,
+            results = list(
+                db["data_synth_22mar"].find(
                     {
-                        "$expr": {
-                            "$and": [
-                                {"$gte": [{"$dateFromString": {"dateString": "$Date"}}, {"$dateFromString": {"dateString": from_date}}]},
-                                {"$lte": [{"$dateFromString": {"dateString": "$Date"}}, {"$dateFromString": {"dateString": to_date}}]},
-                            ]
-                        }
-                    }
-                ]
-            }, {"_id": 0}))
+                        "$and": [
+                            query,
+                            {
+                                "$expr": {
+                                    "$and": [
+                                        {
+                                            "$gte": [
+                                                {
+                                                    "$dateFromString": {
+                                                        "dateString": "$Date"
+                                                    }
+                                                },
+                                                {
+                                                    "$dateFromString": {
+                                                        "dateString": from_date
+                                                    }
+                                                },
+                                            ]
+                                        },
+                                        {
+                                            "$lte": [
+                                                {
+                                                    "$dateFromString": {
+                                                        "dateString": "$Date"
+                                                    }
+                                                },
+                                                {
+                                                    "$dateFromString": {
+                                                        "dateString": to_date
+                                                    }
+                                                },
+                                            ]
+                                        },
+                                    ]
+                                }
+                            },
+                        ]
+                    },
+                    {"_id": 0},
+                )
+            )
             return jsonify(results)
         except Exception as e:
             return jsonify({"error": str(e)}), 400
-
 
     results = list(db["data_synth_22mar"].find(query, {"_id": 0}))
     return jsonify(results)
@@ -360,44 +395,10 @@ def inspect_date_type():
             return jsonify({"message": "No Date field found in sample."}), 404
 
         date_value = sample["Date"]
-        return jsonify({
-            "value": date_value,
-            "type": str(type(date_value))
-        })
+        return jsonify({"value": date_value, "type": str(type(date_value))})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-
-
-@app.route("/api/test-date-filter", methods=["GET"])
-def test_date_filter():
-    try:
-        # Example hardcoded date range
-        from_date = "1/1/2022"
-        to_date = "1/10/2022"
-
-        results = list(db["data_synth_22mar"].find({
-            "$expr": {
-                "$and": [
-                    {"$gte": [{"$dateFromString": {"dateString": "$Date"}}, {"$dateFromString": {"dateString": from_date}}]},
-                    {"$lte": [{"$dateFromString": {"dateString": "$Date"}}, {"$dateFromString": {"dateString": to_date}}]},
-                ]
-            }
-        }, {"_id": 0}))
-
-        return jsonify({
-            "from": from_date,
-            "to": to_date,
-            "count": len(results),
-            "sample": results[:10]  # Return sample results
-        })
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    
-
-
 
 
 if __name__ == "__main__":

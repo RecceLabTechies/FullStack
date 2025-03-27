@@ -1,7 +1,8 @@
 "use client";
 
+import { fetchDataSynthFilters, fetchFilteredData } from "@/api/dbApi";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
+import { Card } from "@/components/ui/card";
 import {
   Command,
   CommandEmpty,
@@ -10,28 +11,21 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import DatePicker from "@/components/ui/DatePicker";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
-import { CalendarIcon, Check, ChevronsUpDown, X } from "lucide-react";
-import { type DateRange } from "react-day-picker";
-import { Card } from "../../components/ui/card";
+import { Check, ChevronsUpDown, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { fetchDataSynthFilters } from "@/api/dbApi";
-import { fetchFilteredData } from "@/api/dbApi";
-import DatePicker from "@/components/ui/DatePicker";
+import { type DateRange } from "react-day-picker";
 
 interface FilterOption {
   label: string;
   value: string;
 }
-
-
-
 
 interface FilterPopoverProps {
   options: FilterOption[];
@@ -116,7 +110,6 @@ export default function FilterBar({
   selectedAgeGroups,
   setSelectedAgeGroups,
 }: FilterBarProps) {
-  
   const [channels, setChannels] = useState<FilterOption[]>([]);
   const [loadingChannels, setLoadingChannels] = useState(true);
 
@@ -143,14 +136,19 @@ export default function FilterBar({
   const [filteredData, setFilteredData] = useState<DataRecord[]>([]);
 
   const [dateMode, setDateMode] = useState<"single" | "range">("single");
-  const [singleDate, setSingleDate] = useState<{ year: string; month: string }>({ year: "", month: "" });
+  const [singleDate, setSingleDate] = useState<{ year: string; month: string }>(
+    { year: "", month: "" },
+  );
   const [fromDate, setFromDate] = useState<string>("");
   const [toDate, setToDate] = useState<string>("");
 
-// In FilterBar.tsx
+  // In FilterBar.tsx
   const [appliedFromDate, setAppliedFromDate] = useState<string>("");
   const [appliedToDate, setAppliedToDate] = useState<string>("");
-  const [appliedSingleDate, setAppliedSingleDate] = useState<{ year: string; month: string }>({ year: "", month: "" });
+  const [appliedSingleDate, setAppliedSingleDate] = useState<{
+    year: string;
+    month: string;
+  }>({ year: "", month: "" });
 
   const [datePopoverOpen, setDatePopoverOpen] = useState(false);
 
@@ -160,12 +158,11 @@ export default function FilterBar({
     setAppliedSingleDate({ ...singleDate });
   };
 
-
   useEffect(() => {
     const loadFilters = async () => {
       try {
         const filters = await fetchDataSynthFilters();
-  
+
         if (filters?.channels) {
           const options = filters.channels.map((ch) => ({
             label: formatLabel(ch),
@@ -173,7 +170,7 @@ export default function FilterBar({
           }));
           setChannels(options);
         }
-  
+
         if (filters?.age_groups) {
           const ageOptions = filters.age_groups.map((age) => ({
             label: age,
@@ -181,7 +178,7 @@ export default function FilterBar({
           }));
           setAgeGroups(ageOptions);
         }
-  
+
         if (filters?.countries) {
           const countryOptions = filters.countries.map((country) => ({
             label: formatLabel(country),
@@ -189,7 +186,7 @@ export default function FilterBar({
           }));
           setCountries(countryOptions);
         }
-  
+
         setLoadingChannels(false);
         setLoadingAgeGroups(false);
         setLoadingCountries(false);
@@ -197,17 +194,22 @@ export default function FilterBar({
         console.error("Failed to load filter options:", err);
       }
     };
-  
+
     void loadFilters(); // this avoids eslint warning for "no-floating-promises"
   }, []);
-  
-   
+
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const from = dateMode === "range" ? appliedFromDate : buildFromSingle(appliedSingleDate);
-        const to = dateMode === "range" ? appliedToDate : buildToSingle(appliedSingleDate);
-  
+        const from =
+          dateMode === "range"
+            ? appliedFromDate
+            : buildFromSingle(appliedSingleDate);
+        const to =
+          dateMode === "range"
+            ? appliedToDate
+            : buildToSingle(appliedSingleDate);
+
         const data = await fetchFilteredData({
           channels: selectedChannels,
           ageGroups: selectedAgeGroups,
@@ -215,14 +217,14 @@ export default function FilterBar({
           from,
           to,
         });
-  
+
         console.log("Filtered data:", data);
         setFilteredData(data);
       } catch (error) {
         console.error("Error fetching filtered data:", error);
       }
     };
-  
+
     void fetchData();
   }, [
     selectedChannels,
@@ -231,12 +233,9 @@ export default function FilterBar({
     appliedFromDate,
     appliedToDate,
     appliedSingleDate,
-    dateMode // ✅ include this
+    dateMode, // ✅ include this
   ]);
-  
-  
-  
-  
+
   const buildFromSingle = (date: { year: string; month: string }) => {
     if (!date.year) return "";
     return date.month ? `${date.month}/1/${date.year}` : `1/1/${date.year}`;
@@ -252,7 +251,7 @@ export default function FilterBar({
       .split(" ")
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
       .join(" ");
-      
+
   const hasActiveFilters =
     selectedChannels.length > 0 ||
     selectedAgeGroups.length > 0 ||
@@ -272,7 +271,6 @@ export default function FilterBar({
     setAppliedToDate("");
     setAppliedSingleDate({ year: "", month: "" }); // ✅ resets the *applied* date filter
   };
-    
 
   return (
     <Card className="flex flex-col items-center gap-4 p-4 md:flex-row">
@@ -320,10 +318,9 @@ export default function FilterBar({
         </Popover>
       </section>
 
-
       <section className="flex-1">
         {loadingChannels ? (
-          <p className="text-muted-foreground text-sm">Loading channels...</p>
+          <p className="text-sm text-muted-foreground">Loading channels...</p>
         ) : (
           <FilterPopover
             options={channels}
@@ -338,7 +335,7 @@ export default function FilterBar({
 
       <section className="flex-1">
         {loadingAgeGroups ? (
-          <p className="text-muted-foreground text-sm">Loading age groups...</p>
+          <p className="text-sm text-muted-foreground">Loading age groups...</p>
         ) : (
           <FilterPopover
             options={ageGroups}
@@ -352,7 +349,7 @@ export default function FilterBar({
       </section>
       <section className="flex-1">
         {loadingCountries ? (
-          <p className="text-muted-foreground text-sm">Loading countries...</p>
+          <p className="text-sm text-muted-foreground">Loading countries...</p>
         ) : (
           <FilterPopover
             options={countries}
