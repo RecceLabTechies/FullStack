@@ -1,5 +1,6 @@
 "use client";
 
+import { fetchUsers } from "@/api/backendApi";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -11,7 +12,6 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { type UserData } from "@/types/types";
-import { fetchUsers } from "@/api/backendApi";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Bot, Loader2, TrendingUp } from "lucide-react";
 import Link from "next/link";
