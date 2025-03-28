@@ -302,3 +302,83 @@ export const getDateTypes = async (): Promise<{
     return null;
   }
 };
+
+
+
+export const fetchDataSynthFilters =
+  async (): Promise<DataSynthFilters | null> => {
+    try {
+      const response = await axios.get(
+        "http://localhost:5001/api/data_synth_22mar/filters",
+      );
+      return response.data as DataSynthFilters;
+    } catch (error) {
+      console.error("Failed to fetch datasynth filters", error);
+      return null;
+    }
+  };
+
+type FilteredData = {
+  Date: string;
+  ad_spend: string;
+  age_group: string;
+  campaign_id: string;
+  channel: string;
+  country: string;
+  leads: string;
+  new_accounts: string;
+  revenue: string;
+  views: string;
+};
+
+
+// Yuting Function
+
+export const fetchFilteredData = async ({
+  channels,
+  ageGroups,
+  countries,
+  from,
+  to,
+}: {
+  channels?: string[];
+  ageGroups?: string[];
+  countries?: string[];
+  from?: string;
+  to?: string;
+}): Promise<FilteredData[]> => {
+  const response: AxiosResponse<FilteredData[]> = await axios.post(
+    "http://localhost:5001/api/filter-data",
+    {
+      channels,
+      ageGroups,
+      countries,
+      from,
+      to,
+    },
+  );
+
+  return response.data;
+};
+
+// data for cost heatmap
+export interface CostHeatmapData {
+  channel: string;
+  costPerLead: number;
+  costPerView: number;
+  costPerAccount: number;
+}
+
+export const fetchCostHeatmapData = async (): Promise<
+  CostHeatmapData[] | null
+> => {
+  try {
+    const response = await axios.get(
+      "http://localhost:5001/api/get-cost-heatmap-data",
+    );
+    return response.data as CostHeatmapData[];
+  } catch (error) {
+    console.error("Failed to fetch cost heatmap data", error);
+    return null;
+  }
+};

@@ -562,3 +562,63 @@ def inspect_date_type():
 
     date_value = sample["date"]
     return format_response({"value": date_value, "type": str(type(date_value))})
+
+# yuting code
+
+@data_bp.route("/api/get-cost-heatmap-data", methods=["GET"])
+def get_cost_heatmap_data():
+    try:
+        collection = db["final_mock_data"]
+        data = list(collection.find({}, {"_id": 0}))  # Fetch data, excluding _id
+
+        if not data:
+            return jsonify({"error": "No data found"}), 404
+
+        df = pd.DataFrame(data)
+
+        # Filter for Singapore and campaign_id "January_2022_1"
+        # Filter for channels with no missing values
+        df = df[(df["country"] == "Singapore") & (df["campaign_id"] == "January_2022_1")]
+        df = df[df["channel"].isin([
+            'LinkedIn', 'Facebook ads', 'Google banner ads', 'Influencer', 
+            'Instagram Ads', 'TikTok ads', 'Sponsored search ads'
+        ])]
+
+        if df.empty:
+            return jsonify({"error": "No data found for Singapore"}), 404
+
+        # Convert numeric columns
+        numeric_columns = ["ad_spend", "leads", "new_accounts", "views"]
+        for col in numeric_columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+
+        # Drop rows with missing values
+        df.dropna(inplace=True)
+
+        if df.empty:
+            return jsonify({"error": "No valid data after dropping NaNs"}), 404
+
+        # Grouping by channel and calculating sums
+        df_grouped = df.groupby("channel").agg({
+            "ad_spend": 'sum',
+            "leads": 'sum',
+            "new_accounts": "sum",
+            "views": "sum",
+        }).reset_index()
+
+        # Calculate cost metrics, avoiding division by zero
+        df_grouped["costPerLead"] = df_grouped["ad_spend"] / df_grouped["leads"].replace(0, 1e-6)
+        df_grouped["costPerView"] = df_grouped["ad_spend"] / df_grouped["views"].replace(0, 1e-6)
+        df_grouped["costPerAccount"] = df_grouped["ad_spend"] / df_grouped["new_accounts"].replace(0, 1e-6)
+
+        # Round values
+        df_grouped = df_grouped.round(4)
+
+        # Prepare data for response
+        data_summary = df_grouped[["channel", "costPerLead", "costPerView", "costPerAccount"]].to_dict(orient="records")
+
+        return jsonify(data_summary)
+
+    except Exception as e:
+        print(f"Error retrieving cost heatmap data: {e}")
+        return jsonify({"error": str(e)}), 500
