@@ -10,6 +10,7 @@ from flask import Flask, jsonify, make_response, request
 from flask_cors import CORS
 from pymongo import MongoClient
 from werkzeug.utils import secure_filename
+from prophet import Prophet
 
 # Initialize Flask application
 app = Flask(__name__)
@@ -46,6 +47,9 @@ try:
     print("Successfully connected to MongoDB")
 except Exception as e:
     print(f"Error connecting to MongoDB: {e}")
+
+
+
 
 
 @app.route("/api/db-structure", methods=["GET"])
@@ -398,6 +402,64 @@ def inspect_date_type():
         return jsonify({"value": date_value, "type": str(type(date_value))})
 
     except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/forecast", methods=["POST"])
+def get_forecast():
+    try:
+        # Get parameters from request
+        data = request.json
+        from_date = data.get("from_date")
+        to_date = data.get("to_date")
+        forecast_periods = data.get("periods", 4)  # Default to 4 periods if not specified
+        
+        if not from_date or not to_date:
+            return jsonify({"error": "from_date and to_date are required"}), 400
+
+        # Read and process data
+        df = pd.read_csv('final_mock_data.csv')
+        df['Date'] = pd.to_datetime(df['Date'])
+        df = df[df['Date'].isin(pd.date_range(start=from_date, end=to_date))]
+
+        # Resample to monthly data
+        df_grouped = df.resample("M", on='Date').agg({
+            'ad_spend': 'sum',
+            "new_accounts": "sum",
+            "revenue": "sum",
+        }).reset_index()
+
+        # Prepare data for response
+        df_plotting = df_grouped[['Date', 'revenue', 'ad_spend', 'new_accounts']]
+        df_plotting.rename(columns={'Date': 'ds'}, inplace=True)
+
+        # Initialize Prophet models and get forecasts
+        forecasts = {}
+        for column in ['revenue', 'ad_spend', 'new_accounts']:
+            # Prepare data for Prophet
+            df_prophet = df_grouped.rename(columns={'Date': 'ds', column: 'y'})
+            
+            # Create and fit model
+            model = Prophet()
+            model.fit(df_prophet)
+            
+            # Make future predictions
+            future = model.make_future_dataframe(periods=forecast_periods, freq='M')
+            forecast = model.predict(future)
+            
+            # Store forecast results
+            forecasts[column] = forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail(forecast_periods).to_dict('records')
+
+        # Prepare response
+        response = {
+            'historical_data': df_plotting.to_dict('records'),
+            'forecasts': forecasts
+        }
+
+        return jsonify(response)
+
+    except Exception as e:
+        print(f"Error generating forecast: {e}")
         return jsonify({"error": str(e)}), 500
 
 
