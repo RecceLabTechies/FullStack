@@ -9,7 +9,7 @@ import {
   TableBody,
   TableCell,
 } from "@/components/ui/table";
-import { fetchCostHeatmapData, CostHeatmapData } from "@/api/dbApi";
+import { fetchCostHeatmapData, CostHeatmapData } from "@/api/backendApi";
 
 export default function CostTable() {
   const [data, setData] = useState<CostHeatmapData[] | null>(null);

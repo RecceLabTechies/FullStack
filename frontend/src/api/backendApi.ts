@@ -13,7 +13,7 @@ import {
   type RoiPastMonth,
   type UserData,
 } from "@/types/types";
-import axios from "axios";
+import axios, { AxiosResponse } from "axios";
 
 const API_BASE_URL = "http://localhost:5001";
 
@@ -303,21 +303,6 @@ export const getDateTypes = async (): Promise<{
   }
 };
 
-
-
-export const fetchDataSynthFilters =
-  async (): Promise<DataSynthFilters | null> => {
-    try {
-      const response = await axios.get(
-        "http://localhost:5001/api/data_synth_22mar/filters",
-      );
-      return response.data as DataSynthFilters;
-    } catch (error) {
-      console.error("Failed to fetch datasynth filters", error);
-      return null;
-    }
-  };
-
 type FilteredData = {
   Date: string;
   ad_spend: string;
@@ -330,7 +315,6 @@ type FilteredData = {
   revenue: string;
   views: string;
 };
-
 
 // Yuting Function
 
