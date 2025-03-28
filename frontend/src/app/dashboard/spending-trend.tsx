@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import {
   LineChart,
   Line,
@@ -8,10 +9,18 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  CartesianGrid,
 } from "recharts";
+import { format, parseISO } from "date-fns";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2 } from "lucide-react";
 
-// Example of transformed data to represent ad spend over time across channels
-const transformedData = [
+type SpendingDataPoint = {
+  date: string;
+  [channel: string]: string | number;
+};
+
+const sampleData: SpendingDataPoint[] = [
   {
     date: "2022-01-02",
     Influencer: 233,
@@ -33,57 +42,102 @@ const transformedData = [
     "TikTok ads": 170,
     Instagram: 120,
   },
-  // More data here...
 ];
 
+const CHANNEL_COLORS: Record<string, string> = {
+  Influencer: "#8884d8",
+  "Sponsored search ads": "#82ca9d",
+  "TikTok ads": "#ffc658",
+  Instagram: "#ff8042",
+};
+
 export default function SpendingTrendLineChart() {
+  const [data, setData] = useState<SpendingDataPoint[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = () => {
+      setIsLoading(true);
+      setTimeout(() => {
+        setData(sampleData);
+        setIsLoading(false);
+      }, 500);
+    };
+
+    fetchData();
+  }, []);
+
+  const formatDate = (dateStr: string) => {
+    try {
+      return format(parseISO(dateStr), "MMM d");
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const channels =
+    data.length > 0
+      ? Object.keys(data[0] ?? {}).filter((key) => key !== "date")
+      : [];
+
+  if (isLoading) {
+    return (
+      <Card className="flex h-64 items-center justify-center">
+        <CardContent>
+          <Loader2 className="animate-spin" />
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
-    <section className="mt-6">
-      <h2 className="mb-4 text-lg font-semibold">
-        Spending Trend Over Time Across Channels
-      </h2>
+    <Card>
+      <CardHeader>
+        <CardTitle>Spending Trend Over Time</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ResponsiveContainer width="100%" height={400}>
+          <LineChart
+            data={data}
+            margin={{ top: 20, right: 30, left: 20, bottom: 10 }}
+          >
+            <CartesianGrid
+              strokeDasharray="3 3"
+              vertical={false}
+              opacity={0.3}
+            />
+            <XAxis
+              dataKey="date"
+              tickFormatter={formatDate}
+              tick={{ fill: "#6b7280" }}
+            />
+            <YAxis
+              tickFormatter={(value) => `$${value}`}
+              tick={{ fill: "#6b7280" }}
+            />
+            <Tooltip
+              formatter={(value: number | string) => [`$${value}`, ``]}
+              labelFormatter={(label: string) => formatDate(label)}
+            />
+            <Legend />
 
-      <ResponsiveContainer width="100%" height={400}>
-        <LineChart
-          data={transformedData}
-          margin={{ top: 20, right: 30, left: 20, bottom: 10 }}
-        >
-          <XAxis dataKey="date" />
-          <YAxis />
-          <Tooltip />
-          <Legend />
-
-          {/* Dynamically generate Lines for each channel */}
-          {Object.keys(transformedData[0])
-            .filter((key) => key !== "date")
-            .map((channel, index) => (
+            {channels.map((channel, index) => (
               <Line
                 key={channel}
                 type="monotone"
                 dataKey={channel}
-                stroke={getColor(index)}
                 name={channel}
-                dot={false} // Removes dots on data points
+                stroke={
+                  CHANNEL_COLORS[channel] ?? `hsl(${index * 30}, 70%, 50%)`
+                }
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 6 }}
               />
             ))}
-        </LineChart>
-      </ResponsiveContainer>
-    </section>
+          </LineChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
   );
 }
-
-// Helper function to assign colors dynamically
-const getColor = (index) => {
-  const colors = [
-    "#8884d8",
-    "#82ca9d",
-    "#ffc658",
-    "#d84d4d",
-    "#4d79d8",
-    "#a832a8",
-    "#32a852",
-    "#a89d32",
-    "#d8a832",
-  ];
-  return colors[index % colors.length];
-};

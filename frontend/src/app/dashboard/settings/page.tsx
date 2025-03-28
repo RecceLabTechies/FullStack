@@ -15,7 +15,7 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { type UserData } from "@/types/types";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
@@ -48,8 +48,6 @@ const defaultValues: Partial<SettingsFormValues> = {
 };
 
 export default function SettingsPage() {
-  const [currentPlan] = useState("pro");
-
   const form = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsFormSchema),
     defaultValues,

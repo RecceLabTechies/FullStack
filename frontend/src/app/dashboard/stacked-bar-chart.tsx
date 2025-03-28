@@ -9,9 +9,29 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+// Define TypeScript type for data structure
+type CategoryDataPoint = {
+  category: string;
+  [channel: string]: string | number;
+};
+
+// Define color mapping for each channel
+const CHANNEL_COLORS: Record<string, string> = {
+  Influencer: "#8884d8",
+  "Sponsored search ads": "#82ca9d",
+  "TikTok ads": "#ffc658",
+  "Instagram Ads": "#d84d4d",
+  Email: "#4d79d8",
+  LinkedIn: "#a832a8",
+  "Radio ads": "#32a852",
+  "TV ads": "#a89d32",
+  "Google banner ads": "#d8a832",
+};
 
 // Transform data to be grouped by percentage categories instead of channels
-const transformedData = [
+const transformedData: CategoryDataPoint[] = [
   {
     category: "Spending",
     Influencer: 10,
@@ -75,52 +95,43 @@ const transformedData = [
 ];
 
 export default function StackedBarChart() {
+  // Get channels from the first data point safely
+  const channels =
+    transformedData.length > 0
+      ? Object.keys(transformedData[0] ?? {}).filter(
+          (key) => key !== "category",
+        )
+      : [];
+
   return (
-    <section className="mt-6">
-      <h2 className="mb-4 text-lg font-semibold">
-        Stacked Bar Chart: Percentage Contribution by Category
-      </h2>
+    <Card>
+      <CardHeader>
+        <CardTitle>Percentage Contribution by Category</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ResponsiveContainer width="100%" height={400}>
+          <BarChart
+            data={transformedData}
+            margin={{ top: 20, right: 30, left: 20, bottom: 10 }}
+          >
+            <XAxis dataKey="category" />
+            <YAxis tickFormatter={(tick) => `${tick}%`} />
+            <Tooltip />
+            <Legend />
 
-      <ResponsiveContainer width="100%" height={400}>
-        <BarChart
-          data={transformedData}
-          margin={{ top: 20, right: 30, left: 20, bottom: 10 }}
-        >
-          <XAxis dataKey="category" />
-          <YAxis tickFormatter={(tick) => `${tick}%`} />
-          <Tooltip />
-          <Legend />
-
-          {/* Dynamically generate Bars for each channel */}
-          {Object.keys(transformedData[0])
-            .filter((key) => key !== "category")
-            .map((channel, index) => (
+            {/* Dynamically generate Bars for each channel */}
+            {channels.filter(Boolean).map((channel) => (
               <Bar
                 key={channel}
                 dataKey={channel}
                 stackId="a"
-                fill={getColor(index)}
+                fill={CHANNEL_COLORS[channel] ?? "#777777"}
                 name={channel}
               />
             ))}
-        </BarChart>
-      </ResponsiveContainer>
-    </section>
+          </BarChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
   );
 }
-
-// Helper function to assign colors dynamically
-const getColor = (index) => {
-  const colors = [
-    "#8884d8",
-    "#82ca9d",
-    "#ffc658",
-    "#d84d4d",
-    "#4d79d8",
-    "#a832a8",
-    "#32a852",
-    "#a89d32",
-    "#d8a832",
-  ];
-  return colors[index % colors.length];
-};

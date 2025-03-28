@@ -9,7 +9,7 @@ import {
   TableBody,
   TableCell,
 } from "@/components/ui/table";
-import { fetchCostHeatmapData, CostHeatmapData } from "@/api/backendApi";
+import { fetchCostHeatmapData, type CostHeatmapData } from "@/api/backendApi";
 
 export default function CostTable() {
   const [data, setData] = useState<CostHeatmapData[] | null>(null);
@@ -30,7 +30,7 @@ export default function CostTable() {
       setLoading(false);
     };
 
-    loadData();
+    void loadData();
   }, []);
 
   return (

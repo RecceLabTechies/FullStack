@@ -13,7 +13,7 @@ import {
   type RoiPastMonth,
   type UserData,
 } from "@/types/types";
-import axios, { AxiosResponse } from "axios";
+import axios, { type AxiosResponse } from "axios";
 
 const API_BASE_URL = "http://localhost:5001";
 
