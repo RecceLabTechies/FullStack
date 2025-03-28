@@ -2,6 +2,7 @@ from typing import Union
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+
 from mypackage.c_regular_generator import ChartDataType
 from mypackage.d_report_generator import ReportResults
 from pipeline import main as run_pipeline

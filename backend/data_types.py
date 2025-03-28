@@ -15,36 +15,44 @@ class DataTypeConverter:
     @staticmethod
     def to_date(value: str) -> date:
         """Convert string to date object."""
+        if not value or value == "":
+            raise ValueError("Date value cannot be empty")
         try:
             year, month, day = map(int, value.split("-"))
             return date(year, month, day)
         except (ValueError, TypeError):
-            return value
+            raise ValueError(f"Invalid date format: {value}")
 
     @staticmethod
     def to_datetime(value: str) -> datetime:
         """Convert string to datetime object for MongoDB compatibility."""
+        if not value or value == "":
+            raise ValueError("Datetime value cannot be empty")
         try:
             year, month, day = map(int, value.split("-"))
             return datetime(year, month, day)
         except (ValueError, TypeError):
-            return value
+            raise ValueError(f"Invalid datetime format: {value}")
 
     @staticmethod
     def to_float(value: Any) -> float:
         """Convert value to float."""
+        if value == "":
+            return 0.0
         try:
             return float(value)
         except (ValueError, TypeError):
-            return value
+            return 0.0
 
     @staticmethod
     def to_int(value: Any) -> int:
         """Convert value to int."""
+        if value == "":
+            return 0
         try:
             return int(value)
         except (ValueError, TypeError):
-            return value
+            return 0
 
     @staticmethod
     def to_str(value: Any) -> str:

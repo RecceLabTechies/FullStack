@@ -4,7 +4,7 @@ from typing import List, Union
 
 from pydantic import BaseModel
 
-from mypackage.c_regular_generator.chart_data_generator import ChartDataType
+from mypackage.c_regular_generator.chart_generator import ChartDataType
 from mypackage.d_report_generator import truncated_pipeline
 from mypackage.d_report_generator.generate_analysis_queries import (
     QueryList,

@@ -2,9 +2,8 @@
 
 import {
   analyzeData,
-  isChartResponse,
+  isChartImageResponse,
   isReportResponse,
-  type ChartDataType,
 } from "@/api/llmApi";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,15 +31,6 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useState } from "react";
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import { toast } from "sonner";
 
 interface Message {
@@ -149,51 +139,14 @@ export default function ReportGenerationPage() {
     let newSection: ReportSection;
 
     // Handle chart output type
-    if (isChartResponse(response)) {
-      // We know that response.output is a ChartDataType
-      const chartData = response.output as ChartDataType;
+    if (isChartImageResponse(response)) {
+      const chartData = response.output as string;
 
       newSection = {
         title: "Chart Analysis",
         content: (
           <div className="mt-4 h-[400px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={chartData.data}
-                margin={{ top: 20, right: 40, left: 55, bottom: 150 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey={chartData.xAxis.dataKey}
-                  label={{
-                    value: chartData.xAxis.label,
-                    position: "bottom",
-                    offset: 120,
-                  }}
-                  angle={90}
-                  dy={68}
-                  fontSize={12}
-                />
-                <YAxis
-                  dataKey={chartData.yAxis.dataKey}
-                  label={{
-                    value: chartData.yAxis.label,
-                    angle: -90,
-                    position: "left",
-                    offset: 30,
-                  }}
-                  fontSize={12}
-                />
-                <Tooltip />
-                <Line
-                  type="monotone"
-                  dataKey={chartData.yAxis.dataKey}
-                  strokeWidth={2}
-                  dot={{ r: 4 }}
-                  activeDot={{ r: 6 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            <img src={chartData} alt="Chart" />
           </div>
         ),
         type: "chart",
@@ -224,43 +177,7 @@ export default function ReportGenerationPage() {
             title: "Report Chart",
             content: (
               <div className="mt-4 h-[400px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart
-                    data={chartData.data}
-                    margin={{ top: 20, right: 40, left: 55, bottom: 150 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis
-                      dataKey={chartData.xAxis.dataKey}
-                      label={{
-                        value: chartData.xAxis.label,
-                        position: "bottom",
-                        offset: 120,
-                      }}
-                      angle={90}
-                      dy={68}
-                      fontSize={12}
-                    />
-                    <YAxis
-                      dataKey={chartData.yAxis.dataKey}
-                      label={{
-                        value: chartData.yAxis.label,
-                        angle: -90,
-                        position: "left",
-                        offset: 30,
-                      }}
-                      fontSize={12}
-                    />
-                    <Tooltip />
-                    <Line
-                      type="monotone"
-                      dataKey={chartData.yAxis.dataKey}
-                      strokeWidth={2}
-                      dot={{ r: 4 }}
-                      activeDot={{ r: 6 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+                <img src={chartData} alt="Chart" />
               </div>
             ),
             type: "chart",

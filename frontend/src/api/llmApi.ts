@@ -1,27 +1,13 @@
 import axios from "axios";
 
-// Define the chart data types based on backend types
-export interface AxisConfig {
-  dataKey: string;
-  label: string;
-  type: string;
-}
-
-export interface ChartDataType {
-  data: Record<string, unknown>[];
-  type: string;
-  xAxis: AxisConfig;
-  yAxis: AxisConfig;
-}
-
 // Define report results type
 export interface ReportResults {
-  results: Array<string | ChartDataType>;
+  results: Array<string>;
 }
 
 // Response from the backend API
 export interface AnalysisResponse {
-  output: string | ChartDataType | ReportResults | null;
+  output: string | ReportResults | null;
   original_query: string;
   error?: string;
 }
@@ -42,15 +28,16 @@ export const analyzeData = async (query: string): Promise<AnalysisResponse> => {
   }
 };
 
-// Helper function to check if the response is a chart
-export const isChartResponse = (response: AnalysisResponse): boolean => {
+// Helper function to check if the response is a chart image URL (new format)
+export const isChartImageResponse = (response: AnalysisResponse): boolean => {
   return (
     response.output !== null &&
-    typeof response.output === "object" &&
-    "type" in response.output &&
-    "data" in response.output &&
-    "xAxis" in response.output &&
-    "yAxis" in response.output
+    typeof response.output === "string" &&
+    (response.output.startsWith("http://") ||
+      response.output.startsWith("https://")) &&
+    (response.output.includes(".png") ||
+      response.output.includes(".jpg") ||
+      response.output.includes(".jpeg"))
   );
 };
 

@@ -6,8 +6,8 @@ from mypackage.a_query_processor import query_classifier, query_validator
 from mypackage.b_data_processor import json_processor, json_selector
 from mypackage.c_regular_generator import (
     ChartDataType,
-    chart_data_generator,
     description_generator,
+    generate_and_upload_chart,
 )
 from mypackage.d_report_generator import ReportResults, report_generator
 
@@ -83,7 +83,7 @@ def main(query: str) -> Union[str, ChartDataType, ReportResults]:
     try:
         if classification_result == "chart":
             logger.info("Generating chart visualization")
-            return chart_data_generator.generate_chart_data(df, query)
+            return generate_and_upload_chart(df, query)
         elif classification_result == "description":
             logger.info("Generating data description")
             return description_generator.generate_description(df, query)
