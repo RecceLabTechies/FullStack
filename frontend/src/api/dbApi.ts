@@ -1,11 +1,10 @@
 import { type AdCampaignData } from "@/types/adCampaignTypes";
-import { type datasynth } from "@/types/data_synth_22mar";
 import axios from "axios";
+import type { AxiosResponse } from "axios";
 
 export interface DbStructure {
   test_database: {
     campaign_data_mock: AdCampaignData[];
-    datasynth: datasynth[];
   };
 }
 
@@ -86,19 +85,40 @@ export const fetchDataSynthFilters = async (): Promise<DataSynthFilters | null> 
   }
 };
 
+type FilteredData = {
+  Date: string;
+  ad_spend: string;
+  age_group: string;
+  campaign_id: string;
+  channel: string;
+  country: string;
+  leads: string;
+  new_accounts: string;
+  revenue: string;
+  views: string;
+};
+
+
+
 export const fetchFilteredData = async ({
   channels,
   ageGroups,
   countries,
+  from,
+  to,
 }: {
   channels?: string[];
   ageGroups?: string[];
   countries?: string[];
-}) => {
-  const response = await axios.post("http://localhost:5001/api/filter-data", {
+  from?: string;
+  to?: string;
+}): Promise<FilteredData[]> => {
+  const response: AxiosResponse<FilteredData[]> = await axios.post("http://localhost:5001/api/filter-data", {
     channels,
     ageGroups,
     countries,
+    from,
+    to,
   });
 
   return response.data;
