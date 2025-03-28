@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# Auto-activate conda environment
+# Add to your .bashrc or .zshrc:
+# source /path/to/auto-env.sh
+
+# Environment name from environment.yml
+ENV_NAME="reccelabs"
+
+# Check if conda environment exists, if not create it
+if ! conda info --envs | grep -q $ENV_NAME; then
+  echo "Creating conda environment: $ENV_NAME"
+  conda env create -f environment.yml
+fi
+
+# Activate environment
+echo "Activating conda environment: $ENV_NAME"
+conda activate $ENV_NAME 

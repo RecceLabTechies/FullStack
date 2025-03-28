@@ -1,130 +1,110 @@
 #!/usr/bin/env python
-from json_selector import select_json_for_query
-from json_processor import process_json_query
-from query_classifier import classify_query
-from chart_data_generator import generate_chart_data
-from description_generator import generate_description, StructuredDescription
-from report_generator import generate_analysis_queries
-import pandas as pd
-from typing import Optional, Dict, Any, Union
-from dataclasses import dataclass
-import json
+import logging
+from typing import Dict, Union
 
+from mypackage.a_query_processor import query_classifier, query_validator
+from mypackage.b_data_processor import json_processor, json_selector
+from mypackage.c_regular_generator import (
+    description_generator,
+    generate_and_upload_chart,
+)
+from mypackage.d_report_generator import ReportResults, generate_report
 
-@dataclass
-class PipelineResult:
-    """Class to store the results of the entire pipeline"""
+# Configure logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.propagate = False
 
-    selected_json: Optional[str]
-    original_query: str
-    processed_df: pd.DataFrame
-    query_type: str
-    output: Optional[Union[str, Dict[str, Any], StructuredDescription]] = (
-        None  # Store chart data, description text, or report
+# Add handler if not already added
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
 
 
-def run_pipeline(query: str, data_dir: str = "./data") -> PipelineResult:
+def main(query: str) -> Dict[str, Union[str, Dict[str, ReportResults]]]:
     """
-    Run the complete pipeline with the following flow:
-    Query classification -> (if report: generate report) -> JSON selection -> JSON processing -> Output generation
+    Process a user query through the complete analysis pipeline, including validation,
+    classification, and appropriate data processing based on the query type.
 
     Args:
-        query (str): The user's natural language query
-        data_dir (str): Directory containing the JSON files
+        query: The natural language query string to be processed
 
     Returns:
-        PipelineResult: Object containing all results from the pipeline
+        Dict[str, Any]: A dictionary containing the query type and the result:
+            - {"error": str} for error messages
+            - {"chart": str} for chart visualizations
+            - {"description": str} for descriptions
+            - {"report": ReportResults} for comprehensive reports
     """
-    # Step 1: Classify the query first
-    query_type, original_query, _ = classify_query(query, pd.DataFrame())
+    query = query.strip()
+    logger.info(f"Starting pipeline processing for query: '{query}'")
 
-    # If it's a report type, handle it directly
-    if query_type == "report":
-        queries = generate_analysis_queries(original_query)
-        output = "\n".join(
-            [f"[{q_type}] {q_text}" for q_type, q_text in queries.queries]
-        )
-        return PipelineResult(
-            selected_json=None,
-            original_query=original_query,
-            processed_df=pd.DataFrame(),
-            query_type=query_type,
-            output=output,
-        )
+    # query validator
+    try:
+        query_validator.get_valid_query(query)
+        logger.debug("Query validation successful")
+    except Exception as e:
+        logger.error(f"Query validation failed: {str(e)}")
+        return {"error": f"Error validating query: {str(e)}"}
 
-    # Step 2: Select the appropriate JSON file
-    json_result = select_json_for_query(query, data_dir)
-    if not json_result.json_file:
-        return PipelineResult(
-            selected_json=None,
-            original_query=original_query,
-            processed_df=pd.DataFrame(),
-            query_type=query_type,
-            output=None,
-        )
+    # query classifier
+    classification_result = query_classifier.classify_query(query)
+    logger.debug(f"Query classified as: {classification_result}")
+    if classification_result == "error":
+        logger.error("Query classification failed")
+        return {"error": "Classification failed"}
 
-    # Step 3: Process the JSON file and apply filtering
-    processed_df, processed_query = process_json_query(
-        json_result.json_file, query, data_dir
-    )
-    if processed_df.empty:
-        return PipelineResult(
-            selected_json=json_result.json_file,
-            original_query=original_query,
-            processed_df=pd.DataFrame(),
-            query_type=query_type,
-            output=None,
-        )
+    # report generator
+    if classification_result == "report":
+        logger.info("Query identified as report request, initiating report generation")
+        return {"report": generate_report(query)}
 
-    # Step 4: Generate appropriate output based on query type
-    output = None
-    if query_type == "chart":
-        output = generate_chart_data(processed_df, original_query)
-    elif query_type == "description":
-        output = generate_description(processed_df, original_query)
+    # data selector
+    try:
+        json_file_name = json_selector.select_json_for_query(query)
+        logger.debug(f"Selected JSON file: {json_file_name}")
+    except Exception as e:
+        logger.error(f"JSON selection failed: {str(e)}")
+        return {"error": f"Error selecting JSON: {str(e)}"}
 
-    return PipelineResult(
-        selected_json=json_result.json_file,
-        original_query=original_query,
-        processed_df=processed_df,
-        query_type=query_type,
-        output=output,
-    )
+    # data processor
+    try:
+        df = json_processor.process_json_query(json_file_name, query)
+        logger.debug("JSON data processing completed successfully")
+    except Exception as e:
+        logger.error(f"JSON processing failed: {str(e)}")
+        return {"error": f"Error processing JSON: {str(e)}"}
 
-
-def display_results(result: PipelineResult):
-    """
-    Display the results of the pipeline in a formatted way
-
-    Args:
-        result (PipelineResult): The results from the pipeline
-    """
-    if result.output:
-        if result.query_type == "chart":
-            if isinstance(result.output, dict):
-                print("Chart Details:")
-                print(f"Type: {result.output.get('type', 'Unknown')}")
-                print(f"Data Points: {len(result.output.get('data', []))}")
-                print(
-                    f"X-axis: {result.output.get('xAxis', {}).get('label', 'Unknown')}"
-                )
-                print(
-                    f"Y-axis: {result.output.get('yAxis', {}).get('label', 'Unknown')}"
-                )
-            else:
-                print(f"Chart file: {result.output}")
-        elif result.query_type == "description":
-            print("Analysis:")
-            print(result.output)
-        elif result.query_type == "report":
-            print("Generated Queries:")
-            print(result.output)
-    else:
-        print("No data to display")
+    # generator
+    try:
+        if classification_result == "chart":
+            logger.info("Generating chart visualization")
+            return {"chart": generate_and_upload_chart(df, query)}
+        elif classification_result == "description":
+            logger.info("Generating data description")
+            return {
+                "description": description_generator.generate_description(df, query)
+            }
+        else:
+            logger.warning(f"Unknown classification result: {classification_result}")
+            return {"error": f"Unknown classification type: {classification_result}"}
+    except Exception as e:
+        logger.error(f"Output generation failed: {str(e)}")
+        return {"error": f"Error generating output: {str(e)}"}
 
 
 if __name__ == "__main__":
-    user_query = input("Enter your query about the data: ")
-    result = run_pipeline(user_query)
-    display_results(result)
+    import json
+    import sys
+
+    if len(sys.argv) > 1:
+        result = main(sys.argv[1])
+        print(json.dumps(result, indent=2))
+    else:
+        logger.error("No query provided in command line arguments")
+        print("Usage: python pipeline.py <query>")
+        sys.exit(1)

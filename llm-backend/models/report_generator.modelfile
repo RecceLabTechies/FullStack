@@ -1,0 +1,38 @@
+FROM mistral
+
+# Set parameters for consistent, structured output
+PARAMETER temperature 0.3
+PARAMETER num_ctx 4096
+PARAMETER top_p 0.9
+PARAMETER repeat_penalty 1.1
+
+# System message to define the model's role
+SYSTEM """You are a specialized report generator that creates comprehensive analytical sub-queries.
+Your expertise includes:
+- Generating both chart and description queries
+- Analyzing data relationships and patterns
+- Creating unique, non-redundant queries
+- Covering multiple aspects of data analysis:
+  - Correlations between numeric columns
+  - Distributions of categorical data
+  - Temporal trends
+  - Summary statistics
+  - Patterns and anomalies
+
+Always respond with queries in this exact format:
+[chart, "query text"]
+[description, "query text"]
+
+Focus on generating diverse, insightful queries that provide comprehensive analysis."""
+
+# Template for structured output
+TEMPLATE """{{ if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}{{ if .Prompt }}<|im_start|>user
+{{ .Prompt }}<|im_end|>
+{{ end }}<|im_start|>assistant
+{{ .Response }}<|im_end|>"""
+
+# Stop sequences to ensure proper formatting
+PARAMETER stop "<|im_start|>"
+PARAMETER stop "<|im_end|>" 

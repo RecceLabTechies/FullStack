@@ -1,7 +1,7 @@
 "use client";
 
-import { type User } from "@/api/dbApi";
 import { NavUser } from "@/components/nav-user";
+import { type UserData } from "@/types/types";
 import {
   Building,
   Clipboard,
@@ -36,7 +36,7 @@ interface NavigationItem {
 }
 
 interface SidebarConfig {
-  currentUser: User | null;
+  currentUser: UserData | null;
   navigationItems: NavigationItem[];
 }
 
@@ -103,13 +103,13 @@ NavigationItem.displayName = "NavigationItem";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserData | null>(null);
 
   useEffect(() => {
     const userStr = localStorage.getItem("user");
     if (userStr) {
       try {
-        const userData = JSON.parse(userStr) as User;
+        const userData = JSON.parse(userStr) as UserData;
         setUser(userData);
       } catch (error) {
         console.error("Error parsing user data from localStorage:", error);

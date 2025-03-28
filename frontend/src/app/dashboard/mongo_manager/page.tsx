@@ -1,6 +1,6 @@
 "use client";
 
-import { fetchDbStructure, type DbStructure } from "@/api/dbApi";
+import { fetchDbStructure, uploadCsv } from "@/api/backendApi";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -19,14 +19,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { type DbStructure } from "@/types/types";
 import React, { useCallback, useState } from "react";
-
-interface UploadResponse {
-  success: boolean;
-  count?: number;
-  collection?: string;
-  error?: string;
-}
 
 interface UploadButtonProps {
   onUploadSuccess?: () => void;
@@ -155,24 +149,13 @@ function UploadButton({ onUploadSuccess }: UploadButtonProps) {
       return;
     }
 
-    const formData = new FormData();
-    formData.append("file", selectedFile);
-
     setIsUploading(true);
     setUploadStatus("Uploading...");
 
     try {
-      const response = await fetch("http://localhost:5001/api/upload-csv", {
-        method: "POST",
-        body: formData,
-        headers: {
-          Accept: "application/json",
-        },
-      });
+      const result = await uploadCsv(selectedFile);
 
-      const result = (await response.json()) as UploadResponse;
-
-      if (response.ok && result.success) {
+      if (result) {
         setUploadStatus(
           `Success: Uploaded ${result.count} records to ${result.collection}`,
         );
@@ -183,7 +166,7 @@ function UploadButton({ onUploadSuccess }: UploadButtonProps) {
         }
         onUploadSuccess?.();
       } else {
-        setUploadStatus(`Error: ${result.error ?? "Unknown error occurred"}`);
+        setUploadStatus("Error: Failed to upload CSV");
       }
     } catch (error) {
       console.error("Error uploading file:", error);

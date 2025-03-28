@@ -1,6 +1,6 @@
 "use client";
 
-import { type User } from "@/api/dbApi";
+import { fetchUsers } from "@/api/backendApi";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -11,8 +11,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { type UserData } from "@/types/types";
 import { zodResolver } from "@hookform/resolvers/zod";
-import axios from "axios";
 import { Bot, Loader2, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -52,23 +52,27 @@ type SignUpValues = z.infer<typeof signUpSchema>;
 
 export default function AuthPage() {
   const [isSignUp, setIsSignUp] = useState(false);
-  const [users, setUsers] = useState<User[] | null>(null);
+  const [users, setUsers] = useState<UserData[] | null>(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    const fetchUsers = async () => {
+    const fetchUserData = async () => {
       try {
-        const response = await axios.get("http://localhost:5001/api/users");
-        setUsers(response.data as User[]);
+        const data = await fetchUsers();
+        if (data) {
+          setUsers(data);
+        } else {
+          setError("Failed to load user data.");
+        }
       } catch (error) {
         console.error("Failed to fetch users", error);
         setError("Failed to load user data.");
       }
     };
 
-    void fetchUsers();
+    void fetchUserData();
   }, []);
 
   const loginForm = useForm<LoginValues>({
@@ -93,26 +97,6 @@ export default function AuthPage() {
     try {
       setIsLoading(true);
       setError("");
-
-      // Master login credentials check
-      if (
-        values.email === "admin@recce.com" &&
-        values.password === "Admin@123"
-      ) {
-        const masterUser: User = {
-          username: "admin",
-          email: values.email,
-          password: values.password,
-          role: "admin",
-          company: "RecceLabs",
-          chart_access: true,
-          report_generation_access: true,
-          user_management_access: true,
-        };
-        localStorage.setItem("user", JSON.stringify(masterUser));
-        router.push("/dashboard");
-        return;
-      }
 
       // Regular user check from database
       if (!users) {
