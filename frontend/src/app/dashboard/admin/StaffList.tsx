@@ -1,82 +1,33 @@
 "use client";
 
-import { patchUser } from "@/api/backendApi";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { type UserData } from "@/types/types";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
-import StaffCard from "./StaffCard";
 
 interface StaffListProps {
   users: UserData[];
 }
 
 export default function StaffList({ users }: StaffListProps) {
-  const [staffMembers, setStaffMembers] = useState<UserData[]>([]);
-
-  useEffect(() => {
-    setStaffMembers(users);
-  }, [users]);
-
-  const updateStaffMember = async (
-    username: string,
-    permissions: {
-      reportGeneration: boolean;
-      chartViewing: boolean;
-      userManagement: boolean;
-    },
-  ) => {
-    const staffMember = staffMembers.find(
-      (staff) => staff.username === username,
-    );
-    if (!staffMember) return;
-
-    toast.loading("Updating permissions...");
-
-    try {
-      const patchData = {
-        report_generation_access: permissions.reportGeneration,
-        chart_access: permissions.chartViewing,
-        user_management_access: permissions.userManagement,
-      };
-
-      const result = await patchUser(staffMember.username, patchData);
-
-      if (result) {
-        setStaffMembers((prevStaffMembers) =>
-          prevStaffMembers.map((staff) =>
-            staff.username === username
-              ? {
-                  ...staff,
-                  report_generation_access: permissions.reportGeneration,
-                  chart_access: permissions.chartViewing,
-                  user_management_access: permissions.userManagement,
-                }
-              : staff,
-          ),
-        );
-        toast.success("Permissions updated successfully");
-      } else {
-        throw new Error("Failed to update permissions");
-      }
-    } catch (error) {
-      console.error("Error updating permissions:", error);
-      toast.error("Failed to update permissions");
-
-      // Revert local state on error
-      setStaffMembers((prevStaffMembers) =>
-        prevStaffMembers.map((staff) =>
-          staff.username === username ? staffMember : staff,
-        ),
-      );
-    }
-  };
-
   return (
     <section
       className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
       aria-label="Staff members list"
     >
-      {staffMembers.map((staff) => (
+      {users.map((staff) => (
         <StaffCard
           key={staff.username}
           staff={{
@@ -89,11 +40,95 @@ export default function StaffList({ users }: StaffListProps) {
               userManagement: staff.user_management_access,
             },
           }}
-          updatePermissions={(_, permissions) =>
-            updateStaffMember(staff.username, permissions)
-          }
         />
       ))}
     </section>
+  );
+}
+
+interface StaffMember {
+  username: string;
+  name: string;
+  role: string;
+  permissions: {
+    userManagement: boolean;
+    reportGeneration: boolean;
+    chartViewing: boolean;
+  };
+}
+
+type StaffPermissions = StaffMember["permissions"];
+
+interface StaffCardProps {
+  staff: StaffMember;
+}
+
+function PermissionControls({
+  permissions,
+}: {
+  permissions: StaffPermissions;
+}) {
+  const permissionItems = [
+    {
+      name: "Report Generation",
+      description: "Allow user to generate reports",
+      value: permissions.reportGeneration,
+    },
+    {
+      name: "Chart Viewing",
+      description: "Allow user to view charts",
+      value: permissions.chartViewing,
+    },
+    {
+      name: "User Management",
+      description: "Allow user to manage other users",
+      value: permissions.userManagement,
+    },
+  ];
+
+  return (
+    <TooltipProvider>
+      <div className="space-y-3">
+        {permissionItems.map((item) => (
+          <div key={item.name} className="flex items-center justify-between">
+            <Tooltip>
+              <TooltipTrigger>{item.name}</TooltipTrigger>
+              <TooltipContent>
+                <p>{item.description}</p>
+              </TooltipContent>
+            </Tooltip>
+            <Switch checked={item.value} disabled={true} />
+          </div>
+        ))}
+      </div>
+    </TooltipProvider>
+  );
+}
+
+function StaffCard({ staff }: StaffCardProps) {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  return (
+    <article>
+      <Card>
+        <CardHeader>
+          <CardTitle>{staff.name}</CardTitle>
+          <CardDescription>{staff.role}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <section className="space-y-4">
+            {isMounted ? (
+              <PermissionControls permissions={staff.permissions} />
+            ) : (
+              <div>Loading permissions...</div>
+            )}
+          </section>
+        </CardContent>
+      </Card>
+    </article>
   );
 }
