@@ -2,7 +2,9 @@
 
 import {
   analyzeData,
-  isChartImageResponse,
+  isChartResponse,
+  isDescriptionResponse,
+  isErrorResponse,
   isReportResponse,
 } from "@/api/llmApi";
 import { Button } from "@/components/ui/button";
@@ -132,15 +134,15 @@ export default function ReportGenerationPage() {
   const generateReportContent = async (userMessage: string) => {
     const response = await analyzeData(userMessage);
 
-    if (response.error) {
-      throw new Error(response.error);
+    if (isErrorResponse(response)) {
+      throw new Error(response.output.error);
     }
 
     let newSection: ReportSection;
 
     // Handle chart output type
-    if (isChartImageResponse(response)) {
-      const chartData = response.output as string;
+    if (isChartResponse(response)) {
+      const chartData = response.output.chart!;
 
       newSection = {
         title: "Chart Analysis",
@@ -153,52 +155,66 @@ export default function ReportGenerationPage() {
       };
     }
     // Handle report output type
-    else if (
-      isReportResponse(response) &&
-      response.output !== null &&
-      typeof response.output === "object"
-    ) {
-      // Process report results
-      const reportResults = response.output;
-      if ("results" in reportResults && reportResults.results.length > 0) {
-        const firstResult = reportResults.results[0];
+    else if (isReportResponse(response)) {
+      const reportResults = response.output.report?.report;
 
-        if (typeof firstResult === "string") {
-          newSection = {
-            title: "Report Analysis",
-            content: firstResult,
-            type: "text",
-            rawContent: firstResult,
-          };
-        } else {
-          // It's a chart in the report, we know it's ChartDataType
-          const chartData = firstResult!;
-          newSection = {
-            title: "Report Chart",
-            content: (
-              <div className="mt-4 h-[400px] w-full">
-                <img src={chartData} alt="Chart" />
-              </div>
-            ),
-            type: "chart",
-          };
+      if (reportResults && reportResults.results.length > 0) {
+        // Process report sections - can contain multiple results
+        const sections: ReportSection[] = [];
+
+        for (const result of reportResults.results) {
+          if (result.description) {
+            // Text description
+            sections.push({
+              title: "Analysis Report",
+              content: result.description,
+              type: "text",
+              rawContent: result.description,
+            });
+          } else if (result.chart) {
+            // Chart visualization
+            const chartData =
+              typeof result.chart === "string"
+                ? result.chart
+                : JSON.stringify(result.chart);
+
+            sections.push({
+              title: "Chart Report",
+              content: (
+                <div className="mt-4 h-[400px] w-full">
+                  <img src={chartData} alt="Chart" />
+                </div>
+              ),
+              type: "chart",
+            });
+          }
         }
+
+        // Add all generated sections to the report
+        setReport((prev) => ({
+          ...prev,
+          sections: [...prev.sections, ...sections],
+        }));
+
+        // Return response without creating newSection, as we already added the sections
+        return response;
       } else {
         throw new Error("Report has no results");
       }
     }
-    // Handle string output (descriptions)
-    else if (typeof response.output === "string") {
+    // Handle description output (text descriptions)
+    else if (isDescriptionResponse(response)) {
       newSection = {
         title: "Analysis",
-        content: response.output,
+        content: response.output.description!,
         type: "text",
-        rawContent: response.output,
+        rawContent: response.output.description!,
       };
     } else {
       throw new Error("Unexpected response format");
     }
 
+    // Add the single new section to the report (for chart or description)
     setReport((prev) => ({
       ...prev,
       sections: [...prev.sections, newSection],

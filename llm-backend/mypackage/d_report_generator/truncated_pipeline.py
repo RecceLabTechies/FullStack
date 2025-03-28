@@ -60,7 +60,7 @@ def run_truncated_pipeline(queryItem: QueryItem) -> str:
     # generator
     try:
         if classification_result == "chart":
-            logger.info("Generating chart and uploading to S3")
+            logger.info("Generating chart and uploading")
             return chart_generator.generate_and_upload_chart(df, queryItem.query)
         elif classification_result == "description":
             logger.info("Generating description")

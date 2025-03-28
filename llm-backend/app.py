@@ -1,9 +1,7 @@
-from typing import Union
+from typing import Dict, Union
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-
-from mypackage.c_regular_generator import ChartDataType
 from mypackage.d_report_generator import ReportResults
 from pipeline import main as run_pipeline
 
@@ -26,7 +24,7 @@ def process_query():
 
     query = data["query"]
     try:
-        result: Union[str, ChartDataType, ReportResults] = run_pipeline(query)
+        result: Dict[str, Union[str, Dict[str, ReportResults]]] = run_pipeline(query)
 
         # Convert the result to a JSON-serializable format
         response = {"output": result, "original_query": query}

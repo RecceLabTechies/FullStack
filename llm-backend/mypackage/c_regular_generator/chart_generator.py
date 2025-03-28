@@ -1,11 +1,16 @@
 #!/usr/bin/env python
+import hashlib
 import logging
 import os
-import uuid
+from datetime import datetime
 from io import BytesIO
-from typing import Any, Dict, List, Optional, TypedDict
+from typing import Dict, List, Optional
 
-import boto3
+import matplotlib
+
+# Set non-interactive backend to prevent GUI thread issues
+matplotlib.use("Agg")
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -35,11 +40,6 @@ if not logger.handlers:
     logger.addHandler(handler)
 
 DEFAULT_MODEL_NAME = "chart-data-generator"
-S3_BUCKET_NAME = "my-bucket"
-S3_ENDPOINT_URL = os.environ.get("S3_ENDPOINT", "http://localstack:4566")
-AWS_ACCESS_KEY = os.environ.get("AWS_ACCESS_KEY_ID", "test")
-AWS_SECRET_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY", "test")
-AWS_REGION = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
 
 
 class ColumnStats(BaseModel):
@@ -77,23 +77,6 @@ class ChartInfo(BaseModel):
         return v.lower()
 
     model_config = {"frozen": True}
-
-
-class AxisConfig(TypedDict):
-    dataKey: str
-    type: str
-    label: str
-
-
-class BaseChartDataType(TypedDict):
-    data: List[Dict[str, Any]]
-    type: str
-    xAxis: AxisConfig
-    yAxis: AxisConfig
-
-
-class ChartDataType(BaseChartDataType, total=False):
-    imageUrl: str
 
 
 def _get_column_type(series: pd.Series) -> str:
@@ -722,74 +705,6 @@ def _select_columns_with_llm(query: str, df: pd.DataFrame, sorted_columns) -> Ch
         raise ValueError(f"Failed to select columns: {str(e)}")
 
 
-def generate_chart_data(df: pd.DataFrame, query: str) -> BaseChartDataType:
-    """
-    Generate chart data and configuration based on a user query and DataFrame.
-
-    Args:
-        df: Input DataFrame with the data to visualize
-        query: User query string describing the desired visualization
-
-    Returns:
-        Dictionary with chart data and configuration including data points, chart type, and axis information
-    """
-    logger.info(f"Generating chart data for query: '{query}'")
-    chart_info = _select_columns_for_chart(query, df)
-    CHART_TYPE_MAPPING = {
-        "line": "LineChart",
-        "scatter": "ScatterChart",
-        "bar": "BarChart",
-        "box": "ComposedChart",
-        "heatmap": "Heatmap",
-    }
-    data: List[Dict[str, Any]] = []
-    if chart_info.chart_type == "heatmap":
-        logger.debug("Creating heatmap data")
-        crosstab = pd.crosstab(df[chart_info.x_axis], df[chart_info.y_axis])
-        data = [
-            {"x": str(idx), "y": str(col), "value": float(np.asarray(value))}
-            for idx in crosstab.index
-            for col, value in crosstab.loc[idx].items()
-        ]
-    else:
-        logger.debug(f"Creating {chart_info.chart_type} chart data")
-        data = [
-            {
-                chart_info.x_axis: (
-                    row[chart_info.x_axis].isoformat()
-                    if isinstance(row[chart_info.x_axis], pd.Timestamp)
-                    else row[chart_info.x_axis]
-                ),
-                chart_info.y_axis: row[chart_info.y_axis],
-            }
-            for _, row in df.iterrows()
-        ]
-
-    def _get_axis_config(column: str, is_heatmap: bool = False) -> AxisConfig:
-        return {
-            "dataKey": (
-                "x"
-                if is_heatmap and column == chart_info.x_axis
-                else "y" if is_heatmap and column == chart_info.y_axis else column
-            ),
-            "type": _get_column_type(df[column]),
-            "label": column,
-        }
-
-    result: BaseChartDataType = {
-        "data": data,
-        "type": CHART_TYPE_MAPPING.get(chart_info.chart_type, "LineChart"),
-        "xAxis": _get_axis_config(
-            chart_info.x_axis, chart_info.chart_type == "heatmap"
-        ),
-        "yAxis": _get_axis_config(
-            chart_info.y_axis, chart_info.chart_type == "heatmap"
-        ),
-    }
-    logger.info(f"Generated {len(data)} data points for {result['type']} visualization")
-    return result
-
-
 def _plot_seaborn_chart(df: pd.DataFrame, chart_info: ChartInfo) -> BytesIO:
     """
     Plot a chart using Seaborn based on the chart information.
@@ -845,60 +760,16 @@ def _plot_seaborn_chart(df: pd.DataFrame, chart_info: ChartInfo) -> BytesIO:
     return img_data
 
 
-def _upload_to_s3(img_data: BytesIO, filename: Optional[str] = None) -> str:
-    """
-    Upload an image to S3 bucket and return a public URL.
-
-    Args:
-        img_data: BytesIO object containing the image data
-        filename: Optional custom filename, defaults to UUID
-
-    Returns:
-        Public URL of the uploaded image
-    """
-    if filename is None:
-        filename = f"chart_{uuid.uuid4()}.png"
-
-    logger.info(f"Uploading chart to S3 bucket '{S3_BUCKET_NAME}' as '{filename}'")
-
-    try:
-        # Initialize S3 client
-        s3_client = boto3.client(
-            "s3",
-            endpoint_url=S3_ENDPOINT_URL,
-            aws_access_key_id=AWS_ACCESS_KEY,
-            aws_secret_access_key=AWS_SECRET_KEY,
-            region_name=AWS_REGION,
-        )
-
-        # Upload the file
-        s3_client.upload_fileobj(
-            img_data,
-            S3_BUCKET_NAME,
-            filename,
-            ExtraArgs={"ContentType": "image/png", "ACL": "public-read"},
-        )
-
-        # Generate public URL
-        url = f"{S3_ENDPOINT_URL}/{S3_BUCKET_NAME}/{filename}"
-        logger.info(f"Chart uploaded successfully: {url}")
-        return url
-
-    except Exception as e:
-        logger.error(f"Error uploading to S3: {str(e)}", exc_info=True)
-        raise ValueError(f"Failed to upload chart to S3: {str(e)}")
-
-
 def generate_and_upload_chart(df: pd.DataFrame, query: str) -> str:
     """
-    Generate a chart based on query, plot with Seaborn, upload to S3, and return image URL.
+    Generate a chart based on query, plot with Seaborn, upload, and return image URL.
 
     Args:
         df: Input DataFrame with the data to visualize
         query: User query string describing the desired visualization
 
     Returns:
-        String with the public S3 URL for the chart image
+        String with the public URL for the chart image
     """
     logger.info(f"Generating and uploading chart for query: '{query}'")
     chart_info = _select_columns_for_chart(query, df)
@@ -906,11 +777,24 @@ def generate_and_upload_chart(df: pd.DataFrame, query: str) -> str:
     # Plot the chart and get image data
     img_data = _plot_seaborn_chart(df, chart_info)
 
-    # Upload to S3 and get public URL
-    s3_url = _upload_to_s3(img_data)
+    # Generate a unique filename based on timestamp and query
 
-    # Return only the image URL
-    return s3_url
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    query_hash = hashlib.md5(query.encode()).hexdigest()[:8]
+    filename = f"chart_{timestamp}_{query_hash}.png"
+
+    # Save to the shared directory
+    shared_dir = "../frontend/public/shared"
+    os.makedirs(shared_dir, exist_ok=True)
+
+    file_path = os.path.join(shared_dir, filename)
+    with open(file_path, "wb") as f:
+        f.write(img_data.getvalue())
+
+    logger.info(f"Chart saved to shared volume at: {file_path}")
+
+    # Return the relative path that can be used by other services
+    return f"/shared/{filename}"
 
 
 if __name__ == "__main__":

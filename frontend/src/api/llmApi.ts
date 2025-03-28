@@ -2,14 +2,54 @@ import axios from "axios";
 
 // Define report results type
 export interface ReportResults {
-  results: Array<string>;
+  results: Array<{
+    description?: string;
+    chart?: string | Record<string, unknown>;
+    [key: string]: string | Record<string, unknown> | undefined;
+  }>;
+}
+
+// Output types from the backend API
+export interface BackendOutput {
+  error?: string;
+  chart?: string;
+  description?: string;
+  report?: {
+    report: ReportResults;
+  };
 }
 
 // Response from the backend API
 export interface AnalysisResponse {
-  output: string | ReportResults | null;
+  output: BackendOutput;
   original_query: string;
-  error?: string;
+}
+
+// Type guards
+export function isChartResponse(response: AnalysisResponse): boolean {
+  return (
+    response.output && "chart" in response.output && !!response.output.chart
+  );
+}
+
+export function isDescriptionResponse(response: AnalysisResponse): boolean {
+  return (
+    response.output &&
+    "description" in response.output &&
+    !!response.output.description
+  );
+}
+
+export function isReportResponse(response: AnalysisResponse): boolean {
+  return (
+    response.output && "report" in response.output && !!response.output.report
+  );
+}
+
+export function isErrorResponse(response: AnalysisResponse): boolean {
+  return (
+    response.output && "error" in response.output && !!response.output.error
+  );
 }
 
 const LLM_API_BASE_URL = "http://localhost:5152";
@@ -26,26 +66,4 @@ export const analyzeData = async (query: string): Promise<AnalysisResponse> => {
     }
     throw new Error("Failed to connect to analysis service");
   }
-};
-
-// Helper function to check if the response is a chart image URL (new format)
-export const isChartImageResponse = (response: AnalysisResponse): boolean => {
-  return (
-    response.output !== null &&
-    typeof response.output === "string" &&
-    (response.output.startsWith("http://") ||
-      response.output.startsWith("https://")) &&
-    (response.output.includes(".png") ||
-      response.output.includes(".jpg") ||
-      response.output.includes(".jpeg"))
-  );
-};
-
-// Helper function to check if the response is a report
-export const isReportResponse = (response: AnalysisResponse): boolean => {
-  return (
-    response.output !== null &&
-    typeof response.output === "object" &&
-    "results" in response.output
-  );
 };

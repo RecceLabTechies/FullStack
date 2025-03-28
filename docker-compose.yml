@@ -20,7 +20,7 @@ services:
             - MONGO_URI=mongodb://root:example@mongodb:27017/
             - PORT=5000
         volumes:
-            - shared_data:/app/shared
+            - ./shared:/app/shared
 
     frontend:
         build: ./frontend
@@ -32,11 +32,10 @@ services:
         volumes:
             - ./frontend:/app
             - /app/node_modules
-            - shared_data:/app/shared
+            - ./shared:/app/shared
         depends_on:
             - backend
         extra_hosts:
             - "host.docker.internal:host-gateway"
 volumes:
     mongodb_data:
-    shared_data:
