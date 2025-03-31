@@ -343,12 +343,9 @@ function FilterBar({
 }
 
 // Main Dashboard Component
-export default function Dashboard() {
-  const [chartData, setChartData] = useState<MonthlyPerformanceData | null>(
-    null,
-  );
+export default function Page() {
+  const [chartData, setChartData] = useState<MonthlyPerformanceData>();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [activeFilters, setActiveFilters] = useState<Partial<CampaignFilters>>(
     {},
   );
@@ -361,12 +358,8 @@ export default function Dashboard() {
         const data = await fetchMonthlyPerformanceData(activeFilters);
         if (data) {
           setChartData(data);
-          setError(null);
-        } else {
-          setError("Failed to load chart data");
         }
       } catch (err) {
-        setError("An error occurred while fetching chart data");
         console.error(err);
       } finally {
         setLoading(false);
@@ -385,13 +378,18 @@ export default function Dashboard() {
   const transformDataForChart = () => {
     if (!chartData) return [];
 
-    return chartData.months.map((month, index) => ({
-      month,
-      revenue: chartData.revenue[index],
-      adSpend: chartData.ad_spend[index],
-      roi: chartData.roi[index],
-    }));
+    return (
+      chartData.months?.map((month, index) => ({
+        month,
+        revenue: chartData.revenue?.[index] ?? 0,
+        adSpend: chartData.ad_spend?.[index] ?? 0,
+        roi: chartData.roi?.[index] ?? 0,
+      })) ?? []
+    );
   };
+
+  // Check if chart data is empty (all arrays are empty)
+  const isDataEmpty = !chartData || chartData.months?.length === 0;
 
   return (
     <div className="container mx-auto py-6">
@@ -412,13 +410,12 @@ export default function Dashboard() {
               <div className="flex h-96 items-center justify-center">
                 <p>Loading chart data...</p>
               </div>
-            ) : error ? (
-              <div className="flex h-96 items-center justify-center">
-                <p className="text-destructive">{error}</p>
-              </div>
-            ) : !chartData || chartData.months.length === 0 ? (
-              <div className="flex h-96 items-center justify-center">
-                <p>No data available for the selected filters</p>
+            ) : isDataEmpty ? (
+              <div className="flex h-96 flex-col items-center justify-center">
+                <p className="mb-2 text-lg font-medium">No data available</p>
+                <p className="text-sm text-muted-foreground">
+                  Try adjusting your filters or selecting a different date range
+                </p>
               </div>
             ) : (
               <div className="h-96 w-full">
@@ -465,17 +462,20 @@ export default function Dashboard() {
             )}
           </CardContent>
         </Card>
+
         {/* Summary Cards */}
-        {chartData && (
+        {!isDataEmpty && (
           <div className="grid grid-cols-1 gap-4">
             <Card>
               <CardHeader>
                 <CardTitle>
                   {" "}
                   $
-                  {chartData.revenue
-                    .reduce((sum, val) => sum + val, 0)
-                    .toFixed(2)}
+                  {chartData?.revenue?.length > 0
+                    ? chartData?.revenue
+                        .reduce((sum, val) => sum + val, 0)
+                        .toFixed(2)
+                    : "0.00"}
                 </CardTitle>
                 <CardDescription>
                   Total Revenue for selected period
@@ -487,9 +487,11 @@ export default function Dashboard() {
                 <CardTitle>
                   {" "}
                   $
-                  {chartData.ad_spend
-                    .reduce((sum, val) => sum + val, 0)
-                    .toFixed(2)}
+                  {chartData?.ad_spend?.length > 0
+                    ? chartData?.ad_spend
+                        .reduce((sum, val) => sum + val, 0)
+                        .toFixed(2)
+                    : "0.00"}
                 </CardTitle>
                 <CardDescription>
                   Total Ad Spend for selected period
@@ -499,11 +501,13 @@ export default function Dashboard() {
             <Card>
               <CardHeader>
                 <CardTitle>
-                  {(
-                    chartData.roi.reduce((sum, val) => sum + val, 0) /
-                    (chartData.roi.length || 1)
-                  ).toFixed(2)}
-                  x
+                  {chartData?.roi?.length > 0
+                    ? (
+                        chartData?.roi.reduce((sum, val) => sum + val, 0) /
+                        chartData?.roi.length
+                      ).toFixed(2)
+                    : "0.00"}
+                  {chartData?.roi?.length > 0 ? "x" : ""}
                 </CardTitle>
                 <CardDescription>Average return on investment</CardDescription>
               </CardHeader>
@@ -512,9 +516,9 @@ export default function Dashboard() {
         )}
       </div>
       <section className="mt-6 space-y-6">
-        <CostTable />
+        {/* <CostTable />
         <StackedBarChart />
-        <SpendingTrendLineChart />
+        <SpendingTrendLineChart /> */}
       </section>
     </div>
   );

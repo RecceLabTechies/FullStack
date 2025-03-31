@@ -20,7 +20,7 @@ const API_BASE_URL = "http://localhost:5001";
 export const fetchDbStructure = async (): Promise<DbStructure | null> => {
   try {
     const response = await axios.get(
-      `${API_BASE_URL}/api/v1/database-structures`,
+      `${API_BASE_URL}/api/v1/database/structure`,
     );
     return response.data as DbStructure;
   } catch (error) {
@@ -32,7 +32,7 @@ export const fetchDbStructure = async (): Promise<DbStructure | null> => {
 // User-related API calls
 export const fetchUsers = async (): Promise<UserData[] | null> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/users`);
+    const response = await axios.get(`${API_BASE_URL}/api/v1/users`);
     return response.data as UserData[];
   } catch (error) {
     console.error("Failed to fetch users", error);
@@ -47,7 +47,7 @@ export const addUser = async (user: UserData): Promise<string | null> => {
       id?: string;
     }
     const response = await axios.post<AddUserResponse>(
-      `${API_BASE_URL}/api/users`,
+      `${API_BASE_URL}/api/v1/users`,
       user,
     );
     return response.data.message;
@@ -61,7 +61,9 @@ export const fetchUserByUsername = async (
   username: string,
 ): Promise<UserData | null> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/users/${username}`);
+    const response = await axios.get(
+      `${API_BASE_URL}/api/v1/users/${username}`,
+    );
     return response.data as UserData;
   } catch (error) {
     console.error("Failed to fetch user by username", error);
@@ -78,7 +80,7 @@ export const updateUser = async (
       message: string;
     }
     const response = await axios.put<UpdateUserResponse>(
-      `${API_BASE_URL}/api/users/${username}`,
+      `${API_BASE_URL}/api/v1/users/${username}`,
       userData,
     );
     return response.data.message;
@@ -94,7 +96,7 @@ export const deleteUser = async (username: string): Promise<string | null> => {
       message: string;
     }
     const response = await axios.delete<DeleteUserResponse>(
-      `${API_BASE_URL}/api/users/${username}`,
+      `${API_BASE_URL}/api/v1/users/${username}`,
     );
     return response.data.message;
   } catch (error) {
@@ -112,7 +114,7 @@ export const patchUser = async (
       message: string;
     }
     const response = await axios.patch<PatchUserResponse>(
-      `${API_BASE_URL}/api/users/${username}`,
+      `${API_BASE_URL}/api/v1/users/${username}`,
       patchData,
     );
     return response.data.message;
@@ -164,7 +166,9 @@ export const fetchCampaigns = async (
 
 export const fetchRevenueData = async (): Promise<RevenueData[] | null> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/v1/revenues`);
+    const response = await axios.get(
+      `${API_BASE_URL}/api/v1/campaigns/revenues`,
+    );
     return response.data as RevenueData[];
   } catch (error) {
     console.error("Failed to fetch revenue data", error);
@@ -177,7 +181,7 @@ export const fetchMonthlyPerformanceData = async (
 ): Promise<MonthlyPerformanceData | null> => {
   try {
     const response = await axios.get<MonthlyPerformanceData>(
-      `${API_BASE_URL}/api/v1/chart/monthly-performance`,
+      `${API_BASE_URL}/api/v1/campaigns/monthly-performance`,
       { params: filters },
     );
     return response.data;
@@ -200,7 +204,7 @@ export const updateMonthlyData = async (
     }
 
     const response = await axios.post<UpdateMonthlyResponse>(
-      `${API_BASE_URL}/api/v1/chart/update-monthly-data`,
+      `${API_BASE_URL}/api/v1/campaigns/monthly-data`,
       { updates },
     );
 
@@ -224,7 +228,7 @@ export const uploadCsv = async (
     formData.append("file", file);
 
     const response = await axios.post<CsvUploadResponse>(
-      `${API_BASE_URL}/api/v1/csv-imports`,
+      `${API_BASE_URL}/api/v1/imports/csv`,
       formData,
       {
         headers: {
@@ -241,7 +245,9 @@ export const uploadCsv = async (
 
 export const fetchChannelRoi = async (): Promise<ChannelRoi[] | null> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/v1/channel-roi`);
+    const response = await axios.get(
+      `${API_BASE_URL}/api/v1/campaigns/channels/roi`,
+    );
     return response.data as ChannelRoi[];
   } catch (error) {
     console.error("Failed to fetch channel ROI data", error);
@@ -251,7 +257,9 @@ export const fetchChannelRoi = async (): Promise<ChannelRoi[] | null> => {
 
 export const fetchAgeGroupRoi = async (): Promise<AgeGroupRoi[] | null> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/v1/age-group-roi`);
+    const response = await axios.get(
+      `${API_BASE_URL}/api/v1/campaigns/age-groups/roi`,
+    );
     return response.data as AgeGroupRoi[];
   } catch (error) {
     console.error("Failed to fetch age group ROI data", error);
@@ -262,7 +270,7 @@ export const fetchAgeGroupRoi = async (): Promise<AgeGroupRoi[] | null> => {
 export const fetchRevenuePastMonth = async (): Promise<number | null> => {
   try {
     const response = await axios.get<RevenuePastMonth>(
-      `${API_BASE_URL}/api/v1/revenue-past-month`,
+      `${API_BASE_URL}/api/v1/campaigns/past-month/revenue`,
     );
     return response.data.revenue;
   } catch (error) {
@@ -274,7 +282,7 @@ export const fetchRevenuePastMonth = async (): Promise<number | null> => {
 export const fetchRoiPastMonth = async (): Promise<number | null> => {
   try {
     const response = await axios.get<RoiPastMonth>(
-      `${API_BASE_URL}/api/v1/roi-past-month`,
+      `${API_BASE_URL}/api/v1/campaigns/past-month/roi`,
     );
     return response.data.roi;
   } catch (error) {
@@ -294,7 +302,7 @@ export const getDateTypes = async (): Promise<{
     }
 
     const response = await axios.get<DateTypeResponse>(
-      `${API_BASE_URL}/api/v1/date-types`,
+      `${API_BASE_URL}/api/v1/utils/date-types`,
     );
     return response.data;
   } catch (error) {
@@ -316,8 +324,7 @@ type FilteredData = {
   views: string;
 };
 
-// Yuting Function
-
+// Yuting Function - Should be updated to use the campaigns endpoint
 export const fetchFilteredData = async ({
   channels,
   ageGroups,
@@ -331,18 +338,22 @@ export const fetchFilteredData = async ({
   from?: string;
   to?: string;
 }): Promise<FilteredData[]> => {
-  const response: AxiosResponse<FilteredData[]> = await axios.post(
-    "http://localhost:5001/api/filter-data",
-    {
-      channels,
-      ageGroups,
-      countries,
-      from,
-      to,
-    },
-  );
-
-  return response.data;
+  try {
+    const response: AxiosResponse<FilteredData[]> = await axios.post(
+      `${API_BASE_URL}/api/v1/campaigns`,
+      {
+        channels,
+        age_groups: ageGroups,
+        countries,
+        from_date: from,
+        to_date: to,
+      },
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Failed to fetch filtered data", error);
+    return [];
+  }
 };
 
 // data for cost heatmap
@@ -353,12 +364,15 @@ export interface CostHeatmapData {
   costPerAccount: number;
 }
 
-export const fetchCostHeatmapData = async (): Promise<
-  CostHeatmapData[] | null
-> => {
+export const fetchCostHeatmapData = async (params?: {
+  country?: string;
+  campaign_id?: string;
+  channels?: string[];
+}): Promise<CostHeatmapData[] | null> => {
   try {
     const response = await axios.get(
-      "http://localhost:5001/api/get-cost-heatmap-data",
+      `${API_BASE_URL}/api/v1/campaigns/cost-heatmap`,
+      { params },
     );
     return response.data as CostHeatmapData[];
   } catch (error) {
