@@ -20,6 +20,16 @@ if (!usersCollectionExists) {
       report_generation_access: true,
       user_management_access: true,
     },
+    {
+      username: "guest",
+      email: "guest@recce.com",
+      role: "member",
+      company: "reccelabs",
+      password: "Admin@123",
+      chart_access: true,
+      report_generation_access: true,
+      user_management_access: false,
+    },
   ]);
 
   print("Users collection created and populated with default users.");
