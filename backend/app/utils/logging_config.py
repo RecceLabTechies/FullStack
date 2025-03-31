@@ -3,7 +3,15 @@ from app.config import LOG_LEVEL, LOG_FORMAT
 
 
 def setup_logging():
-    """Configure application logging"""
+    """
+    Configure application logging.
+
+    Sets up basic logging configuration with the level and format
+    defined in app.config.
+
+    Returns:
+        logging.Logger: A configured logger instance
+    """
     logging.basicConfig(
         level=getattr(logging, LOG_LEVEL),
         format=LOG_FORMAT,

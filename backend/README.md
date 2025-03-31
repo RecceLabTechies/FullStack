@@ -1,14 +1,15 @@
-# Backend API Service
+# RecceLabTechies Backend Service
 
-This directory contains the Flask-based REST API backend service for the FullStack application.
+This repository contains the Flask-based REST API backend service for the RecceLabTechies campaign analytics application.
 
 ## Overview
 
-The backend provides a RESTful API for the frontend to interact with the database and other services. It's built with:
+The backend provides a comprehensive API for campaign performance analytics, user management, and data visualization. Built with:
 
-- **Flask**: Python web framework for building the API
-- **MongoDB**: Database connector for data storage
-- **RESTful Design**: Organized routes for resource management
+- **Flask**: Web framework for RESTful API endpoints
+- **MongoDB**: NoSQL database for storing campaign performance data
+- **Marshmallow**: Schema validation and serialization
+- **Pandas**: Data processing and analysis
 
 ## Project Structure
 
@@ -16,17 +17,24 @@ The backend provides a RESTful API for the frontend to interact with the databas
 backend/
 ├── app/                  # Main application package
 │   ├── __init__.py       # Application factory
-│   ├── config.py         # Configuration settings
-│   ├── routes/           # API endpoints
+│   ├── database/         # Database connection modules
 │   ├── models/           # Data models
-│   ├── database/         # Database connections
-│   └── utils/            # Utility functions
-├── data_storage/         # Data storage modules
+│   ├── routes/           # API endpoint definitions
+│   │   ├── data_routes.py    # Campaign data endpoints
+│   │   └── user_routes.py    # User management endpoints
+│   ├── services/         # Business logic
+│   │   └── campaign_service.py  # Campaign analytics logic
+│   └── utils/            # Utility functions for data processing
+├── data/                 # Sample/training data files
+├── notebooks/            # Jupyter notebooks for analysis
+│   └── prophet/          # Time series forecasting models
 ├── tests/                # Test suite
-├── Dockerfile            # Container configuration
-├── requirements.txt      # Python dependencies
-├── pyproject.toml        # Project metadata and tools configuration
-├── run.py                # Application entry point
+│   ├── test_data_routes.py
+│   └── test_user_routes.py
+├── .env                  # Environment variables (git-ignored)
+├── environment.yml       # Conda environment definition
+├── pyproject.toml        # Project metadata and config
+├── requirements.txt      # Pip dependencies
 └── README.md             # This documentation
 ```
 
@@ -34,12 +42,24 @@ backend/
 
 ### Prerequisites
 
-- Python 3.8+
-- MongoDB (accessible via configuration)
+- Python 3.12+
+- Anaconda or Miniconda
+- MongoDB
 
-### Local Development
+### Environment Setup
 
-1. Create and activate a virtual environment:
+#### Using Conda (Recommended)
+
+1. Create and activate the conda environment:
+
+   ```bash
+   conda env create -f environment.yml
+   conda activate reccelabs
+   ```
+
+#### Using Pip
+
+1. Create a virtual environment:
 
    ```bash
    python -m venv venv
@@ -52,37 +72,53 @@ backend/
    pip install -r requirements.txt
    ```
 
-3. Run the development server:
-   ```bash
-   python run.py
-   ```
+### Configuration
 
-### Docker Deployment
+Create a `.env` file in the project root with the following variables:
 
-Build and run the Docker container:
-
-```bash
-docker build -t fullstack-backend .
-docker run -p 5001:5001 fullstack-backend
+```
+MONGO_URI=mongodb://localhost:27017/
+MONGO_DB_NAME=campaign_data
+FLASK_APP=app
+FLASK_ENV=development
+FLASK_DEBUG=1
+SECRET_KEY=your_secret_key_here
 ```
 
-## API Documentation
+### Running the Application
 
-The API provides endpoints for:
+```bash
+python run.py
+```
 
-- User management
-- Authentication
-- Data operations
-- Integration with other services
+The application will be available at http://localhost:5000.
 
-## Environment Configuration
+## API Endpoints
 
-Environment variables or a `.env` file can be used to configure:
+### User Management
 
-- Database connection
-- API keys
-- Environment-specific settings
-- Debug options
+- `GET /api/v1/users`: Get all users
+- `POST /api/v1/users`: Create a new user
+- `GET /api/v1/users/{username}`: Get user details
+- `PUT /api/v1/users/{username}`: Update user
+- `PATCH /api/v1/users/{username}`: Partially update user
+- `DELETE /api/v1/users/{username}`: Delete user
+
+### Campaign Data
+
+- `GET /api/v1/campaigns/filter-options`: Get all filter options
+- `GET /api/v1/campaigns`: Get filtered campaign data
+- `POST /api/v1/campaigns`: Filter campaigns with complex criteria
+- `GET /api/v1/campaigns/revenues`: Get revenue data by date
+- `GET /api/v1/campaigns/monthly-performance`: Get monthly performance metrics
+- `POST /api/v1/campaigns/monthly-data`: Update monthly revenue/ad spend data
+- `GET /api/v1/campaigns/channels/roi`: Get ROI per marketing channel
+- `GET /api/v1/campaigns/age-groups/roi`: Get ROI per age group
+- `GET /api/v1/campaigns/cost-heatmap`: Get cost metrics heatmap
+
+### Data Import
+
+- `POST /api/v1/imports/csv`: Import campaign data from CSV
 
 ## Testing
 
@@ -92,6 +128,30 @@ Run the test suite:
 pytest
 ```
 
-## License
+For test coverage report:
 
-This project is licensed under the terms of the included LICENSE file.
+```bash
+pytest --cov=app
+```
+
+## Development
+
+Install development dependencies:
+
+```bash
+pip install -e ".[dev]"
+```
+
+Format code with Black:
+
+```bash
+black app/ tests/
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
