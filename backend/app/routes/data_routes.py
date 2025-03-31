@@ -177,8 +177,8 @@ class MonthlyPerformanceFilterSchema(Schema):
     """Schema for validating monthly chart data filter parameters"""
 
     # Date filters
-    from_date = fields.Date(format="%Y-%m-%d", required=False)
-    to_date = fields.Date(format="%Y-%m-%d", required=False)
+    from_date = fields.Date(format="%Y-%m-%d", required=False, allow_none=True)
+    to_date = fields.Date(format="%Y-%m-%d", required=False, allow_none=True)
 
     # List filters
     channels = fields.List(fields.String(), required=False)
