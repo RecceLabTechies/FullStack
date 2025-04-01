@@ -2,7 +2,6 @@ import logging
 from datetime import datetime
 from typing import Dict, List
 import pandas as pd
-from app.database.connection import get_campaign_performance_collection
 from app.models.campaign import CampaignModel
 
 
