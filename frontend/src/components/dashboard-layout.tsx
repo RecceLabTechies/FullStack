@@ -18,35 +18,27 @@ import {
 import { usePathname } from "next/navigation";
 import React from "react";
 
-function getBreadcrumbItems(pathname: string) {
-  const segments = pathname.split("/").filter(Boolean);
-  const items = segments.map((segment, index) => {
-    const href = `/${segments.slice(0, index + 1).join("/")}`;
-    const isLast = index === segments.length - 1;
-    const label = segment.charAt(0).toUpperCase() + segment.slice(1);
-
-    return {
-      href,
-      label,
-      isLast,
-    };
-  });
-
-  return items;
-}
+const getBreadcrumbItems = (pathname: string) =>
+  pathname
+    .split("/")
+    .filter(Boolean)
+    .map((segment, index, segments) => ({
+      href: `/${segments.slice(0, index + 1).join("/")}`,
+      label: segment.charAt(0).toUpperCase() + segment.slice(1),
+      isLast: index === segments.length - 1,
+    }));
 
 export function DashboardLayoutContent({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
-  const breadcrumbItems = getBreadcrumbItems(pathname);
+  const breadcrumbItems = getBreadcrumbItems(usePathname());
 
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset className="bg-neutral-50">
+      <SidebarInset className="bg-sidebar-background">
         <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
           <nav className="flex items-center gap-2 px-4">
             <SidebarTrigger className="-ml-1" />
@@ -73,7 +65,7 @@ export function DashboardLayoutContent({
             </Breadcrumb>
           </nav>
         </header>
-        <main className="h-[calc(100vh_-_4rem)] px-4">{children}</main>
+        <main>{children}</main>
       </SidebarInset>
     </SidebarProvider>
   );
