@@ -1,4 +1,11 @@
-import { Button } from "@/components/ui/button";
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+
+import * as z from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { toast } from 'sonner';
+
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -7,53 +14,49 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+} from '@/components/ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormDescription,
-  FormMessage,
-} from "@/components/ui/form";
-import { useAddUser } from "@/hooks/use-backend-api";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import * as z from "zod";
-import { useState } from "react";
-import { toast } from "sonner";
+} from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+
+import { useAddUser } from '@/hooks/use-backend-api';
 
 const formSchema = z.object({
-  username: z.string().min(1, "Username is required"),
+  username: z.string().min(1, 'Username is required'),
   email: z
     .string()
-    .min(1, "Email is required")
-    .email("Please enter a valid email address")
+    .min(1, 'Email is required')
+    .email('Please enter a valid email address')
     .transform((email) => email.toLowerCase().trim()),
   password: z
     .string()
-    .min(1, "Password is required")
-    .min(8, "Password must be at least 8 characters")
+    .min(1, 'Password is required')
+    .min(8, 'Password must be at least 8 characters')
     .regex(
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-      "Password must contain at least one uppercase letter, one lowercase letter, and one number",
+      'Password must contain at least one uppercase letter, one lowercase letter, and one number'
     )
-    .max(100, "Password is too long"),
-  role: z.enum(["user", "admin", "root"]),
+    .max(100, 'Password is too long'),
+  role: z.enum(['user', 'admin', 'root']),
   report_generation_access: z.boolean(),
   chart_access: z.boolean(),
   user_management_access: z.boolean(),
-  company: z.string().min(1, "Company is required"),
+  company: z.string().min(1, 'Company is required'),
 });
 
 export default function CreateUserModal() {
@@ -63,14 +66,14 @@ export default function CreateUserModal() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      username: "",
-      email: "",
-      password: "",
-      role: "user",
+      username: '',
+      email: '',
+      password: '',
+      role: 'user',
       report_generation_access: false,
       chart_access: false,
       user_management_access: false,
-      company: "default",
+      company: 'default',
     },
   });
 
@@ -78,11 +81,13 @@ export default function CreateUserModal() {
     try {
       await addUser(values);
 
-      toast.success("User created successfully");
+      toast.success('User created successfully');
       setOpen(false);
       form.reset();
     } catch (err) {
-      toast.error("Failed to create user");
+      toast.error(
+        `Failed to create user: ${err instanceof Error ? err.message : 'Unknown error occurred'}`
+      );
     }
   };
 
@@ -124,11 +129,7 @@ export default function CreateUserModal() {
                 <FormItem>
                   <FormLabel>Email</FormLabel>
                   <FormControl>
-                    <Input
-                      type="email"
-                      placeholder="john.doe@example.com"
-                      {...field}
-                    />
+                    <Input type="email" placeholder="john.doe@example.com" {...field} />
                   </FormControl>
                   <FormDescription>
                     The email address will be used for login and communications.
@@ -148,8 +149,8 @@ export default function CreateUserModal() {
                     <Input type="password" {...field} placeholder="••••••••" />
                   </FormControl>
                   <FormDescription>
-                    Password must be at least 8 characters and contain at least
-                    one uppercase letter, one lowercase letter, and one number.
+                    Password must be at least 8 characters and contain at least one uppercase
+                    letter, one lowercase letter, and one number.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -165,9 +166,7 @@ export default function CreateUserModal() {
                   <FormControl>
                     <Input {...field} placeholder="Company name" />
                   </FormControl>
-                  <FormDescription>
-                    The company this user belongs to.
-                  </FormDescription>
+                  <FormDescription>The company this user belongs to.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -179,10 +178,7 @@ export default function CreateUserModal() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Role</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a role" />
@@ -195,8 +191,7 @@ export default function CreateUserModal() {
                     </SelectContent>
                   </Select>
                   <FormDescription>
-                    User: Basic access | Admin: Advanced access | Root: Full
-                    system access
+                    User: Basic access | Admin: Advanced access | Root: Full system access
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -210,15 +205,10 @@ export default function CreateUserModal() {
                 <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
                   <div className="space-y-0.5">
                     <FormLabel>Report Generation</FormLabel>
-                    <FormDescription>
-                      Allow user to generate and export reports
-                    </FormDescription>
+                    <FormDescription>Allow user to generate and export reports</FormDescription>
                   </div>
                   <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
+                    <Switch checked={field.value} onCheckedChange={field.onChange} />
                   </FormControl>
                 </FormItem>
               )}
@@ -231,15 +221,10 @@ export default function CreateUserModal() {
                 <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
                   <div className="space-y-0.5">
                     <FormLabel>Chart Access</FormLabel>
-                    <FormDescription>
-                      Allow user to view and interact with charts
-                    </FormDescription>
+                    <FormDescription>Allow user to view and interact with charts</FormDescription>
                   </div>
                   <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
+                    <Switch checked={field.value} onCheckedChange={field.onChange} />
                   </FormControl>
                 </FormItem>
               )}
@@ -257,10 +242,7 @@ export default function CreateUserModal() {
                     </FormDescription>
                   </div>
                   <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
+                    <Switch checked={field.value} onCheckedChange={field.onChange} />
                   </FormControl>
                 </FormItem>
               )}
@@ -268,7 +250,7 @@ export default function CreateUserModal() {
 
             <DialogFooter>
               <Button type="submit" disabled={isLoading}>
-                {isLoading ? "Creating..." : "Create User"}
+                {isLoading ? 'Creating...' : 'Create User'}
               </Button>
             </DialogFooter>
           </form>

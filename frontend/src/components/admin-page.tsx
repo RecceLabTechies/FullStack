@@ -1,20 +1,17 @@
-"use client";
+'use client';
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import type { UserData } from "@/types/types";
-import { useEffect, useState } from "react";
-import { Toaster } from "sonner";
-import SearchBar from "./admin-search-bar";
-import StaffList from "./admin-staff-list";
-import { useUsers } from "@/hooks/use-backend-api";
-import CreateUserModal from "./admin-create-user-modal";
+import { useEffect, useState } from 'react';
+
+import type { UserData } from '@/types/types';
+
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+
+import { useUsers } from '@/hooks/use-backend-api';
+
+import CreateUserModal from './admin-create-user-modal';
+import SearchBar from './admin-search-bar';
+import StaffList from './admin-staff-list';
 
 function SkeletonStaffList() {
   return (
@@ -51,7 +48,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     // Get current user from localStorage
-    const userStr = localStorage.getItem("user");
+    const userStr = localStorage.getItem('user');
     if (userStr) {
       const user = JSON.parse(userStr) as UserData;
       setCurrentUser(user);
@@ -74,15 +71,15 @@ export default function AdminPage() {
           if (user.email === currentUser?.email) return false;
 
           // Role hierarchy: root > admin > user
-          const currentUserRole = currentUser?.role.toLowerCase() ?? "";
+          const currentUserRole = currentUser?.role.toLowerCase() ?? '';
           const userRole = user.role.toLowerCase();
 
           // If current user is root, they can see all users
-          if (currentUserRole === "root") return true;
+          if (currentUserRole === 'root') return true;
 
           // If current user is admin, they can only see users with role 'user'
-          if (currentUserRole === "admin") {
-            return userRole === "user";
+          if (currentUserRole === 'admin') {
+            return userRole === 'user';
           }
 
           // If current user is not admin or root, they shouldn't see any users
@@ -100,12 +97,12 @@ export default function AdminPage() {
       setFilteredUsers(
         users.filter((user) => {
           if (user.email === currentUser?.email) return false;
-          const currentUserRole = currentUser?.role.toLowerCase() ?? "";
+          const currentUserRole = currentUser?.role.toLowerCase() ?? '';
           const userRole = user.role.toLowerCase();
-          if (currentUserRole === "root") return true;
-          if (currentUserRole === "admin") return userRole === "user";
+          if (currentUserRole === 'root') return true;
+          if (currentUserRole === 'admin') return userRole === 'user';
           return false;
-        }),
+        })
       );
       return;
     }
@@ -115,27 +112,27 @@ export default function AdminPage() {
         (user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
           user.role.toLowerCase().includes(searchTerm.toLowerCase())) &&
         user.email !== currentUser?.email &&
-        (currentUser?.role.toLowerCase() === "root" ||
-          (currentUser?.role.toLowerCase() === "admin" &&
-            user.role.toLowerCase() === "user")),
+        (currentUser?.role.toLowerCase() === 'root' ||
+          (currentUser?.role.toLowerCase() === 'admin' && user.role.toLowerCase() === 'user'))
     );
     setFilteredUsers(filtered);
+  };
+
+  const handleUsersUpdate = () => {
+    void fetchUsers(); // Refresh the users list
   };
 
   // Don't render the page if user is not admin or root
   if (
     !currentUser ||
-    (currentUser.role.toLowerCase() !== "admin" &&
-      currentUser.role.toLowerCase() !== "root")
+    (currentUser.role.toLowerCase() !== 'admin' && currentUser.role.toLowerCase() !== 'root')
   ) {
     return (
       <section className="container mx-auto p-4">
         <Card>
           <CardHeader>
             <CardTitle>Access Denied</CardTitle>
-            <CardDescription>
-              You don&apos;t have permission to access this page.
-            </CardDescription>
+            <CardDescription>You don&apos;t have permission to access this page.</CardDescription>
           </CardHeader>
         </Card>
       </section>
@@ -144,15 +141,12 @@ export default function AdminPage() {
 
   return (
     <section className="container mx-auto p-4">
-      <Toaster richColors position="top-right" />
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Staff Management</CardTitle>
-              <CardDescription>
-                Manage your team&apos;s permissions and access
-              </CardDescription>
+              <CardDescription>Manage your team&apos;s permissions and access</CardDescription>
             </div>
             <CreateUserModal />
           </div>
@@ -166,7 +160,7 @@ export default function AdminPage() {
               {error.message}
             </div>
           ) : (
-            filteredUsers && <StaffList users={filteredUsers} />
+            filteredUsers && <StaffList users={filteredUsers} onUsersUpdate={handleUsersUpdate} />
           )}
         </CardContent>
       </Card>

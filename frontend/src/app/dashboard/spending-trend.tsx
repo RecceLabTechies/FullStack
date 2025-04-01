@@ -1,19 +1,21 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from 'react';
+
+import { format, parseISO } from 'date-fns';
+import { Loader2 } from 'lucide-react';
 import {
-  LineChart,
+  CartesianGrid,
+  Legend,
   Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  CartesianGrid,
-} from "recharts";
-import { format, parseISO } from "date-fns";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+} from 'recharts';
+
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 type SpendingDataPoint = {
   date: string;
@@ -22,33 +24,33 @@ type SpendingDataPoint = {
 
 const sampleData: SpendingDataPoint[] = [
   {
-    date: "2022-01-02",
+    date: '2022-01-02',
     Influencer: 233,
-    "Sponsored search ads": 200,
-    "TikTok ads": 150,
+    'Sponsored search ads': 200,
+    'TikTok ads': 150,
     Instagram: 100,
   },
   {
-    date: "2022-01-03",
+    date: '2022-01-03',
     Influencer: 250,
-    "Sponsored search ads": 220,
-    "TikTok ads": 160,
+    'Sponsored search ads': 220,
+    'TikTok ads': 160,
     Instagram: 110,
   },
   {
-    date: "2022-01-04",
+    date: '2022-01-04',
     Influencer: 300,
-    "Sponsored search ads": 250,
-    "TikTok ads": 170,
+    'Sponsored search ads': 250,
+    'TikTok ads': 170,
     Instagram: 120,
   },
 ];
 
 const CHANNEL_COLORS: Record<string, string> = {
-  Influencer: "#8884d8",
-  "Sponsored search ads": "#82ca9d",
-  "TikTok ads": "#ffc658",
-  Instagram: "#ff8042",
+  Influencer: '#8884d8',
+  'Sponsored search ads': '#82ca9d',
+  'TikTok ads': '#ffc658',
+  Instagram: '#ff8042',
 };
 
 export default function SpendingTrendLineChart() {
@@ -69,16 +71,14 @@ export default function SpendingTrendLineChart() {
 
   const formatDate = (dateStr: string) => {
     try {
-      return format(parseISO(dateStr), "MMM d");
+      return format(parseISO(dateStr), 'MMM d');
     } catch {
       return dateStr;
     }
   };
 
   const channels =
-    data.length > 0
-      ? Object.keys(data[0] ?? {}).filter((key) => key !== "date")
-      : [];
+    data.length > 0 ? Object.keys(data[0] ?? {}).filter((key) => key !== 'date') : [];
 
   if (isLoading) {
     return (
@@ -97,24 +97,10 @@ export default function SpendingTrendLineChart() {
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={400}>
-          <LineChart
-            data={data}
-            margin={{ top: 20, right: 30, left: 20, bottom: 10 }}
-          >
-            <CartesianGrid
-              strokeDasharray="3 3"
-              vertical={false}
-              opacity={0.3}
-            />
-            <XAxis
-              dataKey="date"
-              tickFormatter={formatDate}
-              tick={{ fill: "#6b7280" }}
-            />
-            <YAxis
-              tickFormatter={(value) => `$${value}`}
-              tick={{ fill: "#6b7280" }}
-            />
+          <LineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 10 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+            <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fill: '#6b7280' }} />
+            <YAxis tickFormatter={(value) => `$${value}`} tick={{ fill: '#6b7280' }} />
             <Tooltip
               formatter={(value: number | string) => [`$${value}`, ``]}
               labelFormatter={(label: string) => formatDate(label)}
@@ -127,9 +113,7 @@ export default function SpendingTrendLineChart() {
                 type="monotone"
                 dataKey={channel}
                 name={channel}
-                stroke={
-                  CHANNEL_COLORS[channel] ?? `hsl(${index * 30}, 70%, 50%)`
-                }
+                stroke={CHANNEL_COLORS[channel] ?? `hsl(${index * 30}, 70%, 50%)`}
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 6 }}

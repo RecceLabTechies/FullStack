@@ -1,15 +1,16 @@
-import { useState, useCallback } from "react";
+import { useCallback, useState } from 'react';
+
+import * as backendApi from '@/api/backendApi';
 import {
-  type CostHeatmapData,
   type CampaignFilterOptions,
   type CampaignFilters,
+  type CostHeatmapData,
   type CsvUploadResponse,
   type DbStructure,
   type FilterResponse,
   type MonthlyPerformanceData,
   type UserData,
-} from "@/types/types";
-import * as backendApi from "@/api/backendApi";
+} from '@/types/types';
 
 // Generic hook state type that provides loading, error, and data states
 interface HookState<T> {
@@ -129,19 +130,16 @@ export const useUpdateUser = () => {
     error: null,
   });
 
-  const updateUser = useCallback(
-    async (username: string, userData: UserData) => {
-      setState((prev) => ({ ...prev, isLoading: true }));
-      const result = await backendApi.updateUser(username, userData);
+  const updateUser = useCallback(async (username: string, userData: UserData) => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.updateUser(username, userData);
 
-      if (result instanceof Error) {
-        setState({ data: null, isLoading: false, error: result });
-      } else {
-        setState({ data: result, isLoading: false, error: null });
-      }
-    },
-    [],
-  );
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
+    }
+  }, []);
 
   return { ...state, updateUser };
 };
@@ -182,19 +180,16 @@ export const usePatchUser = () => {
     error: null,
   });
 
-  const patchUser = useCallback(
-    async (username: string, patchData: Partial<UserData>) => {
-      setState((prev) => ({ ...prev, isLoading: true }));
-      const result = await backendApi.patchUser(username, patchData);
+  const patchUser = useCallback(async (username: string, patchData: Partial<UserData>) => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.patchUser(username, patchData);
 
-      if (result instanceof Error) {
-        setState({ data: null, isLoading: false, error: result });
-      } else {
-        setState({ data: result, isLoading: false, error: null });
-      }
-    },
-    [],
-  );
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
+    }
+  }, []);
 
   return { ...state, patchUser };
 };
@@ -287,11 +282,7 @@ export const useCostHeatmap = () => {
   });
 
   const fetchHeatmapData = useCallback(
-    async (params?: {
-      country?: string;
-      campaign_id?: string;
-      channels?: string[];
-    }) => {
+    async (params?: { country?: string; campaign_id?: string; channels?: string[] }) => {
       setState((prev) => ({ ...prev, isLoading: true }));
       const result = await backendApi.fetchCostHeatmapData(params);
 
@@ -301,7 +292,7 @@ export const useCostHeatmap = () => {
         setState({ data: result, isLoading: false, error: null });
       }
     },
-    [],
+    []
   );
 
   return { ...state, fetchHeatmapData };

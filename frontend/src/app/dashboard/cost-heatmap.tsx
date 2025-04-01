@@ -1,15 +1,18 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
+
+import { fetchCostHeatmapData } from '@/api/backendApi';
+import { type CostHeatmapData } from '@/types/types';
+
 import {
   Table,
-  TableHeader,
-  TableRow,
-  TableHead,
   TableBody,
   TableCell,
-} from "@/components/ui/table";
-import { fetchCostHeatmapData, type CostHeatmapData } from "@/api/backendApi";
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 export default function CostTable() {
   const [data, setData] = useState<CostHeatmapData[] | null>(null);
@@ -21,11 +24,10 @@ export default function CostTable() {
       setLoading(true);
       setError(null);
       const result = await fetchCostHeatmapData();
-      if (result) {
-        setData(result);
-        console.log(result);
+      if (result instanceof Error) {
+        setError(result.message);
       } else {
-        setError("Failed to load data.");
+        setData(result);
       }
       setLoading(false);
     };
@@ -54,15 +56,9 @@ export default function CostTable() {
             {data.map((row) => (
               <TableRow key={row.channel}>
                 <TableCell className="font-medium">{row.channel}</TableCell>
-                <TableCell className="text-center">
-                  {row.costPerLead.toFixed(4)}
-                </TableCell>
-                <TableCell className="text-center">
-                  {row.costPerView.toFixed(4)}
-                </TableCell>
-                <TableCell className="text-center">
-                  {row.costPerAccount.toFixed(4)}
-                </TableCell>
+                <TableCell className="text-center">{row.costPerLead.toFixed(4)}</TableCell>
+                <TableCell className="text-center">{row.costPerView.toFixed(4)}</TableCell>
+                <TableCell className="text-center">{row.costPerAccount.toFixed(4)}</TableCell>
               </TableRow>
             ))}
           </TableBody>

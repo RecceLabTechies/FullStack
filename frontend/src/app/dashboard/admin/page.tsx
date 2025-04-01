@@ -1,18 +1,21 @@
-"use client";
+'use client';
 
-import AdminPage from "@/components/admin-page";
-import { type UserData } from "@/types/types";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
+
+import { useRouter } from 'next/navigation';
+
+import { type UserData } from '@/types/types';
+
+import AdminPage from '@/components/admin-page';
 
 export default function Page() {
   const router = useRouter();
   const [user, setUser] = useState<UserData | null>(null);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
+    const storedUser = localStorage.getItem('user');
     if (!storedUser) {
-      router.push("/login");
+      router.push('/login');
     } else {
       setUser(JSON.parse(storedUser) as UserData);
     }

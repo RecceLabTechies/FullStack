@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState } from 'react';
+
 import {
   type AnalysisResponse,
   analyzeData,
@@ -6,7 +7,7 @@ import {
   isDescriptionResponse,
   isErrorResponse,
   isReportResponse,
-} from "@/api/llmApi";
+} from '@/api/llmApi';
 
 interface LlmAnalysisState {
   data: AnalysisResponse | null;

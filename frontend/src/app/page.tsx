@@ -1,7 +1,18 @@
-"use client";
+'use client';
 
-import { fetchUsers } from "@/api/backendApi";
-import { Button } from "@/components/ui/button";
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+
+import * as z from 'zod';
+import { fetchUsers } from '@/api/backendApi';
+import { type UserData } from '@/types/types';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Bot, Loader2, TrendingUp } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
 import {
   Form,
   FormControl,
@@ -9,42 +20,34 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { type UserData } from "@/types/types";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Bot, Loader2, TrendingUp } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
-import * as z from "zod";
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
 
 const loginSchema = z.object({
   email: z
     .string()
-    .min(1, "Email is required")
-    .email("Please enter a valid email address")
+    .min(1, 'Email is required')
+    .email('Please enter a valid email address')
     .transform((email) => email.toLowerCase().trim()),
   password: z
     .string()
-    .min(1, "Password is required")
-    .min(8, "Password must be at least 8 characters")
+    .min(1, 'Password is required')
+    .min(8, 'Password must be at least 8 characters')
     .regex(
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-      "Password must contain at least one uppercase letter, one lowercase letter, and one number",
+      'Password must contain at least one uppercase letter, one lowercase letter, and one number'
     )
-    .max(100, "Password is too long"),
+    .max(100, 'Password is too long'),
 });
 
 const signUpSchema = loginSchema
   .extend({
     confirmPassword: z.string(),
-    name: z.string().min(1, "Name is required").max(50, "Name is too long"),
+    name: z.string().min(1, 'Name is required').max(50, 'Name is too long'),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",
-    path: ["confirmPassword"],
+    path: ['confirmPassword'],
   });
 
 type LoginValues = z.infer<typeof loginSchema>;
@@ -53,7 +56,7 @@ type SignUpValues = z.infer<typeof signUpSchema>;
 export default function AuthPage() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [users, setUsers] = useState<UserData[] | null>(null);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
@@ -62,7 +65,7 @@ export default function AuthPage() {
       try {
         const data = await fetchUsers();
         if (data instanceof Error) {
-          setError("Failed to load user data.");
+          setError('Failed to load user data.');
           setUsers(null);
         } else if (Array.isArray(data)) {
           setUsers(data);
@@ -70,8 +73,8 @@ export default function AuthPage() {
           setUsers([data]);
         }
       } catch (error) {
-        console.error("Failed to fetch users", error);
-        setError("Failed to load user data.");
+        console.error('Failed to fetch users', error);
+        setError('Failed to load user data.');
         setUsers(null);
       }
     };
@@ -82,46 +85,44 @@ export default function AuthPage() {
   const loginForm = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "",
-      password: "",
+      email: '',
+      password: '',
     },
   });
 
   const signUpForm = useForm<SignUpValues>({
     resolver: zodResolver(signUpSchema),
     defaultValues: {
-      email: "",
-      password: "",
-      confirmPassword: "",
-      name: "",
+      email: '',
+      password: '',
+      confirmPassword: '',
+      name: '',
     },
   });
 
   async function onLoginSubmit(values: LoginValues) {
     try {
       setIsLoading(true);
-      setError("");
+      setError('');
 
       // Regular user check from database
       if (!users) {
-        setError("User data is not available. Try again later.");
+        setError('User data is not available. Try again later.');
         return;
       }
 
-      const user = users.find(
-        (u) => u.email === values.email && u.password === values.password,
-      );
+      const user = users.find((u) => u.email === values.email && u.password === values.password);
 
       if (!user) {
-        setError("Invalid email or password");
+        setError('Invalid email or password');
         return;
       }
 
-      localStorage.setItem("user", JSON.stringify(user));
-      router.push("/dashboard");
+      localStorage.setItem('user', JSON.stringify(user));
+      router.push('/dashboard');
     } catch (error) {
-      console.error("Login error:", error);
-      setError("An unexpected error occurred during login.");
+      console.error('Login error:', error);
+      setError('An unexpected error occurred during login.');
     } finally {
       setIsLoading(false);
     }
@@ -129,9 +130,9 @@ export default function AuthPage() {
 
   async function onSignUpSubmit(values: SignUpValues) {
     try {
-      console.log("Sign up submitted:", values);
+      console.log('Sign up submitted:', values);
     } catch (error) {
-      console.error("Sign up error:", error);
+      console.error('Sign up error:', error);
     }
   }
 
@@ -151,10 +152,7 @@ export default function AuthPage() {
 
           <div className="space-y-6">
             <article className="flex items-start gap-3">
-              <TrendingUp
-                className="mt-1 h-5 w-5 text-primary"
-                aria-hidden="true"
-              />
+              <TrendingUp className="mt-1 h-5 w-5 text-primary" aria-hidden="true" />
               <div>
                 <h2 className="font-medium">Real-time Analytics</h2>
                 <p className="text-sm text-muted-foreground">
@@ -180,9 +178,7 @@ export default function AuthPage() {
                 <span className="w-full border-t" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-muted/40 px-2 text-muted-foreground">
-                  Prototype
-                </span>
+                <span className="bg-muted/40 px-2 text-muted-foreground">Prototype</span>
               </div>
             </div>
           </footer>
@@ -193,21 +189,16 @@ export default function AuthPage() {
       <section className="flex flex-1 flex-col justify-center p-8 lg:p-12">
         <div className="mx-auto w-full max-w-sm space-y-6">
           <header className="space-y-2 text-center">
-            <h1 className="text-3xl font-bold">
-              {isSignUp ? "Sign Up" : "Login"}
-            </h1>
+            <h1 className="text-3xl font-bold">{isSignUp ? 'Sign Up' : 'Login'}</h1>
             <p className="text-muted-foreground">
               {isSignUp
-                ? "Create a new account to get started"
-                : "Enter your email below to login to your account"}
+                ? 'Create a new account to get started'
+                : 'Enter your email below to login to your account'}
             </p>
           </header>
           {isSignUp ? (
             <Form {...signUpForm}>
-              <form
-                onSubmit={signUpForm.handleSubmit(onSignUpSubmit)}
-                className="space-y-4"
-              >
+              <form onSubmit={signUpForm.handleSubmit(onSignUpSubmit)} className="space-y-4">
                 <FormField
                   control={signUpForm.control}
                   name="name"
@@ -252,9 +243,7 @@ export default function AuthPage() {
                     <FormItem>
                       <div className="flex items-center justify-between">
                         <FormLabel htmlFor="password">Password</FormLabel>
-                        <span className="text-sm text-muted-foreground">
-                          Required
-                        </span>
+                        <span className="text-sm text-muted-foreground">Required</span>
                       </div>
                       <FormControl>
                         <Input
@@ -275,12 +264,8 @@ export default function AuthPage() {
                   render={({ field }) => (
                     <FormItem>
                       <div className="flex items-center justify-between">
-                        <FormLabel htmlFor="confirmPassword">
-                          Confirm Password
-                        </FormLabel>
-                        <span className="text-sm text-muted-foreground">
-                          Required
-                        </span>
+                        <FormLabel htmlFor="confirmPassword">Confirm Password</FormLabel>
+                        <span className="text-sm text-muted-foreground">Required</span>
                       </div>
                       <FormControl>
                         <Input
@@ -302,10 +287,7 @@ export default function AuthPage() {
             </Form>
           ) : (
             <Form {...loginForm}>
-              <form
-                onSubmit={loginForm.handleSubmit(onLoginSubmit)}
-                className="space-y-4"
-              >
+              <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
                 {error && (
                   <div className="flex items-center space-x-2 text-red-600">
                     <span className="text-sm">{error}</span>
@@ -364,7 +346,7 @@ export default function AuthPage() {
                       Signing in...
                     </>
                   ) : (
-                    "Sign In"
+                    'Sign In'
                   )}
                 </Button>
               </form>
@@ -372,12 +354,12 @@ export default function AuthPage() {
           )}
           <footer className="text-center text-sm">
             <small>
-              {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
+              {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
               <button
                 onClick={() => setIsSignUp(!isSignUp)}
                 className="font-medium text-primary underline underline-offset-4 hover:text-primary/90"
               >
-                {isSignUp ? "Sign in" : "Create account"}
+                {isSignUp ? 'Sign in' : 'Create account'}
               </button>
             </small>
           </footer>

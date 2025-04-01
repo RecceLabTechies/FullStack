@@ -1,14 +1,15 @@
-"use client";
+'use client';
 
-import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { useState } from 'react';
+
+import { Input } from '@/components/ui/input';
 
 interface SearchBarProps {
   onSearch: (searchTerm: string) => void;
 }
 
 export default function SearchBar({ onSearch }: SearchBarProps) {
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState('');
 
   const handleSearch = (event: React.ChangeEvent<HTMLInputElement>) => {
     const searchTerm = event.target.value;

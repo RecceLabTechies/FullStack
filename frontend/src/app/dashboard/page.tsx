@@ -1,26 +1,26 @@
-"use client";
+'use client';
 
-import { useEffect } from "react";
-import moment from "moment";
-import { DatePickerWithRange } from "@/components/date-range-picker";
-import { MultiSelect } from "@/components/ui/multi-select";
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+
+import * as z from 'zod';
+import { type CampaignFilters } from '@/types/types';
+import { zodResolver } from '@hookform/resolvers/zod';
+import moment from 'moment';
 import {
-  useCampaignFilterOptions,
-  useCampaigns,
-  useMonthlyAggregatedData,
-} from "@/hooks/use-backend-api";
-import { type CampaignFilters } from "@/types/types";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+
+import { DatePickerWithRange } from '@/components/date-range-picker';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Form,
   FormControl,
@@ -28,17 +28,14 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
+} from '@/components/ui/form';
+import { MultiSelect } from '@/components/ui/multi-select';
+
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from "recharts";
+  useCampaignFilterOptions,
+  useCampaigns,
+  useMonthlyAggregatedData,
+} from '@/hooks/use-backend-api';
 
 const filterSchema = z.object({
   dateRange: z
@@ -153,7 +150,7 @@ export default function DashboardPage() {
 
         await fetchMonthlyData(filters);
       } catch (error) {
-        console.error("Error fetching monthly data:", error);
+        console.error('Error fetching monthly data:', error);
       }
     };
 
@@ -175,7 +172,7 @@ export default function DashboardPage() {
     // Transform the items to chart data format
     sortedItems.forEach((item) => {
       chartData.push({
-        month: moment.unix(item.date).format("MMM"),
+        month: moment.unix(item.date).format('MMM'),
         revenue: item.revenue,
         ad_spend: item.ad_spend,
       });
@@ -239,10 +236,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <Form {...form}>
-              <form
-                onSubmit={form.handleSubmit(onSubmit)}
-                className="grid grid-cols-5 gap-2"
-              >
+              <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-5 gap-2">
                 {/* Date Range Filter */}
                 <FormField
                   control={form.control}
@@ -253,12 +247,8 @@ export default function DashboardPage() {
                       <FormControl>
                         <DatePickerWithRange
                           onRangeChange={field.onChange}
-                          minDate={moment
-                            .unix(filterOptions.date_range.min_date)
-                            .toDate()}
-                          maxDate={moment
-                            .unix(filterOptions.date_range.max_date)
-                            .toDate()}
+                          minDate={moment.unix(filterOptions.date_range.min_date).toDate()}
+                          maxDate={moment.unix(filterOptions.date_range.max_date).toDate()}
                         />
                       </FormControl>
                       <FormMessage />
@@ -275,12 +265,10 @@ export default function DashboardPage() {
                       <FormLabel>Age Groups</FormLabel>
                       <FormControl>
                         <MultiSelect
-                          options={filterOptions.categorical.age_groups.map(
-                            (group) => ({
-                              label: group,
-                              value: group,
-                            }),
-                          )}
+                          options={filterOptions.categorical.age_groups.map((group) => ({
+                            label: group,
+                            value: group,
+                          }))}
                           onValueChange={field.onChange}
                           placeholder="Select age groups"
                         />
@@ -299,12 +287,10 @@ export default function DashboardPage() {
                       <FormLabel>Channels</FormLabel>
                       <FormControl>
                         <MultiSelect
-                          options={filterOptions.categorical.channels.map(
-                            (channel) => ({
-                              label: channel,
-                              value: channel,
-                            }),
-                          )}
+                          options={filterOptions.categorical.channels.map((channel) => ({
+                            label: channel,
+                            value: channel,
+                          }))}
                           onValueChange={field.onChange}
                           placeholder="Select channels"
                         />
@@ -323,12 +309,10 @@ export default function DashboardPage() {
                       <FormLabel>Countries</FormLabel>
                       <FormControl>
                         <MultiSelect
-                          options={filterOptions.categorical.countries.map(
-                            (country) => ({
-                              label: country,
-                              value: country,
-                            }),
-                          )}
+                          options={filterOptions.categorical.countries.map((country) => ({
+                            label: country,
+                            value: country,
+                          }))}
                           onValueChange={field.onChange}
                           placeholder="Select countries"
                         />
@@ -347,12 +331,10 @@ export default function DashboardPage() {
                       <FormLabel>Campaigns</FormLabel>
                       <FormControl>
                         <MultiSelect
-                          options={filterOptions.categorical.campaign_ids.map(
-                            (id) => ({
-                              label: id,
-                              value: id,
-                            }),
-                          )}
+                          options={filterOptions.categorical.campaign_ids.map((id) => ({
+                            label: id,
+                            value: id,
+                          }))}
                           onValueChange={field.onChange}
                           placeholder="Select campaigns"
                         />
@@ -376,8 +358,7 @@ export default function DashboardPage() {
         <CardHeader>
           <CardTitle>Revenue & Ad Spend Overview</CardTitle>
           <CardDescription>
-            Monthly comparison of revenue generated versus advertising
-            expenditure
+            Monthly comparison of revenue generated versus advertising expenditure
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -417,12 +398,7 @@ export default function DashboardPage() {
                     activeDot={{ r: 8 }}
                     name="Revenue"
                   />
-                  <Line
-                    type="monotone"
-                    dataKey="ad_spend"
-                    stroke="#82ca9d"
-                    name="Ad Spend"
-                  />
+                  <Line type="monotone" dataKey="ad_spend" stroke="#82ca9d" name="Ad Spend" />
                 </LineChart>
               </ResponsiveContainer>
             </div>

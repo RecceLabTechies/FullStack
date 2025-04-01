@@ -1,6 +1,10 @@
-"use client";
+'use client';
 
-import { AppSidebar } from "@/components/app-sidebar";
+import React from 'react';
+
+import { usePathname } from 'next/navigation';
+
+import { AppSidebar } from '@/components/app-sidebar';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -8,31 +12,21 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
-import { Separator } from "@/components/ui/separator";
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
-import { usePathname } from "next/navigation";
-import React from "react";
+} from '@/components/ui/breadcrumb';
+import { Separator } from '@/components/ui/separator';
+import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 
 const getBreadcrumbItems = (pathname: string) =>
   pathname
-    .split("/")
+    .split('/')
     .filter(Boolean)
     .map((segment, index, segments) => ({
-      href: `/${segments.slice(0, index + 1).join("/")}`,
+      href: `/${segments.slice(0, index + 1).join('/')}`,
       label: segment.charAt(0).toUpperCase() + segment.slice(1),
       isLast: index === segments.length - 1,
     }));
 
-export function DashboardLayoutContent({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const breadcrumbItems = getBreadcrumbItems(usePathname());
 
   return (
@@ -51,14 +45,10 @@ export function DashboardLayoutContent({
                       {item.isLast ? (
                         <BreadcrumbPage>{item.label}</BreadcrumbPage>
                       ) : (
-                        <BreadcrumbLink href={item.href}>
-                          {item.label}
-                        </BreadcrumbLink>
+                        <BreadcrumbLink href={item.href}>{item.label}</BreadcrumbLink>
                       )}
                     </BreadcrumbItem>
-                    {index < breadcrumbItems.length - 1 && (
-                      <BreadcrumbSeparator />
-                    )}
+                    {index < breadcrumbItems.length - 1 && <BreadcrumbSeparator />}
                   </React.Fragment>
                 ))}
               </BreadcrumbList>
