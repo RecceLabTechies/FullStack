@@ -1,16 +1,3 @@
-export interface CampaignData {
-  date: number;
-  campaign_id: string;
-  channel: string;
-  age_group: string;
-  ad_spend: number;
-  views: number;
-  leads: number;
-  new_accounts: number;
-  country: string;
-  revenue: number;
-}
-
 export interface UserData {
   username: string;
   email: string;
@@ -66,7 +53,7 @@ export interface CampaignFilters {
   page_size?: number;
 }
 
-export interface FilteredData {
+interface FilteredData {
   date: number;
   ad_spend: string;
   age_group: string;
@@ -103,7 +90,7 @@ export interface CostHeatmapData {
 }
 
 // Monthly performance data interfaces
-export interface MonthlyAggregatedItem {
+interface MonthlyAggregatedItem {
   date: number; // Unix timestamp for the month
   revenue: number;
   ad_spend: number;

@@ -1,6 +1,5 @@
 "use client";
 
-import { fetchUsers } from "@/api/backendApi";
 import {
   Card,
   CardContent,
@@ -14,6 +13,7 @@ import { useEffect, useState } from "react";
 import { Toaster } from "sonner";
 import SearchBar from "./SearchBar";
 import StaffList from "./StaffList";
+import { useUsers } from "@/hooks/use-backend-api";
 
 function SkeletonStaffList() {
   return (
@@ -44,11 +44,9 @@ function SkeletonStaffList() {
 }
 
 export default function AdminPage() {
-  const [users, setUsers] = useState<UserData[] | null>(null);
   const [filteredUsers, setFilteredUsers] = useState<UserData[] | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<UserData | null>(null);
+  const { data: users, isLoading, error, fetchUsers } = useUsers();
 
   useEffect(() => {
     // Get current user from localStorage
@@ -60,16 +58,17 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => {
-    const getUsers = async () => {
-      try {
-        const fetchedUsers = await fetchUsers();
-        if (!fetchedUsers) {
-          setError("No users found.");
-          return;
-        }
+    if (currentUser) {
+      void fetchUsers();
+    }
+  }, [currentUser, fetchUsers]);
 
-        // Filter users based on role hierarchy
-        const filteredUsers = fetchedUsers.filter((user) => {
+  useEffect(() => {
+    if (!users) return;
+
+    // Filter users based on role hierarchy
+    const filtered = Array.isArray(users)
+      ? users.filter((user) => {
           // Don't show current user
           if (user.email === currentUser?.email) return false;
 
@@ -87,35 +86,37 @@ export default function AdminPage() {
 
           // If current user is not admin or root, they shouldn't see any users
           return false;
-        });
+        })
+      : [];
 
-        setUsers(filteredUsers);
-        setFilteredUsers(filteredUsers);
-      } catch (error) {
-        setError("Failed to load users.");
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (currentUser) {
-      void getUsers();
-    }
-  }, [currentUser]);
+    setFilteredUsers(filtered);
+  }, [users, currentUser]);
 
   const handleSearch = (searchTerm: string) => {
-    if (!users) return;
+    if (!users || !Array.isArray(users)) return;
 
     if (!searchTerm.trim()) {
-      setFilteredUsers(users);
+      setFilteredUsers(
+        users.filter((user) => {
+          if (user.email === currentUser?.email) return false;
+          const currentUserRole = currentUser?.role.toLowerCase() ?? "";
+          const userRole = user.role.toLowerCase();
+          if (currentUserRole === "root") return true;
+          if (currentUserRole === "admin") return userRole === "user";
+          return false;
+        }),
+      );
       return;
     }
 
     const filtered = users.filter(
       (user) =>
-        user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.role.toLowerCase().includes(searchTerm.toLowerCase()),
+        (user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          user.role.toLowerCase().includes(searchTerm.toLowerCase())) &&
+        user.email !== currentUser?.email &&
+        (currentUser?.role.toLowerCase() === "root" ||
+          (currentUser?.role.toLowerCase() === "admin" &&
+            user.role.toLowerCase() === "user")),
     );
     setFilteredUsers(filtered);
   };
@@ -152,11 +153,11 @@ export default function AdminPage() {
         </CardHeader>
         <CardContent>
           <SearchBar onSearch={handleSearch} />
-          {loading ? (
+          {isLoading ? (
             <SkeletonStaffList />
           ) : error ? (
             <div className="text-destructive" role="alert">
-              {error}
+              {error.message}
             </div>
           ) : (
             filteredUsers && <StaffList users={filteredUsers} />
