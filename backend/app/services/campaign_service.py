@@ -130,7 +130,7 @@ def get_revenue_past_month() -> float:
     Returns:
         float: Total revenue for the past month
     """
-    # Calculate first and last day of previous month
+    # Calculate first and last day of previous month as Unix timestamps
     today = datetime.now()
     first_day_current_month = datetime(today.year, today.month, 1)
     last_day_prev_month = first_day_current_month - timedelta(days=1)
@@ -138,8 +138,12 @@ def get_revenue_past_month() -> float:
         last_day_prev_month.year, last_day_prev_month.month, 1
     )
 
+    # Convert to Unix timestamps
+    start_ts = first_day_prev_month.timestamp()
+    end_ts = last_day_prev_month.timestamp()
+
     # Query for data from the previous month
-    query = {"date": {"$gte": first_day_prev_month, "$lte": last_day_prev_month}}
+    query = {"date": {"$gte": start_ts, "$lte": end_ts}}
     data = CampaignModel.get_all(query)
 
     if not data:
@@ -291,20 +295,10 @@ def filter_campaigns(filter_params: Dict) -> Dict:
         query.setdefault("date", {})
 
         if filter_params.get("from_date"):
-            from_date = filter_params["from_date"]
-            # Convert string to datetime if needed
-            if isinstance(from_date, str):
-                from_date = datetime.fromisoformat(from_date.split("T")[0])
-            query["date"]["$gte"] = from_date
+            query["date"]["$gte"] = float(filter_params["from_date"])
 
         if filter_params.get("to_date"):
-            to_date = filter_params["to_date"]
-            # Convert string to datetime if needed
-            if isinstance(to_date, str):
-                to_date = datetime.fromisoformat(to_date.split("T")[0])
-                # Include the entire day
-                to_date = datetime(to_date.year, to_date.month, to_date.day, 23, 59, 59)
-            query["date"]["$lte"] = to_date
+            query["date"]["$lte"] = float(filter_params["to_date"])
 
     # Set default pagination and sorting parameters
     page = filter_params.get("page", 1)
@@ -330,10 +324,10 @@ def filter_campaigns(filter_params: Dict) -> Dict:
         limit=page_size,
     )
 
-    # Format dates to ISO strings for JSON serialization
+    # Format dates to Unix timestamps for JSON serialization
     for result in results:
-        if isinstance(result.get("date"), datetime):
-            result["date"] = result["date"].isoformat()
+        if "date" in result:
+            result["date"] = float(result["date"])
 
     # Prepare pagination metadata
     total_pages = (total_count + page_size - 1) // page_size
@@ -431,11 +425,9 @@ def get_campaign_filter_options() -> Dict:
         min_date = date_result[0]["min_date"]
         max_date = date_result[0]["max_date"]
 
-        # Convert to ISO string format
-        if isinstance(min_date, datetime):
-            date_range["min_date"] = min_date.isoformat()
-        if isinstance(max_date, datetime):
-            date_range["max_date"] = max_date.isoformat()
+        # Convert to Unix timestamp
+        date_range["min_date"] = float(min_date)
+        date_range["max_date"] = float(max_date)
 
     # Build and return complete filter options
     return {
@@ -478,9 +470,8 @@ def get_revenue_by_date() -> Dict:
 
     for result in results:
         date = result["_id"]
-        # Convert date to ISO format if it's a datetime
-        if isinstance(date, datetime):
-            date = date.isoformat().split("T")[0]  # Just the date part
+        # Convert date to unix timestamp if needed
+        date = float(date)
 
         dates.append(date)
         revenues.append(round(result["revenue"], 2))
@@ -514,17 +505,11 @@ def get_monthly_performance_data(filters: Dict = None) -> Dict:
     # Date range filters
     if "from_date" in filters:
         from_date = filters["from_date"]
-        # Convert string to datetime if needed
-        if isinstance(from_date, str):
-            from_date = datetime.fromisoformat(from_date.split("T")[0])
-        query.setdefault("date", {})["$gte"] = from_date
+        query.setdefault("date", {})["$gte"] = float(from_date)
 
     if "to_date" in filters:
         to_date = filters["to_date"]
-        # Convert string to datetime if needed
-        if isinstance(to_date, str):
-            to_date = datetime.fromisoformat(to_date.split("T")[0])
-        query.setdefault("date", {})["$lte"] = to_date
+        query.setdefault("date", {})["$lte"] = float(to_date)
 
     # Categorical filters
     if "channels" in filters and filters["channels"]:
@@ -540,8 +525,17 @@ def get_monthly_performance_data(filters: Dict = None) -> Dict:
     pipeline = [
         {"$match": query},
         {
+            "$addFields": {
+                "dateObj": {
+                    "$toDate": {
+                        "$multiply": ["$date", 1000]
+                    }  # Convert Unix timestamp to date object
+                }
+            }
+        },
+        {
             "$group": {
-                "_id": {"year": {"$year": "$date"}, "month": {"$month": "$date"}},
+                "_id": {"year": {"$year": "$dateObj"}, "month": {"$month": "$dateObj"}},
                 "revenue": {"$sum": "$revenue"},
                 "ad_spend": {"$sum": "$ad_spend"},
             }
@@ -597,15 +591,18 @@ def update_monthly_data(updates: List[Dict]) -> Dict:
         if "revenue" not in update and "ad_spend" not in update:
             raise ValueError("Each update must contain either revenue or ad_spend")
 
-        # Parse month string to get start and end dates
-        month_date = datetime.strptime(update["month"], "%Y-%m")
-        start_date = month_date.replace(day=1)
+        # Get the Unix timestamp from the month field
+        month_timestamp = update["month"]
+
+        # Convert Unix timestamp to datetime for calculations
+        month_date = datetime.fromtimestamp(month_timestamp)
+        start_date = month_date.replace(day=1, hour=0, minute=0, second=0).timestamp()
 
         # Calculate end date (first day of next month)
         if month_date.month == 12:
-            end_date = datetime(month_date.year + 1, 1, 1)
+            end_date = datetime(month_date.year + 1, 1, 1).timestamp()
         else:
-            end_date = datetime(month_date.year, month_date.month + 1, 1)
+            end_date = datetime(month_date.year, month_date.month + 1, 1).timestamp()
 
         # Find all campaigns in this month
         query = {"date": {"$gte": start_date, "$lt": end_date}}

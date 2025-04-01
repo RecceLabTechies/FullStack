@@ -1,9 +1,18 @@
 import logging
 from functools import wraps
+from datetime import datetime, date
 
 from flask import Blueprint, jsonify, make_response, request
 import pandas as pd
-from marshmallow import Schema, fields, ValidationError, validate, EXCLUDE, validates
+from marshmallow import (
+    Schema,
+    fields,
+    ValidationError,
+    validate,
+    EXCLUDE,
+    validates,
+    pre_load,
+)
 
 from app.database.connection import get_campaign_performance_collection
 from app.services.campaign_service import (
@@ -35,6 +44,30 @@ logger = logging.getLogger(__name__)
 # ----------------------------------------------------------------
 
 
+class UnixTimestampField(fields.Field):
+    """Custom field for Unix timestamp validation"""
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        try:
+            if isinstance(value, (int, float)):
+                return float(value)
+            elif isinstance(value, str):
+                if value.isdigit():
+                    return float(value)
+            raise ValidationError(
+                "Invalid timestamp format - expected numeric Unix timestamp"
+            )
+        except (ValueError, TypeError):
+            raise ValidationError(
+                "Invalid timestamp format - expected numeric Unix timestamp"
+            )
+
+    def _serialize(self, value, attr, obj, **kwargs):
+        if value is None:
+            return None
+        return float(value)
+
+
 class CampaignFilterSchema(Schema):
     """Schema for validating campaign filter parameters"""
 
@@ -44,9 +77,9 @@ class CampaignFilterSchema(Schema):
     age_groups = fields.List(fields.String(), required=False)
     campaign_ids = fields.List(fields.String(), required=False)
 
-    # Date filters
-    from_date = fields.Date(format="%Y-%m-%d", required=False)
-    to_date = fields.Date(format="%Y-%m-%d", required=False)
+    # Date filters (now using Unix timestamps)
+    from_date = UnixTimestampField(required=False, allow_none=True)
+    to_date = UnixTimestampField(required=False, allow_none=True)
 
     # Numeric range filters
     min_revenue = fields.Float(required=False, validate=validate.Range(min=0))
@@ -100,42 +133,12 @@ class CampaignFilterSchema(Schema):
 class MonthlyUpdateSchema(Schema):
     """Schema for validating monthly data updates"""
 
-    month = fields.String(required=True, validate=validate.Regexp(r"^\d{4}-\d{2}$"))
+    month = UnixTimestampField(required=True)
     revenue = fields.Float(required=False)
     ad_spend = fields.Float(required=False)
 
     class Meta:
         unknown = EXCLUDE
-
-    @validates("month")
-    def validate_month_format(self, value, **kwargs):
-        """Validate month string is in correct YYYY-MM format"""
-        try:
-            year, month = map(int, value.split("-"))
-            if not (1 <= month <= 12):
-                raise ValidationError("Month must be between 1 and 12")
-            if not (2000 <= year <= 2100):  # Reasonable year range
-                raise ValidationError("Year must be between 2000 and 2100")
-        except ValueError:
-            raise ValidationError("Month must be in YYYY-MM format")
-
-    @validates("month")
-    def validate_required_values(self, value, **kwargs):
-        """Validate that at least one of revenue or ad_spend is provided"""
-        revenue = self.get("revenue")
-        ad_spend = self.get("ad_spend")
-        if revenue is None and ad_spend is None:
-            raise ValidationError(
-                "At least one of revenue or ad_spend must be provided"
-            )
-
-    def convert_to_monthly_update(self, data):
-        """Convert validated data to a monthly update object"""
-        return {
-            "month": data["month"],
-            "revenue": data.get("revenue"),
-            "ad_spend": data.get("ad_spend"),
-        }
 
 
 class MonthlyUpdateListSchema(Schema):
@@ -154,7 +157,7 @@ class MonthlyUpdateListSchema(Schema):
 class CampaignDataSchema(Schema):
     """Schema for validating complete campaign data, aligned with CampaignData class"""
 
-    date = fields.DateTime(required=True)
+    date = UnixTimestampField(required=True)
     campaign_id = fields.String(required=True)
     channel = fields.String(required=True)
     age_group = fields.String(required=True)
@@ -176,9 +179,9 @@ class CampaignDataSchema(Schema):
 class MonthlyPerformanceFilterSchema(Schema):
     """Schema for validating monthly chart data filter parameters"""
 
-    # Date filters
-    from_date = fields.Date(format="%Y-%m-%d", required=False, allow_none=True)
-    to_date = fields.Date(format="%Y-%m-%d", required=False, allow_none=True)
+    # Date filters (now using Unix timestamps)
+    from_date = UnixTimestampField(required=False, allow_none=True)
+    to_date = UnixTimestampField(required=False, allow_none=True)
 
     # List filters
     channels = fields.List(fields.String(), required=False)
@@ -387,8 +390,8 @@ def get_campaigns_data():
     - channels: Comma-separated list of marketing channels
     - countries: Comma-separated list of countries
     - age_groups: Comma-separated list of age groups
-    - from_date: Start date in ISO format (YYYY-MM-DD)
-    - to_date: End date in ISO format (YYYY-MM-DD)
+    - from_date: Start date as Unix timestamp
+    - to_date: End date as Unix timestamp
     - campaign_ids: Comma-separated list of campaign IDs
     - min_revenue: Minimum revenue amount
     - max_revenue: Maximum revenue amount
@@ -496,8 +499,8 @@ def get_monthly_performance_data_route():
     Get monthly revenue and ad spend data for charting.
 
     Optional query parameters:
-    - from_date: Start date in ISO format (YYYY-MM-DD)
-    - to_date: End date in ISO format (YYYY-MM-DD)
+    - from_date: Start date as Unix timestamp
+    - to_date: End date as Unix timestamp
     - channels: Comma-separated list of marketing channels
     - countries: Comma-separated list of countries
     - age_groups: Comma-separated list of age groups
@@ -539,7 +542,7 @@ def update_monthly_data_route():
     {
         "updates": [
             {
-                "month": "YYYY-MM",
+                "month": 1617235200,  // Unix timestamp (e.g., April 1, 2021)
                 "revenue": optional_numeric_value,
                 "ad_spend": optional_numeric_value
             },
@@ -785,4 +788,7 @@ def get_date_type_data():
         )
 
     date_value = sample["date"]
-    return format_response({"value": date_value, "type": str(type(date_value))})
+    # Ensure the date is a Unix timestamp
+    date_value = float(date_value)
+
+    return format_response({"value": date_value, "type": "float"})

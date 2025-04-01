@@ -6,6 +6,7 @@ from typing import (
     ClassVar,
     Dict,
     get_type_hints,
+    Union,
 )
 
 
@@ -13,24 +14,22 @@ class DataTypeConverter:
     """Utility class for type conversion functions."""
 
     @staticmethod
-    def to_date(value: str) -> date:
-        """Convert string to date object."""
-        if not value or value == "":
+    def to_date(value: Union[str, float, int]) -> float:
+        """Convert value to Unix timestamp."""
+        if not value:
             raise ValueError("Date value cannot be empty")
         try:
-            year, month, day = map(int, value.split("-"))
-            return date(year, month, day)
+            return float(value)
         except (ValueError, TypeError):
             raise ValueError(f"Invalid date format: {value}")
 
     @staticmethod
-    def to_datetime(value: str) -> datetime:
-        """Convert string to datetime object for MongoDB compatibility."""
-        if not value or value == "":
+    def to_datetime(value: Union[str, float, int]) -> float:
+        """Convert value to Unix timestamp."""
+        if not value:
             raise ValueError("Datetime value cannot be empty")
         try:
-            year, month, day = map(int, value.split("-"))
-            return datetime(year, month, day)
+            return float(value)
         except (ValueError, TypeError):
             raise ValueError(f"Invalid datetime format: {value}")
 
@@ -92,10 +91,9 @@ class CsvDataModel:
                 converted = self.field_converters[field_name](value)
                 setattr(self, field_name, converted)
             # Apply conversions based on type annotations
-            elif field_type == date and isinstance(value, str):
-                setattr(self, field_name, DataTypeConverter.to_date(value))
-            elif field_type == datetime and isinstance(value, str):
-                setattr(self, field_name, DataTypeConverter.to_datetime(value))
+            elif field_type == date or field_type == datetime:
+                # For date/datetime fields, simply convert to float (Unix timestamp)
+                setattr(self, field_name, DataTypeConverter.to_float(value))
             elif field_type == float and not isinstance(value, float):
                 setattr(self, field_name, DataTypeConverter.to_float(value))
             elif field_type == int and not isinstance(value, int):
@@ -108,7 +106,7 @@ class CsvDataModel:
 class CampaignData(CsvDataModel):
     """Data model for campaign analytics data matching the CSV structure."""
 
-    date: datetime  # Format: YYYY-MM-DD, stored as datetime for MongoDB compatibility
+    date: float  # Unix timestamp (seconds since epoch)
     campaign_id: str
     channel: str
     age_group: str
@@ -120,7 +118,7 @@ class CampaignData(CsvDataModel):
     revenue: float
 
     field_converters: ClassVar[Dict[str, Callable]] = {
-        "date": DataTypeConverter.to_datetime,  # Use datetime for MongoDB compatibility
+        "date": DataTypeConverter.to_float,
         "ad_spend": DataTypeConverter.to_float,
         "views": DataTypeConverter.to_float,
         "leads": DataTypeConverter.to_float,

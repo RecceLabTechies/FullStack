@@ -5,6 +5,7 @@ import os
 from unittest.mock import patch, MagicMock
 from io import BytesIO
 from flask import Flask, Blueprint, jsonify, request
+from datetime import datetime
 
 # Add the project root to the Python path to ensure imports work
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -325,13 +326,14 @@ def client():
     @data_bp.route("/api/v1/utils/date-types", methods=["GET"])
     def get_date_type_data():
         """Mock date type endpoint"""
-        # Return mock date type info
+        # Return mock date type info with Unix timestamp
+        mock_date = datetime(2022, 1, 1).timestamp()
         return jsonify(
             {
                 "success": True,
                 "data": {
-                    "value": "2022-01-01T00:00:00.000Z",
-                    "type": "<class 'datetime.datetime'>",
+                    "value": mock_date,
+                    "type": "float",
                 },
                 "status": 200,
             }
