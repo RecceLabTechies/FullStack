@@ -17,14 +17,9 @@ from marshmallow import (
 from app.database.connection import get_campaign_performance_collection
 from app.services.campaign_service import (
     filter_campaigns,
-    get_age_group_roi,
     get_campaign_filter_options,
-    get_channel_roi,
     get_cost_heatmap_data,
     get_monthly_performance_data,
-    get_revenue_by_date,
-    get_revenue_past_month,
-    get_roi_past_month,
     update_monthly_data,
 )
 from app.utils.data_processing import (
@@ -44,30 +39,6 @@ logger = logging.getLogger(__name__)
 # ----------------------------------------------------------------
 
 
-class UnixTimestampField(fields.Field):
-    """Custom field for Unix timestamp validation"""
-
-    def _deserialize(self, value, attr, data, **kwargs):
-        try:
-            if isinstance(value, (int, float)):
-                return float(value)
-            elif isinstance(value, str):
-                if value.isdigit():
-                    return float(value)
-            raise ValidationError(
-                "Invalid timestamp format - expected numeric Unix timestamp"
-            )
-        except (ValueError, TypeError):
-            raise ValidationError(
-                "Invalid timestamp format - expected numeric Unix timestamp"
-            )
-
-    def _serialize(self, value, attr, obj, **kwargs):
-        if value is None:
-            return None
-        return float(value)
-
-
 class CampaignFilterSchema(Schema):
     """Schema for validating campaign filter parameters"""
 
@@ -77,9 +48,9 @@ class CampaignFilterSchema(Schema):
     age_groups = fields.List(fields.String(), required=False)
     campaign_ids = fields.List(fields.String(), required=False)
 
-    # Date filters (now using Unix timestamps)
-    from_date = UnixTimestampField(required=False, allow_none=True)
-    to_date = UnixTimestampField(required=False, allow_none=True)
+    # Date filters (using float for Unix timestamps)
+    from_date = fields.Float(required=False, allow_none=True)
+    to_date = fields.Float(required=False, allow_none=True)
 
     # Numeric range filters
     min_revenue = fields.Float(required=False, validate=validate.Range(min=0))
@@ -133,7 +104,7 @@ class CampaignFilterSchema(Schema):
 class MonthlyUpdateSchema(Schema):
     """Schema for validating monthly data updates"""
 
-    month = UnixTimestampField(required=True)
+    month = fields.Float(required=True)  # Unix timestamp
     revenue = fields.Float(required=False)
     ad_spend = fields.Float(required=False)
 
@@ -157,7 +128,7 @@ class MonthlyUpdateListSchema(Schema):
 class CampaignDataSchema(Schema):
     """Schema for validating complete campaign data, aligned with CampaignData class"""
 
-    date = UnixTimestampField(required=True)
+    date = fields.Integer(required=True)
     campaign_id = fields.String(required=True)
     channel = fields.String(required=True)
     age_group = fields.String(required=True)
@@ -179,9 +150,9 @@ class CampaignDataSchema(Schema):
 class MonthlyPerformanceFilterSchema(Schema):
     """Schema for validating monthly chart data filter parameters"""
 
-    # Date filters (now using Unix timestamps)
-    from_date = UnixTimestampField(required=False, allow_none=True)
-    to_date = UnixTimestampField(required=False, allow_none=True)
+    # Date filters (using float for Unix timestamps)
+    from_date = fields.Float(required=False, allow_none=True)
+    to_date = fields.Float(required=False, allow_none=True)
 
     # List filters
     channels = fields.List(fields.String(), required=False)
@@ -378,15 +349,16 @@ def get_campaign_filters_data():
     return format_response(filter_options)
 
 
-@data_bp.route("/api/v1/campaigns", methods=["GET", "POST"])
+@data_bp.route("/api/v1/campaigns", methods=["GET"])
 @handle_exceptions
 def get_campaigns_data():
     """
     Filter campaign data based on specified criteria with advanced filtering options.
 
-    Supports both GET and POST methods for backward compatibility.
+    All parameters are optional. When no parameters are provided, all records are returned.
+    The API supports incremental filtering - you can specify any combination of filters.
 
-    GET Query parameters:
+    Query parameters:
     - channels: Comma-separated list of marketing channels
     - countries: Comma-separated list of countries
     - age_groups: Comma-separated list of age groups
@@ -404,54 +376,28 @@ def get_campaigns_data():
     - page: Page number (default: 1)
     - page_size: Number of results per page (default: 20, max: 100)
 
-    POST accepts the same parameters as a JSON object.
-
     Returns:
         JSON object containing paginated campaign data and metadata
     """
-    # Extract parameters based on request method
-    if request.method == "POST":
-        # Legacy POST method support
-        data = request.json or {}
-
-        # Map legacy parameter names to new ones
-        params = {
-            "channels": data.get("channels", []),
-            "countries": data.get("countries", []),
-            "age_groups": data.get("ageGroups", []),  # Map ageGroups to age_groups
-            "from_date": data.get("from"),  # Map from to from_date
-            "to_date": data.get("to"),  # Map to to to_date
-            "sort_by": data.get("sort_by", "date"),
-            "sort_dir": data.get("sort_dir", "desc"),
-            "page": data.get("page", 1),
-            "page_size": data.get("page_size", 20),
-        }
-
-        # Add any additional filters that might be present
-        for key in data:
-            if key not in params and key not in ["from", "to", "ageGroups"]:
-                params[key] = data[key]
-
-    else:  # GET method
-        # Extract query parameters
-        params = {
-            "channels": parse_list_param(request.args.get("channels")),
-            "countries": parse_list_param(request.args.get("countries")),
-            "age_groups": parse_list_param(request.args.get("age_groups")),
-            "campaign_ids": parse_list_param(request.args.get("campaign_ids")),
-            "from_date": request.args.get("from_date"),
-            "to_date": request.args.get("to_date"),
-            "min_revenue": request.args.get("min_revenue"),
-            "max_revenue": request.args.get("max_revenue"),
-            "min_ad_spend": request.args.get("min_ad_spend"),
-            "max_ad_spend": request.args.get("max_ad_spend"),
-            "min_views": request.args.get("min_views"),
-            "min_leads": request.args.get("min_leads"),
-            "sort_by": request.args.get("sort_by", "date"),
-            "sort_dir": request.args.get("sort_dir", "desc"),
-            "page": request.args.get("page", "1"),
-            "page_size": request.args.get("page_size", "20"),
-        }
+    # Extract query parameters
+    params = {
+        "channels": parse_list_param(request.args.get("channels")),
+        "countries": parse_list_param(request.args.get("countries")),
+        "age_groups": parse_list_param(request.args.get("age_groups")),
+        "campaign_ids": parse_list_param(request.args.get("campaign_ids")),
+        "from_date": request.args.get("from_date"),
+        "to_date": request.args.get("to_date"),
+        "min_revenue": request.args.get("min_revenue"),
+        "max_revenue": request.args.get("max_revenue"),
+        "min_ad_spend": request.args.get("min_ad_spend"),
+        "max_ad_spend": request.args.get("max_ad_spend"),
+        "min_views": request.args.get("min_views"),
+        "min_leads": request.args.get("min_leads"),
+        "sort_by": request.args.get("sort_by", "date"),
+        "sort_dir": request.args.get("sort_dir", "desc"),
+        "page": request.args.get("page", "1"),
+        "page_size": request.args.get("page_size", "20"),
+    }
 
     # Create validation context for date range validation
     context = {}
@@ -479,26 +425,13 @@ def get_campaigns_data():
     return format_response(response)
 
 
-@data_bp.route("/api/v1/campaigns/revenues", methods=["GET"])
-@handle_exceptions
-def get_revenue_by_date_data():
-    """
-    Get aggregated revenue data by date for charting.
-
-    Returns:
-        JSON object with dates, revenues, and ad_spends arrays
-    """
-    data_summary = get_revenue_by_date()
-    return format_response(data_summary)
-
-
 @data_bp.route("/api/v1/campaigns/monthly-performance", methods=["GET"])
 @handle_exceptions
 def get_monthly_performance_data_route():
     """
     Get monthly revenue and ad spend data for charting.
 
-    Optional query parameters:
+    Query parameters:
     - from_date: Start date as Unix timestamp
     - to_date: End date as Unix timestamp
     - channels: Comma-separated list of marketing channels
@@ -563,7 +496,7 @@ def update_monthly_data_route():
 
     # Process each update item in the list
     converted_updates = validate_and_convert_list(
-        validated_data["updates"], MonthlyUpdateSchema, "convert_to_monthly_update"
+        validated_data["updates"], MonthlyUpdateSchema
     )
 
     # Check if we have any valid updates
@@ -576,58 +509,6 @@ def update_monthly_data_route():
     return format_response(
         {"message": "Monthly data updated successfully", **updated_data}
     )
-
-
-@data_bp.route("/api/v1/campaigns/channels/roi", methods=["GET"])
-@handle_exceptions
-def get_channel_roi_data_route():
-    """
-    Get revenue per dollar spent for each marketing channel.
-
-    Returns:
-        Array of objects with channel and roi values
-    """
-    data = get_channel_roi()
-    return format_response(data)
-
-
-@data_bp.route("/api/v1/campaigns/age-groups/roi", methods=["GET"])
-@handle_exceptions
-def get_age_group_roi_data_route():
-    """
-    Get revenue per dollar spent for each age group.
-
-    Returns:
-        Array of objects with age_group and roi values
-    """
-    data = get_age_group_roi()
-    return format_response(data)
-
-
-@data_bp.route("/api/v1/campaigns/past-month/revenue", methods=["GET"])
-@handle_exceptions
-def get_revenue_past_month_data_route():
-    """
-    Get total revenue for the past month.
-
-    Returns:
-        JSON object with revenue value
-    """
-    revenue = get_revenue_past_month()
-    return format_response({"revenue": revenue})
-
-
-@data_bp.route("/api/v1/campaigns/past-month/roi", methods=["GET"])
-@handle_exceptions
-def get_roi_past_month_data_route():
-    """
-    Get ROI (revenue per dollar spent) for the past month.
-
-    Returns:
-        JSON object with roi value
-    """
-    roi = get_roi_past_month()
-    return format_response({"roi": roi})
 
 
 @data_bp.route("/api/v1/campaigns/cost-heatmap", methods=["GET"])
@@ -760,35 +641,3 @@ def handle_csv_import():
     except Exception as e:
         logger.error(f"Error uploading CSV: {e}")
         return format_response({"error": str(e)}, 500)
-
-
-# ----------------------------------------------------------------
-# Utility endpoints
-# ----------------------------------------------------------------
-
-
-@data_bp.route("/api/v1/utils/date-types", methods=["GET"])
-@handle_exceptions
-def get_date_type_data():
-    """
-    Utility endpoint to inspect the date field data type in the campaign collection.
-
-    Returns:
-        JSON object with value and type information
-    """
-    collection = get_campaign_performance_collection()
-
-    # Fetch one sample document
-    sample = collection.find_one({}, {"date": 1, "_id": 0})
-
-    if not sample or "date" not in sample:
-        logger.warning("No date field found in sample document")
-        return error_response(
-            404, "No date field found in sample", "resource_not_found"
-        )
-
-    date_value = sample["date"]
-    # Ensure the date is a Unix timestamp
-    date_value = float(date_value)
-
-    return format_response({"value": date_value, "type": "float"})

@@ -1,233 +1,18 @@
 import logging
-from datetime import datetime, timedelta
-from typing import Dict, List, cast
+from datetime import datetime
+from typing import Dict, List
 import pandas as pd
-
 from app.database.connection import get_campaign_performance_collection
 from app.models.campaign import CampaignModel
-from app.data_types import CampaignData
 
 
 logger = logging.getLogger(__name__)
 
 
-def get_channel_roi() -> List[Dict[str, float]]:
-    """
-    Get revenue per dollar spent for each marketing channel.
-
-    Returns:
-        List[Dict[str, float]]: List of dictionaries with channel and ROI (revenue per dollar spent)
-    """
-    data = CampaignModel.get_all()
-
-    if not data:
-        return []
-
-    validated_data: List[Dict[str, float]] = []
-    for item in data:
-        try:
-            campaign_obj = CampaignData(**item)
-            validated_data.append(
-                {
-                    "channel": campaign_obj.channel,
-                    "revenue": campaign_obj.revenue,
-                    "ad_spend": campaign_obj.ad_spend,
-                }
-            )
-        except Exception as e:
-            logger.warning(f"Error converting campaign data: {e}")
-
-    if not validated_data:
-        df = pd.DataFrame(data)
-    else:
-        df = pd.DataFrame(validated_data)
-
-    # Calculate total revenue and spend by channel
-    df["revenue"] = df["revenue"].astype(float)
-    df["ad_spend"] = df["ad_spend"].astype(float)
-
-    channel_summary = df.groupby("channel", as_index=False).agg(
-        {"revenue": "sum", "ad_spend": "sum"}
-    )
-
-    # Calculate ROI (revenue per dollar spent)
-    channel_summary["roi"] = channel_summary["revenue"] / channel_summary["ad_spend"]
-
-    # Select only channel and roi columns
-    result = channel_summary[["channel", "roi"]]
-
-    return cast(List[Dict[str, float]], result.to_dict(orient="records"))
-
-
-def get_age_group_roi() -> List[Dict[str, float]]:
-    """
-    Get revenue per dollar spent for each age group.
-    Age groups: 18-24, 25-34, 35-44, 45-54, 55+
-
-    Returns:
-        List[Dict[str, float]]: List of dictionaries with age_group and ROI (revenue per dollar spent)
-    """
-    data = CampaignModel.get_all()
-
-    if not data:
-        return []
-
-    # Convert raw data to CampaignData objects for proper typing
-    validated_data: List[Dict[str, float]] = []
-    for item in data:
-        try:
-            campaign_obj = CampaignData(**item)
-            validated_data.append(
-                {
-                    "age_group": campaign_obj.age_group,
-                    "revenue": campaign_obj.revenue,
-                    "ad_spend": campaign_obj.ad_spend,
-                }
-            )
-        except Exception as e:
-            logger.warning(f"Error converting campaign data: {e}")
-
-    if not validated_data:
-        df = pd.DataFrame(data)
-    else:
-        df = pd.DataFrame(validated_data)
-
-    # Calculate total revenue and spend by age group
-    df["revenue"] = df["revenue"].astype(float)
-    df["ad_spend"] = df["ad_spend"].astype(float)
-
-    age_group_summary = df.groupby("age_group", as_index=False).agg(
-        {"revenue": "sum", "ad_spend": "sum"}
-    )
-
-    # Calculate ROI (revenue per dollar spent)
-    age_group_summary["roi"] = (
-        age_group_summary["revenue"] / age_group_summary["ad_spend"]
-    )
-
-    # Select only age_group and roi columns
-    result = age_group_summary[["age_group", "roi"]]
-
-    # Ensure we only include the specified age groups in the correct order
-    age_groups = ["18-24", "25-34", "35-44", "45-54", "55+"]
-    result = result[result["age_group"].isin(age_groups)]
-
-    # Sort by the specified age group order
-    result["sort_order"] = result["age_group"].apply(
-        lambda x: age_groups.index(x) if x in age_groups else 999
-    )
-    result = result.sort_values("sort_order")
-    result = result.drop("sort_order", axis=1)
-
-    return cast(List[Dict[str, float]], result.to_dict(orient="records"))
-
-
-def get_revenue_past_month() -> float:
-    """
-    Get total revenue for the past month.
-    Uses the full previous calendar month (e.g., if current month is January, returns December data).
-
-    Returns:
-        float: Total revenue for the past month
-    """
-    # Calculate first and last day of previous month as Unix timestamps
-    today = datetime.now()
-    first_day_current_month = datetime(today.year, today.month, 1)
-    last_day_prev_month = first_day_current_month - timedelta(days=1)
-    first_day_prev_month = datetime(
-        last_day_prev_month.year, last_day_prev_month.month, 1
-    )
-
-    # Convert to Unix timestamps
-    start_ts = first_day_prev_month.timestamp()
-    end_ts = last_day_prev_month.timestamp()
-
-    # Query for data from the previous month
-    query = {"date": {"$gte": start_ts, "$lte": end_ts}}
-    data = CampaignModel.get_all(query)
-
-    if not data:
-        return 0.0
-
-    # Convert raw data to CampaignData objects for proper typing
-    validated_data: List[Dict[str, float]] = []
-    for item in data:
-        try:
-            campaign_obj = CampaignData(**item)
-            validated_data.append({"revenue": campaign_obj.revenue})
-        except Exception as e:
-            logger.warning(f"Error converting campaign data: {e}")
-
-    if not validated_data:
-        return 0.0
-
-    df = pd.DataFrame(validated_data)
-    df["revenue"] = df["revenue"].astype(float)
-
-    # Calculate total revenue
-    total_revenue = df["revenue"].sum()
-
-    return float(total_revenue)
-
-
-def get_roi_past_month() -> float:
-    """
-    Get ROI (revenue per dollar spent) for the past month.
-    Uses the full previous calendar month (e.g., if current month is January, returns December data).
-
-    Returns:
-        float: ROI for the past month (revenue / ad_spend)
-    """
-    # Calculate first and last day of previous month
-    today = datetime.now()
-    first_day_current_month = datetime(today.year, today.month, 1)
-    last_day_prev_month = first_day_current_month - timedelta(days=1)
-    first_day_prev_month = datetime(
-        last_day_prev_month.year, last_day_prev_month.month, 1
-    )
-
-    # Query for data from the previous month
-    query = {"date": {"$gte": first_day_prev_month, "$lte": last_day_prev_month}}
-    data = CampaignModel.get_all(query)
-
-    if not data:
-        return 0.0
-
-    # Convert raw data to CampaignData objects for proper typing
-    validated_data: List[Dict[str, float]] = []
-    for item in data:
-        try:
-            campaign_obj = CampaignData(**item)
-            validated_data.append(
-                {"revenue": campaign_obj.revenue, "ad_spend": campaign_obj.ad_spend}
-            )
-        except Exception as e:
-            logger.warning(f"Error converting campaign data: {e}")
-
-    if not validated_data:
-        return 0.0
-
-    df = pd.DataFrame(validated_data)
-    df["revenue"] = df["revenue"].astype(float)
-    df["ad_spend"] = df["ad_spend"].astype(float)
-
-    # Calculate total revenue and ad spend
-    total_revenue = df["revenue"].sum()
-    total_ad_spend = df["ad_spend"].sum()
-
-    # Avoid division by zero
-    if total_ad_spend == 0:
-        return 0.0
-
-    # Calculate ROI
-    roi = total_revenue / total_ad_spend
-
-    return float(roi)
-
-
 def filter_campaigns(filter_params: Dict) -> Dict:
     """
     Filter campaigns based on specified criteria with advanced filtering options.
+    When no filter parameters are provided, all campaigns are returned.
 
     Args:
         filter_params (Dict): Dictionary containing filter parameters:
@@ -235,8 +20,8 @@ def filter_campaigns(filter_params: Dict) -> Dict:
             - countries: List of countries
             - age_groups: List of age groups
             - campaign_ids: List of campaign IDs
-            - from_date: Start date (datetime or ISO string)
-            - to_date: End date (datetime or ISO string)
+            - from_date: Start date (Unix timestamp)
+            - to_date: End date (Unix timestamp)
             - min_revenue: Minimum revenue amount
             - max_revenue: Maximum revenue amount
             - min_ad_spend: Minimum ad spend amount
@@ -252,7 +37,7 @@ def filter_campaigns(filter_params: Dict) -> Dict:
         Dict: Response containing filtered data with pagination metadata
     """
     # Build query
-    query = {}
+    query = {}  # Empty query matches all documents by default
 
     # List-based filters (channel, country, age_group, campaign_id)
     if filter_params.get("channels"):
@@ -324,17 +109,12 @@ def filter_campaigns(filter_params: Dict) -> Dict:
         limit=page_size,
     )
 
-    # Format dates to Unix timestamps for JSON serialization
-    for result in results:
-        if "date" in result:
-            result["date"] = float(result["date"])
-
     # Prepare pagination metadata
     total_pages = (total_count + page_size - 1) // page_size
 
     # Build response with pagination metadata
     response = {
-        "data": results,
+        "items": results,  # Changed from "data" to "items" for consistency with route handler
         "pagination": {
             "total_count": total_count,
             "total_pages": total_pages,
@@ -422,12 +202,8 @@ def get_campaign_filter_options() -> Dict:
     date_result = CampaignModel.aggregate(date_pipeline)
 
     if date_result:
-        min_date = date_result[0]["min_date"]
-        max_date = date_result[0]["max_date"]
-
-        # Convert to Unix timestamp
-        date_range["min_date"] = float(min_date)
-        date_range["max_date"] = float(max_date)
+        date_range["min_date"] = float(date_result[0]["min_date"])
+        date_range["max_date"] = float(date_result[0]["max_date"])
 
     # Build and return complete filter options
     return {
@@ -442,52 +218,14 @@ def get_campaign_filter_options() -> Dict:
     }
 
 
-def get_revenue_by_date() -> Dict:
-    """
-    Get aggregated revenue and ad spend data by date for charting.
-
-    Returns:
-        Dict: Dictionary containing date-based revenue and ad spend data
-    """
-    # Aggregate data by date
-    pipeline = [
-        {
-            "$group": {
-                "_id": "$date",
-                "revenue": {"$sum": "$revenue"},
-                "ad_spend": {"$sum": "$ad_spend"},
-            }
-        },
-        {"$sort": {"_id": 1}},  # Sort by date ascending
-    ]
-
-    results = CampaignModel.aggregate(pipeline)
-
-    # Format the results
-    dates = []
-    revenues = []
-    ad_spends = []
-
-    for result in results:
-        date = result["_id"]
-        # Convert date to unix timestamp if needed
-        date = float(date)
-
-        dates.append(date)
-        revenues.append(round(result["revenue"], 2))
-        ad_spends.append(round(result["ad_spend"], 2))
-
-    return {"dates": dates, "revenues": revenues, "ad_spends": ad_spends}
-
-
 def get_monthly_performance_data(filters: Dict = None) -> Dict:
     """
     Get monthly revenue and ad spend data for charting.
 
     Args:
         filters (Dict, optional): Dictionary containing filter parameters:
-            - from_date: Start date (datetime or ISO string)
-            - to_date: End date (datetime or ISO string)
+            - from_date: Start date as Unix timestamp
+            - to_date: End date as Unix timestamp
             - channels: List of marketing channels
             - countries: List of countries
             - age_groups: List of age groups
@@ -504,12 +242,10 @@ def get_monthly_performance_data(filters: Dict = None) -> Dict:
 
     # Date range filters
     if "from_date" in filters:
-        from_date = filters["from_date"]
-        query.setdefault("date", {})["$gte"] = float(from_date)
+        query.setdefault("date", {})["$gte"] = float(filters["from_date"])
 
     if "to_date" in filters:
-        to_date = filters["to_date"]
-        query.setdefault("date", {})["$lte"] = float(to_date)
+        query.setdefault("date", {})["$lte"] = float(filters["to_date"])
 
     # Categorical filters
     if "channels" in filters and filters["channels"]:
@@ -528,8 +264,11 @@ def get_monthly_performance_data(filters: Dict = None) -> Dict:
             "$addFields": {
                 "dateObj": {
                     "$toDate": {
-                        "$multiply": ["$date", 1000]
-                    }  # Convert Unix timestamp to date object
+                        "$multiply": [
+                            "$date",
+                            1000,
+                        ]  # Convert Unix timestamp to date object for MongoDB
+                    }
                 }
             }
         },
@@ -545,28 +284,30 @@ def get_monthly_performance_data(filters: Dict = None) -> Dict:
 
     results = CampaignModel.aggregate(pipeline)
 
-    # Format response
+    # Format results
     months = []
     revenue = []
     ad_spend = []
     roi = []
 
-    for item in results:
-        year = item["_id"]["year"]
-        month = item["_id"]["month"]
-        month_str = f"{year}-{month:02d}"
+    for result in results:
+        # Convert back to Unix timestamp for the first day of the month
+        month_date = datetime(result["_id"]["year"], result["_id"]["month"], 1)
+        months.append(month_date.timestamp())
+        revenue.append(result["revenue"])
+        ad_spend.append(result["ad_spend"])
+        roi.append(
+            (result["revenue"] - result["ad_spend"]) / result["ad_spend"]
+            if result["ad_spend"] > 0
+            else 0
+        )
 
-        months.append(month_str)
-        revenue.append(round(item["revenue"], 2))
-        ad_spend.append(round(item["ad_spend"], 2))
-
-        # Calculate ROI (return on investment)
-        if item["ad_spend"] > 0:
-            roi.append(round(item["revenue"] / item["ad_spend"], 2))
-        else:
-            roi.append(0)
-
-    return {"months": months, "revenue": revenue, "ad_spend": ad_spend, "roi": roi}
+    return {
+        "months": months,
+        "revenue": revenue,
+        "ad_spend": ad_spend,
+        "roi": roi,
+    }
 
 
 def update_monthly_data(updates: List[Dict]) -> Dict:
@@ -575,7 +316,7 @@ def update_monthly_data(updates: List[Dict]) -> Dict:
 
     Args:
         updates (List[Dict]): List of updates, each containing:
-            - month (str): Month in YYYY-MM format
+            - month (float): Month as Unix timestamp
             - revenue (float, optional): New revenue value
             - ad_spend (float, optional): New ad spend value
 

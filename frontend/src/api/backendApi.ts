@@ -1,16 +1,11 @@
 import {
-  type AgeGroupRoi,
   type CampaignFilterOptions,
   type CampaignFilters,
-  type ChannelRoi,
   type CsvUploadResponse,
   type DbStructure,
   type FilterResponse,
   type MonthlyPerformanceData,
   type MonthlyUpdateData,
-  type RevenueData,
-  type RevenuePastMonth,
-  type RoiPastMonth,
   type UserData,
 } from "@/types/types";
 import axios, { type AxiosResponse } from "axios";
@@ -133,10 +128,12 @@ export const patchUser = async (
 export const fetchCampaignFilterOptions =
   async (): Promise<CampaignFilterOptions | null> => {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/api/v1/campaigns/filter-options`,
-      );
-      return response.data as CampaignFilterOptions;
+      const response = await axios.get<{
+        data: CampaignFilterOptions;
+        status: number;
+        success: boolean;
+      }>(`${API_BASE_URL}/api/v1/campaigns/filter-options`);
+      return response.data.data;
     } catch (error) {
       console.error("Failed to fetch campaign filter options", error);
       return null;
@@ -169,27 +166,18 @@ export const fetchCampaigns = async (
   }
 };
 
-export const fetchRevenueData = async (): Promise<RevenueData[] | null> => {
-  try {
-    const response = await axios.get(
-      `${API_BASE_URL}/api/v1/campaigns/revenues`,
-    );
-    return response.data as RevenueData[];
-  } catch (error) {
-    console.error("Failed to fetch revenue data", error);
-    return null;
-  }
-};
-
 export const fetchMonthlyPerformanceData = async (
   filters?: Partial<CampaignFilters>,
 ): Promise<MonthlyPerformanceData | null> => {
   try {
-    const response = await axios.get<MonthlyPerformanceData>(
-      `${API_BASE_URL}/api/v1/campaigns/monthly-performance`,
-      { params: filters },
-    );
-    return response.data;
+    const response = await axios.get<{
+      data: MonthlyPerformanceData;
+      status: number;
+      success: boolean;
+    }>(`${API_BASE_URL}/api/v1/campaigns/monthly-performance`, {
+      params: filters,
+    });
+    return response.data.data;
   } catch (error) {
     console.error("Failed to fetch monthly performance data", error);
     return null;
@@ -248,74 +236,6 @@ export const uploadCsv = async (
   }
 };
 
-export const fetchChannelRoi = async (): Promise<ChannelRoi[] | null> => {
-  try {
-    const response = await axios.get(
-      `${API_BASE_URL}/api/v1/campaigns/channels/roi`,
-    );
-    return response.data as ChannelRoi[];
-  } catch (error) {
-    console.error("Failed to fetch channel ROI data", error);
-    return null;
-  }
-};
-
-export const fetchAgeGroupRoi = async (): Promise<AgeGroupRoi[] | null> => {
-  try {
-    const response = await axios.get(
-      `${API_BASE_URL}/api/v1/campaigns/age-groups/roi`,
-    );
-    return response.data as AgeGroupRoi[];
-  } catch (error) {
-    console.error("Failed to fetch age group ROI data", error);
-    return null;
-  }
-};
-
-export const fetchRevenuePastMonth = async (): Promise<number | null> => {
-  try {
-    const response = await axios.get<RevenuePastMonth>(
-      `${API_BASE_URL}/api/v1/campaigns/past-month/revenue`,
-    );
-    return response.data.revenue;
-  } catch (error) {
-    console.error("Failed to fetch past month revenue", error);
-    return null;
-  }
-};
-
-export const fetchRoiPastMonth = async (): Promise<number | null> => {
-  try {
-    const response = await axios.get<RoiPastMonth>(
-      `${API_BASE_URL}/api/v1/campaigns/past-month/roi`,
-    );
-    return response.data.roi;
-  } catch (error) {
-    console.error("Failed to fetch past month ROI", error);
-    return null;
-  }
-};
-
-export const getDateTypes = async (): Promise<{
-  value: unknown;
-  type: string;
-} | null> => {
-  try {
-    interface DateTypeResponse {
-      value: unknown;
-      type: string;
-    }
-
-    const response = await axios.get<DateTypeResponse>(
-      `${API_BASE_URL}/api/v1/utils/date-types`,
-    );
-    return response.data;
-  } catch (error) {
-    console.error("Failed to get date types", error);
-    return null;
-  }
-};
-
 type FilteredData = {
   Date: string;
   ad_spend: string;
@@ -329,7 +249,6 @@ type FilteredData = {
   views: string;
 };
 
-// Yuting Function - Should be updated to use the campaigns endpoint
 export const fetchFilteredData = async ({
   channels,
   ageGroups,

@@ -65,6 +65,16 @@ class DataTypeConverter:
             return value.lower() in ("true", "yes", "y", "1", "t")
         return bool(value)
 
+    @staticmethod
+    def to_timestamp_int(value: Union[str, float, int]) -> int:
+        """Convert value to Unix timestamp as integer."""
+        if not value:
+            raise ValueError("Date value cannot be empty")
+        try:
+            return int(float(value))
+        except (ValueError, TypeError):
+            raise ValueError(f"Invalid date format: {value}")
+
 
 @dataclass
 class CsvDataModel:
@@ -90,9 +100,7 @@ class CsvDataModel:
             if field_name in self.field_converters:
                 converted = self.field_converters[field_name](value)
                 setattr(self, field_name, converted)
-            # Apply conversions based on type annotations
             elif field_type == date or field_type == datetime:
-                # For date/datetime fields, simply convert to float (Unix timestamp)
                 setattr(self, field_name, DataTypeConverter.to_float(value))
             elif field_type == float and not isinstance(value, float):
                 setattr(self, field_name, DataTypeConverter.to_float(value))
@@ -106,7 +114,7 @@ class CsvDataModel:
 class CampaignData(CsvDataModel):
     """Data model for campaign analytics data matching the CSV structure."""
 
-    date: float  # Unix timestamp (seconds since epoch)
+    date: int
     campaign_id: str
     channel: str
     age_group: str
@@ -118,7 +126,7 @@ class CampaignData(CsvDataModel):
     revenue: float
 
     field_converters: ClassVar[Dict[str, Callable]] = {
-        "date": DataTypeConverter.to_float,
+        "date": DataTypeConverter.to_timestamp_int,
         "ad_spend": DataTypeConverter.to_float,
         "views": DataTypeConverter.to_float,
         "leads": DataTypeConverter.to_float,

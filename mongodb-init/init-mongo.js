@@ -62,7 +62,7 @@ if (!campaignCollectionExists) {
           "revenue",
         ],
         properties: {
-          date: { bsonType: "date" },
+          date: { bsonType: "int" },
           campaign_id: { bsonType: "string" },
           channel: { bsonType: "string" },
           age_group: { bsonType: "string" },
