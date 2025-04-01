@@ -19,8 +19,6 @@ services:
         environment:
             - MONGO_URI=mongodb://root:example@mongodb:27017/
             - PORT=5000
-        volumes:
-            - ./shared:/app/shared
 
     frontend:
         build: ./frontend
@@ -33,7 +31,6 @@ services:
             - ./frontend:/app
             - /app/node_modules
             - /app/.next
-            - ./shared:/app/shared
         depends_on:
             - backend
         extra_hosts:
