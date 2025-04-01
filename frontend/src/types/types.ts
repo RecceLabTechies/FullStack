@@ -1,5 +1,5 @@
 export interface CampaignData {
-  date: string; // Format: YYYY-MM-DD, stored as datetime in backend
+  date: number;
   campaign_id: string;
   channel: string;
   age_group: string;
@@ -36,8 +36,8 @@ export interface CampaignFilterOptions {
     countries: string[];
   };
   date_range: {
-    max_date: string;
-    min_date: string;
+    max_date: number;
+    min_date: number;
   };
   numeric_ranges: {
     ad_spend: { avg: number; max: number; min: number };
@@ -52,8 +52,8 @@ export interface CampaignFilters {
   countries?: string[];
   age_groups?: string[];
   campaign_ids?: string[];
-  from_date?: string;
-  to_date?: string;
+  from_date?: number;
+  to_date?: number;
   min_revenue?: number;
   max_revenue?: number;
   min_ad_spend?: number;
@@ -67,7 +67,7 @@ export interface CampaignFilters {
 }
 
 export interface FilteredData {
-  Date: string;
+  date: number;
   ad_spend: string;
   age_group: string;
   campaign_id: string;
@@ -85,30 +85,6 @@ export interface FilterResponse {
   page: number;
   page_size: number;
   total_pages: number;
-}
-
-// Analytics data interfaces
-export interface RevenueData {
-  date: string;
-  revenue: number;
-}
-
-export interface ChannelRoi {
-  channel: string;
-  roi: number;
-}
-
-export interface AgeGroupRoi {
-  age_group: string;
-  roi: number;
-}
-
-export interface RevenuePastMonth {
-  revenue: number;
-}
-
-export interface RoiPastMonth {
-  roi: number;
 }
 
 // Monthly performance data interfaces

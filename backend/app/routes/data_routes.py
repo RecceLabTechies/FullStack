@@ -1,9 +1,6 @@
 import logging
 from functools import wraps
-from datetime import datetime, date
-
 from flask import Blueprint, jsonify, make_response, request
-import pandas as pd
 from marshmallow import (
     Schema,
     fields,
@@ -11,10 +8,7 @@ from marshmallow import (
     validate,
     EXCLUDE,
     validates,
-    pre_load,
 )
-
-from app.database.connection import get_campaign_performance_collection
 from app.services.campaign_service import (
     filter_campaigns,
     get_campaign_filter_options,

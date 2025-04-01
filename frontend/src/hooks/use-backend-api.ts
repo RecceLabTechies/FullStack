@@ -1,312 +1,311 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
-  type AgeGroupRoi,
   type CampaignFilterOptions,
   type CampaignFilters,
-  type ChannelRoi,
   type CsvUploadResponse,
   type DbStructure,
   type FilterResponse,
   type MonthlyPerformanceData,
   type MonthlyUpdateData,
-  type RevenueData,
   type UserData,
 } from "@/types/types";
 import * as backendApi from "@/api/backendApi";
-import { type CostHeatmapData } from "@/api/backendApi";
 
-// Generic hook for API calls
-interface ApiState<T> {
+// Generic hook state type
+interface HookState<T> {
   data: T | null;
-  loading: boolean;
+  isLoading: boolean;
   error: Error | null;
 }
 
-// User hooks
-export const useUsers = () => {
-  const [state, setState] = useState<ApiState<UserData[]>>({
+// Database Structure Hook
+export const useDbStructure = () => {
+  const [state, setState] = useState<HookState<DbStructure>>({
     data: null,
-    loading: false,
+    isLoading: false,
     error: null,
   });
 
-  const fetchUsers = async () => {
-    setState({ ...state, loading: true, error: null });
-    try {
-      const data = await backendApi.fetchUsers();
-      setState({ data, loading: false, error: null });
-    } catch (error) {
-      setState({ data: null, loading: false, error: error as Error });
+  const fetchStructure = useCallback(async () => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.fetchDbStructure();
+
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
     }
-  };
+  }, []);
+
+  return { ...state, fetchStructure };
+};
+
+// User Hooks
+export const useUsers = () => {
+  const [state, setState] = useState<HookState<UserData[] | UserData>>({
+    data: null,
+    isLoading: false,
+    error: null,
+  });
+
+  const fetchUsers = useCallback(async (username?: string) => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.fetchUsers(username);
+
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
+    }
+  }, []);
 
   return { ...state, fetchUsers };
 };
 
-export const useUser = (username: string) => {
-  const [state, setState] = useState<ApiState<UserData>>({
-    data: null,
-    loading: false,
-    error: null,
-  });
-
-  const fetchUser = async () => {
-    setState({ ...state, loading: true, error: null });
-    try {
-      const data = await backendApi.fetchUserByUsername(username);
-      setState({ data, loading: false, error: null });
-    } catch (error) {
-      setState({ data: null, loading: false, error: error as Error });
-    }
-  };
-
-  const updateUser = async (userData: UserData) => {
-    setState({ ...state, loading: true, error: null });
-    try {
-      const message = await backendApi.updateUser(username, userData);
-      if (message) {
-        await fetchUser();
-      }
-      return message;
-    } catch (error) {
-      setState({ ...state, loading: false, error: error as Error });
-      return null;
-    }
-  };
-
-  const deleteUser = async () => {
-    setState({ ...state, loading: true, error: null });
-    try {
-      const message = await backendApi.deleteUser(username);
-      setState({ data: null, loading: false, error: null });
-      return message;
-    } catch (error) {
-      setState({ ...state, loading: false, error: error as Error });
-      return null;
-    }
-  };
-
-  return { ...state, fetchUser, updateUser, deleteUser };
-};
-
 export const useAddUser = () => {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
-
-  const addUser = async (userData: UserData) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const message = await backendApi.addUser(userData);
-      setLoading(false);
-      return message;
-    } catch (error) {
-      setLoading(false);
-      setError(error as Error);
-      return null;
-    }
-  };
-
-  return { addUser, loading, error };
-};
-
-// Campaign hooks
-export const useCampaignFilterOptions = () => {
-  const [state, setState] = useState<ApiState<CampaignFilterOptions>>({
+  const [state, setState] = useState<HookState<string>>({
     data: null,
-    loading: false,
+    isLoading: false,
     error: null,
   });
 
-  const fetchOptions = async () => {
-    setState({ ...state, loading: true, error: null });
-    try {
-      const data = await backendApi.fetchCampaignFilterOptions();
-      setState({ data, loading: false, error: null });
-    } catch (error) {
-      setState({ data: null, loading: false, error: error as Error });
-    }
-  };
+  const addUser = useCallback(async (userData: UserData) => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.addUser(userData);
 
-  return { ...state, fetchOptions };
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
+    }
+  }, []);
+
+  return { ...state, addUser };
+};
+
+export const useUserByUsername = (username: string) => {
+  const [state, setState] = useState<HookState<UserData>>({
+    data: null,
+    isLoading: false,
+    error: null,
+  });
+
+  const fetchUser = useCallback(async () => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.fetchUserByUsername(username);
+
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
+    }
+  }, [username]);
+
+  return { ...state, fetchUser };
+};
+
+export const useUpdateUser = () => {
+  const [state, setState] = useState<HookState<string>>({
+    data: null,
+    isLoading: false,
+    error: null,
+  });
+
+  const updateUser = useCallback(
+    async (username: string, userData: UserData) => {
+      setState((prev) => ({ ...prev, isLoading: true }));
+      const result = await backendApi.updateUser(username, userData);
+
+      if (result instanceof Error) {
+        setState({ data: null, isLoading: false, error: result });
+      } else {
+        setState({ data: result, isLoading: false, error: null });
+      }
+    },
+    [],
+  );
+
+  return { ...state, updateUser };
+};
+
+export const useDeleteUser = () => {
+  const [state, setState] = useState<HookState<string>>({
+    data: null,
+    isLoading: false,
+    error: null,
+  });
+
+  const deleteUser = useCallback(async (username: string) => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.deleteUser(username);
+
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
+    }
+  }, []);
+
+  return { ...state, deleteUser };
+};
+
+export const usePatchUser = () => {
+  const [state, setState] = useState<HookState<string>>({
+    data: null,
+    isLoading: false,
+    error: null,
+  });
+
+  const patchUser = useCallback(
+    async (username: string, patchData: Partial<UserData>) => {
+      setState((prev) => ({ ...prev, isLoading: true }));
+      const result = await backendApi.patchUser(username, patchData);
+
+      if (result instanceof Error) {
+        setState({ data: null, isLoading: false, error: result });
+      } else {
+        setState({ data: result, isLoading: false, error: null });
+      }
+    },
+    [],
+  );
+
+  return { ...state, patchUser };
+};
+
+// Campaign Hooks
+export const useCampaignFilterOptions = () => {
+  const [state, setState] = useState<HookState<CampaignFilterOptions>>({
+    data: null,
+    isLoading: false,
+    error: null,
+  });
+
+  const fetchFilterOptions = useCallback(async () => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.fetchCampaignFilterOptions();
+
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
+    }
+  }, []);
+
+  return { ...state, fetchFilterOptions };
 };
 
 export const useCampaigns = () => {
-  const [state, setState] = useState<ApiState<FilterResponse>>({
+  const [state, setState] = useState<HookState<FilterResponse>>({
     data: null,
-    loading: false,
+    isLoading: false,
     error: null,
   });
 
-  const fetchCampaigns = async (filters: CampaignFilters = {}) => {
-    setState({ ...state, loading: true, error: null });
-    try {
-      const data = await backendApi.fetchCampaigns(filters);
-      setState({ data, loading: false, error: null });
-    } catch (error) {
-      setState({ data: null, loading: false, error: error as Error });
+  const fetchCampaigns = useCallback(async (filters: CampaignFilters) => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.fetchCampaigns(filters);
+
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
     }
-  };
+  }, []);
 
   return { ...state, fetchCampaigns };
 };
 
-export const useRevenueData = () => {
-  const [state, setState] = useState<ApiState<RevenueData[]>>({
-    data: null,
-    loading: false,
-    error: null,
-  });
-
-  const fetchRevenueData = async () => {
-    setState({ ...state, loading: true, error: null });
-    try {
-      const data = await backendApi.fetchRevenueData();
-      setState({ data, loading: false, error: null });
-    } catch (error) {
-      setState({ data: null, loading: false, error: error as Error });
-    }
-  };
-
-  return { ...state, fetchRevenueData };
-};
-
 export const useMonthlyPerformance = () => {
-  const [state, setState] = useState<ApiState<MonthlyPerformanceData>>({
+  const [state, setState] = useState<HookState<MonthlyPerformanceData>>({
     data: null,
-    loading: false,
+    isLoading: false,
     error: null,
   });
 
-  const fetchMonthlyPerformance = async (
-    filters?: Partial<CampaignFilters>,
-  ) => {
-    setState({ ...state, loading: true, error: null });
-    try {
-      const data = await backendApi.fetchMonthlyPerformanceData(filters);
-      setState({ data, loading: false, error: null });
-    } catch (error) {
-      setState({ data: null, loading: false, error: error as Error });
-    }
-  };
+  const fetchMonthlyData = useCallback(
+    async (filters?: Partial<CampaignFilters>) => {
+      setState((prev) => ({ ...prev, isLoading: true }));
+      const result = await backendApi.fetchMonthlyPerformanceData(filters);
 
-  const updateMonthlyData = async (updates: MonthlyUpdateData[]) => {
-    setState({ ...state, loading: true, error: null });
-    try {
-      const data = await backendApi.updateMonthlyData(updates);
-      setState({ data, loading: false, error: null });
-      return data;
-    } catch (error) {
-      setState({ ...state, loading: false, error: error as Error });
-      return null;
-    }
-  };
+      if (result instanceof Error) {
+        setState({ data: null, isLoading: false, error: result });
+      } else {
+        setState({ data: result, isLoading: false, error: null });
+      }
+    },
+    [],
+  );
 
-  return { ...state, fetchMonthlyPerformance, updateMonthlyData };
+  return { ...state, fetchMonthlyData };
 };
 
-export const useChannelRoi = () => {
-  const [state, setState] = useState<ApiState<ChannelRoi[]>>({
+export const useUpdateMonthlyData = () => {
+  const [state, setState] = useState<HookState<MonthlyPerformanceData>>({
     data: null,
-    loading: false,
+    isLoading: false,
     error: null,
   });
 
-  const fetchChannelRoi = async () => {
-    setState({ ...state, loading: true, error: null });
-    try {
-      const data = await backendApi.fetchChannelRoi();
-      setState({ data, loading: false, error: null });
-    } catch (error) {
-      setState({ data: null, loading: false, error: error as Error });
+  const updateMonthly = useCallback(async (updates: MonthlyUpdateData[]) => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.updateMonthlyData(updates);
+
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
     }
-  };
+  }, []);
 
-  return { ...state, fetchChannelRoi };
-};
-
-export const useAgeGroupRoi = () => {
-  const [state, setState] = useState<ApiState<AgeGroupRoi[]>>({
-    data: null,
-    loading: false,
-    error: null,
-  });
-
-  const fetchAgeGroupRoi = async () => {
-    setState({ ...state, loading: true, error: null });
-    try {
-      const data = await backendApi.fetchAgeGroupRoi();
-      setState({ data, loading: false, error: null });
-    } catch (error) {
-      setState({ data: null, loading: false, error: error as Error });
-    }
-  };
-
-  return { ...state, fetchAgeGroupRoi };
+  return { ...state, updateMonthly };
 };
 
 export const useCsvUpload = () => {
-  const [state, setState] = useState<ApiState<CsvUploadResponse>>({
+  const [state, setState] = useState<HookState<CsvUploadResponse>>({
     data: null,
-    loading: false,
+    isLoading: false,
     error: null,
   });
 
-  const uploadCsv = async (file: File) => {
-    setState({ ...state, loading: true, error: null });
-    try {
-      const data = await backendApi.uploadCsv(file);
-      setState({ data, loading: false, error: null });
-      return data;
-    } catch (error) {
-      setState({ data: null, loading: false, error: error as Error });
-      return null;
+  const uploadCsv = useCallback(async (file: File) => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.uploadCsv(file);
+
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
     }
-  };
+  }, []);
 
   return { ...state, uploadCsv };
 };
 
 export const useCostHeatmap = () => {
-  const [state, setState] = useState<ApiState<CostHeatmapData[]>>({
+  const [state, setState] = useState<HookState<backendApi.CostHeatmapData[]>>({
     data: null,
-    loading: false,
+    isLoading: false,
     error: null,
   });
 
-  const fetchCostHeatmapData = async (params?: {
-    country?: string;
-    campaign_id?: string;
-    channels?: string[];
-  }) => {
-    setState({ ...state, loading: true, error: null });
-    try {
-      const data = await backendApi.fetchCostHeatmapData(params);
-      setState({ data, loading: false, error: null });
-    } catch (error) {
-      setState({ data: null, loading: false, error: error as Error });
-    }
-  };
+  const fetchHeatmapData = useCallback(
+    async (params?: {
+      country?: string;
+      campaign_id?: string;
+      channels?: string[];
+    }) => {
+      setState((prev) => ({ ...prev, isLoading: true }));
+      const result = await backendApi.fetchCostHeatmapData(params);
 
-  return { ...state, fetchCostHeatmapData };
-};
+      if (result instanceof Error) {
+        setState({ data: null, isLoading: false, error: result });
+      } else {
+        setState({ data: result, isLoading: false, error: null });
+      }
+    },
+    [],
+  );
 
-export const useDbStructure = () => {
-  const [state, setState] = useState<ApiState<DbStructure>>({
-    data: null,
-    loading: false,
-    error: null,
-  });
-
-  const fetchDbStructure = async () => {
-    setState({ ...state, loading: true, error: null });
-    try {
-      const data = await backendApi.fetchDbStructure();
-      setState({ data, loading: false, error: null });
-    } catch (error) {
-      setState({ data: null, loading: false, error: error as Error });
-    }
-  };
-
-  return { ...state, fetchDbStructure };
+  return { ...state, fetchHeatmapData };
 };
