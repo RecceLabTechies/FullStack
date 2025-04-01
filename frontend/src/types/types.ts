@@ -24,9 +24,7 @@ export interface UserData {
 
 // Database structure interfaces
 export interface DbStructure {
-  test_database: {
-    campaign_data_mock: CampaignData[];
-  };
+  test_database: Record<string, string | unknown[]>;
 }
 
 // Campaign filter interfaces
