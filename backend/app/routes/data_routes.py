@@ -343,7 +343,7 @@ def get_campaign_filters_data():
     return format_response(filter_options)
 
 
-@data_bp.route("/api/v1/campaigns", methods=["GET"])
+@data_bp.route("/api/v1/campaigns", methods=["POST"])
 @handle_exceptions
 def get_campaigns_data():
     """
@@ -352,13 +352,15 @@ def get_campaigns_data():
     All parameters are optional. When no parameters are provided, all records are returned.
     The API supports incremental filtering - you can specify any combination of filters.
 
-    Query parameters:
-    - channels: Comma-separated list of marketing channels
-    - countries: Comma-separated list of countries
-    - age_groups: Comma-separated list of age groups
+
+
+    For POST requests, use JSON body with parameters:
+    - channels: List of marketing channels
+    - countries: List of countries
+    - age_groups: List of age groups
     - from_date: Start date as Unix timestamp
     - to_date: End date as Unix timestamp
-    - campaign_ids: Comma-separated list of campaign IDs
+    - campaign_ids: List of campaign IDs
     - min_revenue: Minimum revenue amount
     - max_revenue: Maximum revenue amount
     - min_ad_spend: Minimum ad spend amount
@@ -373,24 +375,27 @@ def get_campaigns_data():
     Returns:
         JSON object containing paginated campaign data and metadata
     """
-    # Extract query parameters
+
+    # Extract parameters from request JSON body
+    request_data = request.get_json() or {}
+
     params = {
-        "channels": parse_list_param(request.args.get("channels")),
-        "countries": parse_list_param(request.args.get("countries")),
-        "age_groups": parse_list_param(request.args.get("age_groups")),
-        "campaign_ids": parse_list_param(request.args.get("campaign_ids")),
-        "from_date": request.args.get("from_date"),
-        "to_date": request.args.get("to_date"),
-        "min_revenue": request.args.get("min_revenue"),
-        "max_revenue": request.args.get("max_revenue"),
-        "min_ad_spend": request.args.get("min_ad_spend"),
-        "max_ad_spend": request.args.get("max_ad_spend"),
-        "min_views": request.args.get("min_views"),
-        "min_leads": request.args.get("min_leads"),
-        "sort_by": request.args.get("sort_by", "date"),
-        "sort_dir": request.args.get("sort_dir", "desc"),
-        "page": request.args.get("page", "1"),
-        "page_size": request.args.get("page_size", "20"),
+        "channels": request_data.get("channels", []),
+        "countries": request_data.get("countries", []),
+        "age_groups": request_data.get("age_groups", []),
+        "campaign_ids": request_data.get("campaign_ids", []),
+        "from_date": request_data.get("from_date"),
+        "to_date": request_data.get("to_date"),
+        "min_revenue": request_data.get("min_revenue"),
+        "max_revenue": request_data.get("max_revenue"),
+        "min_ad_spend": request_data.get("min_ad_spend"),
+        "max_ad_spend": request_data.get("max_ad_spend"),
+        "min_views": request_data.get("min_views"),
+        "min_leads": request_data.get("min_leads"),
+        "sort_by": request_data.get("sort_by", "date"),
+        "sort_dir": request_data.get("sort_dir", "desc"),
+        "page": request_data.get("page", 1),
+        "page_size": request_data.get("page_size", 20),
     }
 
     # Create validation context for date range validation

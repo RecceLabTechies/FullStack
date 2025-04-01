@@ -151,9 +151,9 @@ export const fetchCampaigns = async (
   filters: CampaignFilters,
 ): Promise<FilterResponse | Error> => {
   try {
-    const response = await axios.get<FilterResponse>(
+    const response = await axios.post<FilterResponse>(
       `${API_BASE_URL}/api/v1/campaigns`,
-      { params: filters },
+      filters,
     );
     return response.data;
   } catch (error) {

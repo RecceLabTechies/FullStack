@@ -11,14 +11,17 @@ import {
 } from "@/types/types";
 import * as backendApi from "@/api/backendApi";
 
-// Generic hook state type
+// Generic hook state type that provides loading, error, and data states
 interface HookState<T> {
   data: T | null;
   isLoading: boolean;
   error: Error | null;
 }
 
-// Database Structure Hook
+/**
+ * Hook to fetch the database structure.
+ * Returns the database schema and table information.
+ */
 export const useDbStructure = () => {
   const [state, setState] = useState<HookState<DbStructure>>({
     data: null,
@@ -40,7 +43,10 @@ export const useDbStructure = () => {
   return { ...state, fetchStructure };
 };
 
-// User Hooks
+/**
+ * Hook to fetch users from the backend.
+ * Can fetch all users or a specific user by username.
+ */
 export const useUsers = () => {
   const [state, setState] = useState<HookState<UserData[] | UserData>>({
     data: null,
@@ -62,6 +68,10 @@ export const useUsers = () => {
   return { ...state, fetchUsers };
 };
 
+/**
+ * Hook to add a new user to the system.
+ * Takes UserData object and creates a new user record.
+ */
 export const useAddUser = () => {
   const [state, setState] = useState<HookState<string>>({
     data: null,
@@ -83,6 +93,10 @@ export const useAddUser = () => {
   return { ...state, addUser };
 };
 
+/**
+ * Hook to fetch a specific user's details by their username.
+ * Returns detailed information for a single user.
+ */
 export const useUserByUsername = (username: string) => {
   const [state, setState] = useState<HookState<UserData>>({
     data: null,
@@ -104,6 +118,10 @@ export const useUserByUsername = (username: string) => {
   return { ...state, fetchUser };
 };
 
+/**
+ * Hook to update an existing user's information.
+ * Takes a username and updated UserData to modify the user record.
+ */
 export const useUpdateUser = () => {
   const [state, setState] = useState<HookState<string>>({
     data: null,
@@ -128,6 +146,10 @@ export const useUpdateUser = () => {
   return { ...state, updateUser };
 };
 
+/**
+ * Hook to delete a user from the system.
+ * Removes a user record by their username.
+ */
 export const useDeleteUser = () => {
   const [state, setState] = useState<HookState<string>>({
     data: null,
@@ -149,6 +171,10 @@ export const useDeleteUser = () => {
   return { ...state, deleteUser };
 };
 
+/**
+ * Hook to partially update a user's information.
+ * Allows updating specific fields of a user record without affecting others.
+ */
 export const usePatchUser = () => {
   const [state, setState] = useState<HookState<string>>({
     data: null,
@@ -173,7 +199,10 @@ export const usePatchUser = () => {
   return { ...state, patchUser };
 };
 
-// Campaign Hooks
+/**
+ * Hook to fetch available campaign filter options.
+ * Returns possible values for filtering campaigns (e.g., categories, statuses).
+ */
 export const useCampaignFilterOptions = () => {
   const [state, setState] = useState<HookState<CampaignFilterOptions>>({
     data: null,
@@ -195,6 +224,11 @@ export const useCampaignFilterOptions = () => {
   return { ...state, fetchFilterOptions };
 };
 
+/**
+ * Hook to fetch campaigns based on filter criteria.
+ * Makes a POST request to fetch filtered campaign data based on provided filter parameters.
+ * The filters are sent in the request body as JSON.
+ */
 export const useCampaigns = () => {
   const [state, setState] = useState<HookState<FilterResponse>>({
     data: null,
@@ -216,6 +250,10 @@ export const useCampaigns = () => {
   return { ...state, fetchCampaigns };
 };
 
+/**
+ * Hook to fetch monthly performance metrics.
+ * Returns aggregated performance data on a monthly basis with optional filtering.
+ */
 export const useMonthlyPerformance = () => {
   const [state, setState] = useState<HookState<MonthlyPerformanceData>>({
     data: null,
@@ -240,6 +278,10 @@ export const useMonthlyPerformance = () => {
   return { ...state, fetchMonthlyData };
 };
 
+/**
+ * Hook to update monthly performance data.
+ * Allows bulk updates to monthly performance metrics.
+ */
 export const useUpdateMonthlyData = () => {
   const [state, setState] = useState<HookState<MonthlyPerformanceData>>({
     data: null,
@@ -261,6 +303,10 @@ export const useUpdateMonthlyData = () => {
   return { ...state, updateMonthly };
 };
 
+/**
+ * Hook to handle CSV file uploads.
+ * Processes CSV files and returns upload response with success/failure details.
+ */
 export const useCsvUpload = () => {
   const [state, setState] = useState<HookState<CsvUploadResponse>>({
     data: null,
@@ -282,6 +328,10 @@ export const useCsvUpload = () => {
   return { ...state, uploadCsv };
 };
 
+/**
+ * Hook to fetch cost heatmap data.
+ * Returns data for visualizing costs across different dimensions (country, campaign, channels).
+ */
 export const useCostHeatmap = () => {
   const [state, setState] = useState<HookState<backendApi.CostHeatmapData[]>>({
     data: null,
