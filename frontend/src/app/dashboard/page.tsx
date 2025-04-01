@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import moment from "moment";
 import { DatePickerWithRange } from "@/components/date-range-picker";
 import { MultiSelect } from "@/components/ui/multi-select";
 import {
@@ -97,6 +98,21 @@ export default function DashboardPage() {
     void fetchFilterOptions();
   }, [fetchFilterOptions]);
 
+  // Add effect to fetch initial campaign data
+  useEffect(() => {
+    if (filterOptions) {
+      const initialFilters: CampaignFilters = {
+        min_revenue: filterOptions.numeric_ranges.revenue.min,
+        max_revenue: filterOptions.numeric_ranges.revenue.max,
+        min_ad_spend: filterOptions.numeric_ranges.ad_spend.min,
+        max_ad_spend: filterOptions.numeric_ranges.ad_spend.max,
+        min_views: filterOptions.numeric_ranges.views.min,
+        min_leads: filterOptions.numeric_ranges.leads.min,
+      };
+      void fetchCampaigns(initialFilters);
+    }
+  }, [filterOptions, fetchCampaigns]);
+
   // Effect to fetch monthly data when campaign data changes
   useEffect(() => {
     if (!campaignData || !filterOptions) return;
@@ -129,14 +145,10 @@ export default function DashboardPage() {
           filters.campaign_ids = filterPayload.campaignIds;
         }
         if (filterPayload.dateRange?.from) {
-          filters.from_date = Math.floor(
-            filterPayload.dateRange.from.getTime() / 1000,
-          );
+          filters.from_date = moment(filterPayload.dateRange.from).unix();
         }
         if (filterPayload.dateRange?.to) {
-          filters.to_date = Math.floor(
-            filterPayload.dateRange.to.getTime() / 1000,
-          );
+          filters.to_date = moment(filterPayload.dateRange.to).unix();
         }
 
         await fetchMonthlyData(filters);
@@ -163,9 +175,7 @@ export default function DashboardPage() {
     // Transform the items to chart data format
     sortedItems.forEach((item) => {
       chartData.push({
-        month: new Date(item.date * 1000).toLocaleString("default", {
-          month: "short",
-        }),
+        month: moment.unix(item.date).format("MMM"),
         revenue: item.revenue,
         ad_spend: item.ad_spend,
       });
@@ -208,12 +218,10 @@ export default function DashboardPage() {
       filterPayload.campaign_ids = data.campaignIds;
     }
     if (data.dateRange?.from) {
-      filterPayload.from_date = Math.floor(
-        data.dateRange.from.getTime() / 1000,
-      );
+      filterPayload.from_date = moment(data.dateRange.from).unix();
     }
     if (data.dateRange?.to) {
-      filterPayload.to_date = Math.floor(data.dateRange.to.getTime() / 1000);
+      filterPayload.to_date = moment(data.dateRange.to).unix();
     }
 
     // Fetch campaigns with the filter payload
@@ -245,12 +253,12 @@ export default function DashboardPage() {
                       <FormControl>
                         <DatePickerWithRange
                           onRangeChange={field.onChange}
-                          minDate={
-                            new Date(filterOptions.date_range.min_date * 1000)
-                          }
-                          maxDate={
-                            new Date(filterOptions.date_range.max_date * 1000)
-                          }
+                          minDate={moment
+                            .unix(filterOptions.date_range.min_date)
+                            .toDate()}
+                          maxDate={moment
+                            .unix(filterOptions.date_range.max_date)
+                            .toDate()}
                         />
                       </FormControl>
                       <FormMessage />
