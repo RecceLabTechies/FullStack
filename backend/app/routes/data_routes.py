@@ -196,26 +196,6 @@ class MonthlyPerformanceFilterSchema(Schema):
             raise ValidationError("from_date cannot be later than to_date")
 
 
-class CsvImportSchema(Schema):
-    """Schema for validating CSV import request"""
-
-    file = fields.Raw(required=True)
-
-    class Meta:
-        unknown = EXCLUDE
-
-    @validates("file")
-    def validate_file(self, value, **kwargs):
-        """Validate the file is present and is a CSV"""
-        if not value or not value.filename:
-            raise ValidationError("No file selected")
-
-        if not value.filename.endswith(".csv"):
-            raise ValidationError("File must be a CSV")
-
-        return value
-
-
 class CostHeatmapSchema(Schema):
     """Schema for validating cost heatmap parameters"""
 
@@ -703,16 +683,9 @@ def get_cost_heatmap_data_route():
 
 
 @data_bp.route("/api/v1/imports/csv", methods=["POST", "OPTIONS"])
-@handle_exceptions
-def create_csv_import_data():
+def handle_csv_import():
     """
     Handle CSV file uploads and import data into MongoDB.
-
-    Form data:
-    - file: CSV file to upload
-
-    Returns:
-        JSON object with import results
     """
     # Handle CORS preflight request
     if request.method == "OPTIONS":
@@ -722,56 +695,68 @@ def create_csv_import_data():
         response.headers.add("Access-Control-Allow-Methods", "POST")
         return response
 
-    # Validate file upload
-    file = validate_request_data(request.files, CsvImportSchema)["file"]
-
     try:
-        # Process CSV data
-        records, is_campaign_data, default_collection_name = process_csv_data(file)
+        # Validate file presence in request
+        if "file" not in request.files:
+            return format_response({"error": "No file provided"}, 400)
 
-        # Convert records to domain objects if they are campaign data
-        if is_campaign_data and records:
-            converted_records = validate_and_convert_list(
-                records, CampaignDataSchema, "convert_to_campaign_data"
+        file = request.files["file"]
+        if file.filename == "":
+            return format_response({"error": "No file selected"}, 400)
+
+        if not file.filename.endswith(".csv"):
+            return format_response({"error": "File must be a CSV"}, 400)
+
+        # Process the CSV file
+        try:
+            # Process CSV data
+            records, is_campaign_data, default_collection_name = process_csv_data(file)
+
+            # Find matching collection for data
+            matching_collection, collection_name, found_match = (
+                find_matching_collection(
+                    records, is_campaign_data, default_collection_name
+                )
             )
 
-            # Convert to dict for MongoDB storage
-            records = [
-                record.__dict__ if hasattr(record, "__dict__") else record
-                for record in converted_records
-            ]
+            # Check if we have any valid records to insert
+            if not records:
+                logger.error("No valid records found after validation")
+                return format_response(
+                    {"error": "No valid records found after validation"}, 400
+                )
 
-        # Check if we have any valid records
-        if not records:
-            raise ValueError("No valid records found after validation")
+            # Insert all records into MongoDB
+            result = matching_collection.insert_many(records)
+            logger.info(
+                f"Successfully inserted {len(result.inserted_ids)} records into {collection_name}"
+            )
 
-        # Find matching collection for data
-        matching_collection, collection_name, found_match = find_matching_collection(
-            records, is_campaign_data, default_collection_name
-        )
+            # Determine operation type for response message
+            operation = "appended to existing" if found_match else "uploaded to new"
 
-        # Insert all records into MongoDB
-        result = matching_collection.insert_many(records)
-        logger.info(
-            f"Successfully inserted {len(result.inserted_ids)} records into {collection_name}"
-        )
+            # Prepare and send response
+            return format_response(
+                {
+                    "message": f"CSV {operation} collection successfully",
+                    "count": len(result.inserted_ids),
+                    "collection": collection_name,
+                },
+                headers={"Access-Control-Allow-Origin": "*"},
+            )
 
-        # Determine operation type for response message
-        operation = "appended to existing" if found_match else "uploaded to new"
+        except UnicodeDecodeError:
+            logger.error("Invalid CSV file encoding")
+            return format_response(
+                {"error": "Invalid CSV file encoding. Please use UTF-8"}, 400
+            )
+        except ValueError as e:
+            logger.error(f"CSV validation error: {e}")
+            return format_response({"error": str(e)}, 400)
 
-        # Prepare and send response
-        return format_response(
-            {
-                "message": f"CSV {operation} collection successfully",
-                "count": len(result.inserted_ids),
-                "collection": collection_name,
-            },
-            headers={"Access-Control-Allow-Origin": "*"},
-        )
-
-    except UnicodeDecodeError:
-        logger.error("Invalid CSV file encoding")
-        raise ValueError("Invalid CSV file encoding. Please use UTF-8")
+    except Exception as e:
+        logger.error(f"Error uploading CSV: {e}")
+        return format_response({"error": str(e)}, 500)
 
 
 # ----------------------------------------------------------------
