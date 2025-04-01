@@ -133,6 +133,87 @@ def filter_campaigns(filter_params: Dict) -> Dict:
     return response
 
 
+def get_monthly_aggregated_data(filter_params: Dict) -> Dict:
+    """
+    Get monthly aggregated revenue and ad spend data with full campaign filtering support.
+
+    Args:
+        filter_params (Dict): Dictionary containing filter parameters:
+            - channels: List of marketing channels
+            - countries: List of countries
+            - age_groups: List of age groups
+            - from_date: Start date (Unix timestamp)
+            - to_date: End date (Unix timestamp)
+            - campaign_ids: List of campaign IDs
+            - min_revenue: Minimum revenue amount
+            - max_revenue: Maximum revenue amount
+            - min_ad_spend: Minimum ad spend amount
+            - max_ad_spend: Maximum ad spend amount
+            - min_views: Minimum views count
+            - min_leads: Minimum leads count
+
+    Returns:
+        Dict: Dictionary containing items (monthly aggregated data) and applied filters
+    """
+    # Make a copy of filter_params without pagination to get all matching data
+    query_params = {
+        k: v
+        for k, v in filter_params.items()
+        if k not in ["page", "page_size", "sort_by", "sort_dir"]
+    }
+
+    # Add a large page_size to get all data at once for aggregation
+    query_params["page_size"] = 10000
+    query_params["page"] = 1
+
+    # Get filtered campaign data
+    response = filter_campaigns(query_params)
+
+    if not response.get("items"):
+        return {"items": [], "filters": query_params}
+
+    # Group data by month and calculate aggregates
+    monthly_data = {}
+
+    for item in response["items"]:
+        # Convert Unix timestamp to month key (e.g., "2024-01")
+        month_key = datetime.fromtimestamp(item["date"]).strftime("%Y-%m")
+        month_timestamp = int(datetime.strptime(month_key, "%Y-%m").timestamp())
+
+        if month_key not in monthly_data:
+            monthly_data[month_key] = {
+                "date": month_timestamp,
+                "revenue": 0,
+                "ad_spend": 0,
+                "views": 0,
+                "leads": 0,
+                "new_accounts": 0,
+            }
+
+        # Aggregate all metrics
+        monthly_data[month_key]["revenue"] += item["revenue"]
+        monthly_data[month_key]["ad_spend"] += item["ad_spend"]
+        monthly_data[month_key]["views"] += item["views"]
+        monthly_data[month_key]["leads"] += item["leads"]
+        monthly_data[month_key]["new_accounts"] += item["new_accounts"]
+
+    # Sort months chronologically
+    sorted_months = sorted(monthly_data.keys())
+
+    # Convert to list of items
+    items = [monthly_data[month] for month in sorted_months]
+
+    # Return in the same format as filter_campaigns but without pagination
+    return {
+        "items": items,
+        "filters": {
+            k: v
+            for k, v in filter_params.items()
+            if k not in ["page", "page_size", "sort_by", "sort_dir"]
+        },
+    }
+
+
 def get_campaign_filter_options() -> Dict:
     """
     Get all available filter options for campaign data.
@@ -216,186 +297,6 @@ def get_campaign_filter_options() -> Dict:
         "numeric_ranges": numeric_ranges,
         "date_range": date_range,
     }
-
-
-def get_monthly_performance_data(filters: Dict = None) -> Dict:
-    """
-    Get monthly revenue and ad spend data for charting.
-
-    Args:
-        filters (Dict, optional): Dictionary containing filter parameters:
-            - from_date: Start date as Unix timestamp
-            - to_date: End date as Unix timestamp
-            - channels: List of marketing channels
-            - countries: List of countries
-            - age_groups: List of age groups
-
-    Returns:
-        Dict: Dictionary containing arrays for months, revenue, ad_spend, and ROI
-    """
-    # Initialize filters if None
-    if filters is None:
-        filters = {}
-
-    # Build query based on filters
-    query = {}
-
-    # Date range filters
-    if "from_date" in filters:
-        query.setdefault("date", {})["$gte"] = float(filters["from_date"])
-
-    if "to_date" in filters:
-        query.setdefault("date", {})["$lte"] = float(filters["to_date"])
-
-    # Categorical filters
-    if "channels" in filters and filters["channels"]:
-        query["channel"] = {"$in": filters["channels"]}
-
-    if "countries" in filters and filters["countries"]:
-        query["country"] = {"$in": filters["countries"]}
-
-    if "age_groups" in filters and filters["age_groups"]:
-        query["age_group"] = {"$in": filters["age_groups"]}
-
-    # Aggregate data by month
-    pipeline = [
-        {"$match": query},
-        {
-            "$addFields": {
-                "dateObj": {
-                    "$toDate": {
-                        "$multiply": [
-                            "$date",
-                            1000,
-                        ]  # Convert Unix timestamp to date object for MongoDB
-                    }
-                }
-            }
-        },
-        {
-            "$group": {
-                "_id": {"year": {"$year": "$dateObj"}, "month": {"$month": "$dateObj"}},
-                "revenue": {"$sum": "$revenue"},
-                "ad_spend": {"$sum": "$ad_spend"},
-            }
-        },
-        {"$sort": {"_id.year": 1, "_id.month": 1}},
-    ]
-
-    results = CampaignModel.aggregate(pipeline)
-
-    # Format results
-    months = []
-    revenue = []
-    ad_spend = []
-    roi = []
-
-    for result in results:
-        # Convert back to Unix timestamp for the first day of the month
-        month_date = datetime(result["_id"]["year"], result["_id"]["month"], 1)
-        months.append(month_date.timestamp())
-        revenue.append(result["revenue"])
-        ad_spend.append(result["ad_spend"])
-        roi.append(
-            (result["revenue"] - result["ad_spend"]) / result["ad_spend"]
-            if result["ad_spend"] > 0
-            else 0
-        )
-
-    return {
-        "months": months,
-        "revenue": revenue,
-        "ad_spend": ad_spend,
-        "roi": roi,
-    }
-
-
-def update_monthly_data(updates: List[Dict]) -> Dict:
-    """
-    Update revenue and/or ad spend data for specific months.
-
-    Args:
-        updates (List[Dict]): List of updates, each containing:
-            - month (float): Month as Unix timestamp
-            - revenue (float, optional): New revenue value
-            - ad_spend (float, optional): New ad spend value
-
-    Returns:
-        Dict: Updated monthly performance data
-    """
-    collection = get_campaign_performance_collection()
-
-    for update in updates:
-        if "month" not in update:
-            raise ValueError("Each update must contain month")
-
-        if "revenue" not in update and "ad_spend" not in update:
-            raise ValueError("Each update must contain either revenue or ad_spend")
-
-        # Get the Unix timestamp from the month field
-        month_timestamp = update["month"]
-
-        # Convert Unix timestamp to datetime for calculations
-        month_date = datetime.fromtimestamp(month_timestamp)
-        start_date = month_date.replace(day=1, hour=0, minute=0, second=0).timestamp()
-
-        # Calculate end date (first day of next month)
-        if month_date.month == 12:
-            end_date = datetime(month_date.year + 1, 1, 1).timestamp()
-        else:
-            end_date = datetime(month_date.year, month_date.month + 1, 1).timestamp()
-
-        # Find all campaigns in this month
-        query = {"date": {"$gte": start_date, "$lt": end_date}}
-        campaigns = CampaignModel.get_all(query)
-
-        if not campaigns:
-            continue
-
-        # Update revenue if provided
-        if "revenue" in update:
-            # Calculate current total revenue for the month
-            current_total = sum(campaign.get("revenue", 0) for campaign in campaigns)
-
-            if current_total == 0:
-                # If no current revenue, distribute equally
-                new_value = update["revenue"] / len(campaigns)
-                for campaign in campaigns:
-                    CampaignModel.update_one(
-                        {"_id": campaign["_id"]}, {"$set": {"revenue": new_value}}
-                    )
-            else:
-                # Apply proportional update
-                scale_factor = update["revenue"] / current_total
-                for campaign in campaigns:
-                    new_revenue = campaign.get("revenue", 0) * scale_factor
-                    CampaignModel.update_one(
-                        {"_id": campaign["_id"]}, {"$set": {"revenue": new_revenue}}
-                    )
-
-        # Update ad_spend if provided
-        if "ad_spend" in update:
-            # Calculate current total ad_spend for the month
-            current_total = sum(campaign.get("ad_spend", 0) for campaign in campaigns)
-
-            if current_total == 0:
-                # If no current ad_spend, distribute equally
-                new_value = update["ad_spend"] / len(campaigns)
-                for campaign in campaigns:
-                    CampaignModel.update_one(
-                        {"_id": campaign["_id"]}, {"$set": {"ad_spend": new_value}}
-                    )
-            else:
-                # Apply proportional update
-                scale_factor = update["ad_spend"] / current_total
-                for campaign in campaigns:
-                    new_ad_spend = campaign.get("ad_spend", 0) * scale_factor
-                    CampaignModel.update_one(
-                        {"_id": campaign["_id"]}, {"$set": {"ad_spend": new_ad_spend}}
-                    )
-
-    # Return updated chart data
-    return get_monthly_performance_data()
 
 
 def get_cost_heatmap_data(

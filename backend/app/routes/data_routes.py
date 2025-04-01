@@ -13,8 +13,7 @@ from app.services.campaign_service import (
     filter_campaigns,
     get_campaign_filter_options,
     get_cost_heatmap_data,
-    get_monthly_performance_data,
-    update_monthly_data,
+    get_monthly_aggregated_data,
 )
 from app.utils.data_processing import (
     find_matching_collection,
@@ -424,90 +423,58 @@ def get_campaigns_data():
     return format_response(response)
 
 
-@data_bp.route("/api/v1/campaigns/monthly-performance", methods=["GET"])
+@data_bp.route("/api/v1/campaigns/monthly-aggregated", methods=["POST"])
 @handle_exceptions
-def get_monthly_performance_data_route():
+def get_monthly_aggregated_data_route():
     """
-    Get monthly revenue and ad spend data for charting.
+    Get monthly aggregated revenue and ad spend data with full campaign filtering support.
 
-    Query parameters:
+    Accepts the same JSON body parameters as /api/v1/campaigns:
+    - channels: List of marketing channels
+    - countries: List of countries
+    - age_groups: List of age groups
     - from_date: Start date as Unix timestamp
     - to_date: End date as Unix timestamp
-    - channels: Comma-separated list of marketing channels
-    - countries: Comma-separated list of countries
-    - age_groups: Comma-separated list of age groups
+    - campaign_ids: List of campaign IDs
+    - min_revenue: Minimum revenue amount
+    - max_revenue: Maximum revenue amount
+    - min_ad_spend: Minimum ad spend amount
+    - max_ad_spend: Maximum ad spend amount
+    - min_views: Minimum views count
+    - min_leads: Minimum leads count
 
     Returns:
-        JSON object with months, revenue, ad_spend, and roi arrays
+        JSON object containing monthly aggregated data and applied filters
     """
-    # Extract and prepare filter parameters
+    # Extract parameters from request JSON body
+    request_data = request.get_json() or {}
+
     params = {
-        "from_date": request.args.get("from_date"),
-        "to_date": request.args.get("to_date"),
-        "channels": parse_list_param(request.args.get("channels")),
-        "countries": parse_list_param(request.args.get("countries")),
-        "age_groups": parse_list_param(request.args.get("age_groups")),
+        "channels": request_data.get("channels", []),
+        "countries": request_data.get("countries", []),
+        "age_groups": request_data.get("age_groups", []),
+        "campaign_ids": request_data.get("campaign_ids", []),
+        "from_date": request_data.get("from_date"),
+        "to_date": request_data.get("to_date"),
+        "min_revenue": request_data.get("min_revenue"),
+        "max_revenue": request_data.get("max_revenue"),
+        "min_ad_spend": request_data.get("min_ad_spend"),
+        "max_ad_spend": request_data.get("max_ad_spend"),
+        "min_views": request_data.get("min_views"),
+        "min_leads": request_data.get("min_leads"),
     }
 
-    # Create context for date validation
+    # Create validation context for date range validation
     context = {}
-    if params.get("from_date"):
+    if "from_date" in params and params["from_date"]:
         context["from_date"] = params["from_date"]
 
-    # Validate with the helper
-    validated_filters = validate_request_data(
-        params, MonthlyPerformanceFilterSchema, context
-    )
+    # Validate parameters using the campaign filter schema
+    validated_params = validate_request_data(params, CampaignFilterSchema, context)
 
-    # Call model function to get the data
-    data = get_monthly_performance_data(validated_filters)
+    # Call service function to get aggregated data
+    data = get_monthly_aggregated_data(validated_params)
     return format_response(data)
-
-
-@data_bp.route("/api/v1/campaigns/monthly-data", methods=["POST"])
-@handle_exceptions
-def update_monthly_data_route():
-    """
-    Update revenue and/or ad spend data for specific months.
-
-    Expected JSON payload:
-    {
-        "updates": [
-            {
-                "month": 1617235200,  // Unix timestamp (e.g., April 1, 2021)
-                "revenue": optional_numeric_value,
-                "ad_spend": optional_numeric_value
-            },
-            ...
-        ]
-    }
-
-    At least one of revenue or ad_spend must be provided for each update.
-
-    Returns:
-        JSON object with updated monthly chart data
-    """
-    # Get request data
-    data = request.json or {}
-
-    # Validate overall request structure with list schema
-    validated_data = validate_request_data(data, MonthlyUpdateListSchema)
-
-    # Process each update item in the list
-    converted_updates = validate_and_convert_list(
-        validated_data["updates"], MonthlyUpdateSchema
-    )
-
-    # Check if we have any valid updates
-    if not converted_updates:
-        raise ValueError("No valid updates found after validation")
-
-    # Call model function to update the data with converted objects
-    updated_data = update_monthly_data(converted_updates)
-
-    return format_response(
-        {"message": "Monthly data updated successfully", **updated_data}
-    )
 
 
 @data_bp.route("/api/v1/campaigns/cost-heatmap", methods=["GET"])

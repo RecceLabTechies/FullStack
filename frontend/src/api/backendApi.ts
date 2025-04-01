@@ -1,11 +1,11 @@
 import {
+  type CostHeatmapData,
   type CampaignFilterOptions,
   type CampaignFilters,
   type CsvUploadResponse,
   type DbStructure,
   type FilterResponse,
   type MonthlyPerformanceData,
-  type MonthlyUpdateData,
   type UserData,
 } from "@/types/types";
 import axios from "axios";
@@ -162,50 +162,19 @@ export const fetchCampaigns = async (
   }
 };
 
-export const fetchMonthlyPerformanceData = async (
-  filters?: Partial<CampaignFilters>,
+export const fetchMonthlyAggregatedData = async (
+  filters: CampaignFilters,
 ): Promise<MonthlyPerformanceData | Error> => {
   try {
-    const response = await axios.get<{
+    const response = await axios.post<{
       data: MonthlyPerformanceData;
       status: number;
       success: boolean;
-    }>(`${API_BASE_URL}/api/v1/campaigns/monthly-performance`, {
-      params: filters,
-    });
+    }>(`${API_BASE_URL}/api/v1/campaigns/monthly-aggregated`, filters);
     return response.data.data;
   } catch (error) {
-    console.error("Failed to fetch monthly performance data", error);
-    return new Error("Failed to fetch monthly performance data");
-  }
-};
-
-export const updateMonthlyData = async (
-  updates: MonthlyUpdateData[],
-): Promise<MonthlyPerformanceData | Error> => {
-  try {
-    interface UpdateMonthlyResponse {
-      message: string;
-      months: string[];
-      revenue: number[];
-      ad_spend: number[];
-      roi: number[];
-    }
-
-    const response = await axios.post<UpdateMonthlyResponse>(
-      `${API_BASE_URL}/api/v1/campaigns/monthly-data`,
-      { updates },
-    );
-
-    return {
-      months: response.data.months,
-      revenue: response.data.revenue,
-      ad_spend: response.data.ad_spend,
-      roi: response.data.roi,
-    };
-  } catch (error) {
-    console.error("Failed to update monthly data", error);
-    return new Error("Failed to update monthly data");
+    console.error("Failed to fetch monthly aggregated data", error);
+    return new Error("Failed to fetch monthly aggregated data");
   }
 };
 
@@ -232,14 +201,6 @@ export const uploadCsv = async (
     return new Error("Failed to upload CSV");
   }
 };
-
-// Cost Heatmap API
-export interface CostHeatmapData {
-  channel: string;
-  costPerLead: number;
-  costPerView: number;
-  costPerAccount: number;
-}
 
 export const fetchCostHeatmapData = async (params?: {
   country?: string;

@@ -1,12 +1,12 @@
 import { useState, useCallback } from "react";
 import {
+  type CostHeatmapData,
   type CampaignFilterOptions,
   type CampaignFilters,
   type CsvUploadResponse,
   type DbStructure,
   type FilterResponse,
   type MonthlyPerformanceData,
-  type MonthlyUpdateData,
   type UserData,
 } from "@/types/types";
 import * as backendApi from "@/api/backendApi";
@@ -251,59 +251,6 @@ export const useCampaigns = () => {
 };
 
 /**
- * Hook to fetch monthly performance metrics.
- * Returns aggregated performance data on a monthly basis with optional filtering.
- */
-export const useMonthlyPerformance = () => {
-  const [state, setState] = useState<HookState<MonthlyPerformanceData>>({
-    data: null,
-    isLoading: false,
-    error: null,
-  });
-
-  const fetchMonthlyData = useCallback(
-    async (filters?: Partial<CampaignFilters>) => {
-      setState((prev) => ({ ...prev, isLoading: true }));
-      const result = await backendApi.fetchMonthlyPerformanceData(filters);
-
-      if (result instanceof Error) {
-        setState({ data: null, isLoading: false, error: result });
-      } else {
-        setState({ data: result, isLoading: false, error: null });
-      }
-    },
-    [],
-  );
-
-  return { ...state, fetchMonthlyData };
-};
-
-/**
- * Hook to update monthly performance data.
- * Allows bulk updates to monthly performance metrics.
- */
-export const useUpdateMonthlyData = () => {
-  const [state, setState] = useState<HookState<MonthlyPerformanceData>>({
-    data: null,
-    isLoading: false,
-    error: null,
-  });
-
-  const updateMonthly = useCallback(async (updates: MonthlyUpdateData[]) => {
-    setState((prev) => ({ ...prev, isLoading: true }));
-    const result = await backendApi.updateMonthlyData(updates);
-
-    if (result instanceof Error) {
-      setState({ data: null, isLoading: false, error: result });
-    } else {
-      setState({ data: result, isLoading: false, error: null });
-    }
-  }, []);
-
-  return { ...state, updateMonthly };
-};
-
-/**
  * Hook to handle CSV file uploads.
  * Processes CSV files and returns upload response with success/failure details.
  */
@@ -333,7 +280,7 @@ export const useCsvUpload = () => {
  * Returns data for visualizing costs across different dimensions (country, campaign, channels).
  */
 export const useCostHeatmap = () => {
-  const [state, setState] = useState<HookState<backendApi.CostHeatmapData[]>>({
+  const [state, setState] = useState<HookState<CostHeatmapData[]>>({
     data: null,
     isLoading: false,
     error: null,
@@ -358,4 +305,29 @@ export const useCostHeatmap = () => {
   );
 
   return { ...state, fetchHeatmapData };
+};
+
+/**
+ * Hook to fetch monthly aggregated campaign data.
+ * Returns monthly revenue, ad spend, and ROI data based on campaign filters.
+ */
+export const useMonthlyAggregatedData = () => {
+  const [state, setState] = useState<HookState<MonthlyPerformanceData>>({
+    data: null,
+    isLoading: false,
+    error: null,
+  });
+
+  const fetchMonthlyData = useCallback(async (filters: CampaignFilters) => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.fetchMonthlyAggregatedData(filters);
+
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
+    }
+  }, []);
+
+  return { ...state, fetchMonthlyData };
 };

@@ -87,23 +87,6 @@ export interface FilterResponse {
   total_pages: number;
 }
 
-// Monthly performance data interfaces
-export interface MonthlyPerformanceData {
-  months: string[];
-  revenue: number[];
-  ad_spend: number[];
-  roi: number[];
-}
-
-export interface MonthlyUpdateItem {
-  month: string;
-  revenue?: number;
-  ad_spend?: number;
-}
-
-// This is an array of update items to be sent to the API
-export type MonthlyUpdateData = MonthlyUpdateItem;
-
 // API response interfaces
 export interface CsvUploadResponse {
   message: string;
@@ -111,8 +94,25 @@ export interface CsvUploadResponse {
   collection: string;
 }
 
-export interface ApiResponse<T> {
-  data?: T;
-  message?: string;
-  error?: string;
+// Cost Heatmap API
+export interface CostHeatmapData {
+  channel: string;
+  costPerLead: number;
+  costPerView: number;
+  costPerAccount: number;
+}
+
+// Monthly performance data interfaces
+export interface MonthlyAggregatedItem {
+  date: number; // Unix timestamp for the month
+  revenue: number;
+  ad_spend: number;
+  views: number;
+  leads: number;
+  new_accounts: number;
+}
+
+export interface MonthlyPerformanceData {
+  items: MonthlyAggregatedItem[];
+  filters: CampaignFilters;
 }
