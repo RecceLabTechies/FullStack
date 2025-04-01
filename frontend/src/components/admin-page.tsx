@@ -11,9 +11,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { UserData } from "@/types/types";
 import { useEffect, useState } from "react";
 import { Toaster } from "sonner";
-import SearchBar from "./SearchBar";
-import StaffList from "./StaffList";
+import SearchBar from "./admin-search-bar";
+import StaffList from "./admin-staff-list";
 import { useUsers } from "@/hooks/use-backend-api";
+import CreateUserModal from "./admin-create-user-modal";
 
 function SkeletonStaffList() {
   return (
@@ -146,10 +147,15 @@ export default function AdminPage() {
       <Toaster richColors position="top-right" />
       <Card>
         <CardHeader>
-          <CardTitle>Staff Management</CardTitle>
-          <CardDescription>
-            Manage your team&apos;s permissions and access
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Staff Management</CardTitle>
+              <CardDescription>
+                Manage your team&apos;s permissions and access
+              </CardDescription>
+            </div>
+            <CreateUserModal />
+          </div>
         </CardHeader>
         <CardContent>
           <SearchBar onSearch={handleSearch} />

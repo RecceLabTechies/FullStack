@@ -1,6 +1,6 @@
 "use client";
 
-import AdminPage from "@/app/dashboard/admin/AdminPage";
+import AdminPage from "@/components/admin-page";
 import { type UserData } from "@/types/types";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
