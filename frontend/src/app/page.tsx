@@ -61,14 +61,18 @@ export default function AuthPage() {
     const fetchUserData = async () => {
       try {
         const data = await fetchUsers();
-        if (data) {
+        if (data instanceof Error) {
+          setError("Failed to load user data.");
+          setUsers(null);
+        } else if (Array.isArray(data)) {
           setUsers(data);
         } else {
-          setError("Failed to load user data.");
+          setUsers([data]);
         }
       } catch (error) {
         console.error("Failed to fetch users", error);
         setError("Failed to load user data.");
+        setUsers(null);
       }
     };
 
