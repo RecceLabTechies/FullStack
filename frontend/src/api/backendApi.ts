@@ -22,7 +22,12 @@ export const fetchDbStructure = async (): Promise<DbStructure | null> => {
     const response = await axios.get(
       `${API_BASE_URL}/api/v1/database/structure`,
     );
-    return response.data as DbStructure;
+    const apiResponse = response.data as {
+      data: DbStructure;
+      status: number;
+      success: boolean;
+    };
+    return apiResponse.data;
   } catch (error) {
     console.error("Failed to fetch database structure", error);
     return null;
