@@ -478,34 +478,22 @@ def get_monthly_aggregated_data_route():
     return format_response(data)
 
 
-
-
-
 @data_bp.route("/api/v1/campaigns/channel-contribution", methods=["GET"])
 @handle_exceptions
 def get_channel_contribution_data_route():
     """
     Get channel contribution data for various metrics over the latest 3 months.
-    
-    Returns data for chart showing percentage contribution of each channel 
+
+    Returns data for chart showing percentage contribution of each channel
     to Spending, Views, Leads, New Accounts, and Revenue metrics.
-    
+
     Returns:
         JSON object containing metrics, channels, and percentage contribution data
     """
     try:
         data = get_channel_contribution_data()
-        
-        # Check if we have data
-        if not data.get("channels") or not data.get("metrics"):
-            return error_response(
-                404,
-                "No data found for channel contribution analysis",
-                "resource_not_found",
-            )
-            
         return format_response(data)
-        
+
     except Exception as e:
         logger.error(f"Error retrieving channel contribution data: {e}")
         return error_response(500, str(e), "server_error")
@@ -516,30 +504,14 @@ def get_channel_contribution_data_route():
 def get_cost_metrics_heatmap_route():
     """
     Get cost metrics heatmap data showing different cost metrics (cost per lead, view, account) by channel.
-    
+
     Returns:
         JSON object containing heatmap data with metrics, channels, and values with intensity levels
     """
     try:
         data = get_cost_metrics_heatmap()
-        
-        # Check if we have data
-        if data.get("error") or not data.get("channels") or not data.get("metrics"):
-            if data.get("error"):
-                return error_response(
-                    404,
-                    data["error"],
-                    "resource_not_found",
-                )
-            else:
-                return error_response(
-                    404,
-                    "No data found for cost metrics heatmap",
-                    "resource_not_found",
-                )
-            
         return format_response(data)
-        
+
     except Exception as e:
         logger.error(f"Error retrieving cost metrics heatmap data: {e}")
         return error_response(500, str(e), "server_error")

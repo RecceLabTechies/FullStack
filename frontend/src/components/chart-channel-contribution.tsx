@@ -64,10 +64,13 @@ export default function ChannelContributionChart() {
 
   if (error) {
     return (
-      <Card className="border-destructive/50">
-        <CardContent className="pt-6 text-destructive">
-          <p className="font-medium">Error loading chart data</p>
-          <p className="text-sm">{error.message}</p>
+      <Card>
+        <CardHeader>
+          <CardTitle>Channel Contribution by Metric</CardTitle>
+          <CardDescription>Error loading data</CardDescription>
+        </CardHeader>
+        <CardContent className="flex justify-center items-center h-[30rem] text-destructive">
+          <p>{error.message}</p>
         </CardContent>
       </Card>
     );
@@ -76,7 +79,15 @@ export default function ChannelContributionChart() {
   if (!data?.channels?.length || !data?.metrics?.length) {
     return (
       <Card>
-        <CardContent className="pt-6 text-center text-muted-foreground">
+        <CardHeader>
+          <CardTitle>Channel Contribution by Metric</CardTitle>
+          <CardDescription>
+            {data?.time_range?.from_ && data?.time_range?.to
+              ? `Data from ${data.time_range.from_} to ${data.time_range.to}`
+              : 'No data available'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex justify-center items-center h-[30rem] text-muted-foreground">
           No data available for channel contribution analysis
         </CardContent>
       </Card>

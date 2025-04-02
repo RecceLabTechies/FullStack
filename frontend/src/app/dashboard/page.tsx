@@ -228,7 +228,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="flex flex-col container gap-4 mx-auto">
+    <div className="flex flex-col container gap-4 mx-auto pb-4">
       <h1 className="text-2xl font-bold">Campaign Dashboard</h1>
       <Card>
         <CardHeader>
@@ -348,9 +348,6 @@ export default function DashboardPage() {
           </Form>
         </CardContent>
       </Card>
-
-      {isLoadingCampaigns && <div>Loading campaign data...</div>}
-      {campaignError && <div>Error loading campaign data</div>}
 
       {/* Revenue & Ad Spend Chart */}
       <Card className="w-full">

@@ -7,8 +7,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import * as z from 'zod';
-import { fetchUsers } from '@/api/backendApi';
-import { type UserData } from '@/types/types';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Bot, Loader2, TrendingUp } from 'lucide-react';
 
@@ -22,6 +20,8 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+
+import { useUsers } from '@/hooks/use-backend-api';
 
 const loginSchema = z.object({
   email: z
@@ -55,32 +55,13 @@ type SignUpValues = z.infer<typeof signUpSchema>;
 
 export default function AuthPage() {
   const [isSignUp, setIsSignUp] = useState(false);
-  const [users, setUsers] = useState<UserData[] | null>(null);
   const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const { data: users, isLoading, fetchUsers } = useUsers();
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const data = await fetchUsers();
-        if (data instanceof Error) {
-          setError('Failed to load user data.');
-          setUsers(null);
-        } else if (Array.isArray(data)) {
-          setUsers(data);
-        } else {
-          setUsers([data]);
-        }
-      } catch (error) {
-        console.error('Failed to fetch users', error);
-        setError('Failed to load user data.');
-        setUsers(null);
-      }
-    };
-
-    void fetchUserData();
-  }, []);
+    void fetchUsers();
+  }, [fetchUsers]);
 
   const loginForm = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -102,7 +83,6 @@ export default function AuthPage() {
 
   async function onLoginSubmit(values: LoginValues) {
     try {
-      setIsLoading(true);
       setError('');
 
       // Regular user check from database
@@ -111,7 +91,11 @@ export default function AuthPage() {
         return;
       }
 
-      const user = users.find((u) => u.email === values.email && u.password === values.password);
+      const user = Array.isArray(users)
+        ? users.find((u) => u.email === values.email && u.password === values.password)
+        : users.email === values.email && users.password === values.password
+          ? users
+          : null;
 
       if (!user) {
         setError('Invalid email or password');
@@ -123,8 +107,6 @@ export default function AuthPage() {
     } catch (error) {
       console.error('Login error:', error);
       setError('An unexpected error occurred during login.');
-    } finally {
-      setIsLoading(false);
     }
   }
 
@@ -343,7 +325,7 @@ export default function AuthPage() {
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Signing in...
+                      Authenticating...
                     </>
                   ) : (
                     'Sign In'

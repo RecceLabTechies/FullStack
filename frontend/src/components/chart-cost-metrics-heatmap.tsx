@@ -60,15 +60,15 @@ export function CostMetricsHeatmap() {
     );
   }
 
-  if (error || !data) {
+  if (!data?.channels?.length || !data?.metrics?.length) {
     return (
-      <Card className="border-destructive/50">
+      <Card>
         <CardHeader>
           <CardTitle>Cost Metrics by Channel</CardTitle>
-          <CardDescription>Error loading data</CardDescription>
+          <CardDescription>{error ? 'Error loading data' : 'No data available'}</CardDescription>
         </CardHeader>
-        <CardContent className="text-destructive">
-          <p>{error?.message ?? 'Failed to load data'}</p>
+        <CardContent className="flex justify-center items-center h-[350px] text-muted-foreground">
+          {error ? error.message : 'No data available for cost metrics analysis'}
         </CardContent>
       </Card>
     );
