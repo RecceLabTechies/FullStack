@@ -12,8 +12,9 @@ from marshmallow import (
 from app.services.campaign_service import (
     filter_campaigns,
     get_campaign_filter_options,
-    get_cost_heatmap_data,
     get_monthly_aggregated_data,
+    get_channel_contribution_data,
+    get_cost_metrics_heatmap,
 )
 from app.utils.data_processing import (
     find_matching_collection,
@@ -477,53 +478,70 @@ def get_monthly_aggregated_data_route():
     return format_response(data)
 
 
-@data_bp.route("/api/v1/campaigns/cost-heatmap", methods=["GET"])
+
+
+
+@data_bp.route("/api/v1/campaigns/channel-contribution", methods=["GET"])
 @handle_exceptions
-def get_cost_heatmap_data_route():
+def get_channel_contribution_data_route():
     """
-    Get cost heatmap data showing cost metrics by channel.
-
-    Query parameters:
-    - country: Country to filter data for (default: Singapore)
-    - campaign_id: Campaign ID to filter data for (default: January_2022_1)
-    - channels: Comma-separated list of channels to include
-
+    Get channel contribution data for various metrics over the latest 3 months.
+    
+    Returns data for chart showing percentage contribution of each channel 
+    to Spending, Views, Leads, New Accounts, and Revenue metrics.
+    
     Returns:
-        Array of objects with channel and cost metrics (costPerLead, costPerView, costPerAccount)
+        JSON object containing metrics, channels, and percentage contribution data
     """
     try:
-        # Extract and prepare parameters
-        params = {
-            "country": request.args.get("country", "Singapore"),
-            "campaign_id": request.args.get("campaign_id", "January_2022_1"),
-            "channels": parse_list_param(request.args.get("channels")),
-        }
-
-        # Validate with Marshmallow schema
-        try:
-            schema = CostHeatmapSchema()
-            validated_params = schema.load(params)
-        except ValidationError as err:
-            return validation_error_response(err.messages)
-
-        # Call the model function
-        channels = validated_params.get("channels")
-        data_summary = get_cost_heatmap_data(
-            validated_params["country"], validated_params["campaign_id"], channels
-        )
-
+        data = get_channel_contribution_data()
+        
         # Check if we have data
-        if not data_summary:
+        if not data.get("channels") or not data.get("metrics"):
             return error_response(
                 404,
-                f"No data found for {validated_params['country']} and campaign {validated_params['campaign_id']}",
+                "No data found for channel contribution analysis",
                 "resource_not_found",
             )
-
-        return format_response(data_summary)
-
+            
+        return format_response(data)
+        
     except Exception as e:
-        logger.error(f"Error retrieving cost heatmap data: {e}")
+        logger.error(f"Error retrieving channel contribution data: {e}")
+        return error_response(500, str(e), "server_error")
+
+
+@data_bp.route("/api/v1/campaigns/cost-metrics-heatmap", methods=["GET"])
+@handle_exceptions
+def get_cost_metrics_heatmap_route():
+    """
+    Get cost metrics heatmap data showing different cost metrics (cost per lead, view, account) by channel.
+    
+    Returns:
+        JSON object containing heatmap data with metrics, channels, and values with intensity levels
+    """
+    try:
+        data = get_cost_metrics_heatmap()
+        
+        # Check if we have data
+        if data.get("error") or not data.get("channels") or not data.get("metrics"):
+            if data.get("error"):
+                return error_response(
+                    404,
+                    data["error"],
+                    "resource_not_found",
+                )
+            else:
+                return error_response(
+                    404,
+                    "No data found for cost metrics heatmap",
+                    "resource_not_found",
+                )
+            
+        return format_response(data)
+        
+    except Exception as e:
+        logger.error(f"Error retrieving cost metrics heatmap data: {e}")
         return error_response(500, str(e), "server_error")
 
 

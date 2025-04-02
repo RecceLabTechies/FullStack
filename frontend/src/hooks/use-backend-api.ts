@@ -4,7 +4,8 @@ import * as backendApi from '@/api/backendApi';
 import {
   type CampaignFilterOptions,
   type CampaignFilters,
-  type CostHeatmapData,
+  type ChannelContributionData,
+  type CostMetricsHeatmapData,
   type CsvUploadResponse,
   type DbStructure,
   type FilterResponse,
@@ -271,34 +272,6 @@ export const useCsvUpload = () => {
 };
 
 /**
- * Hook to fetch cost heatmap data.
- * Returns data for visualizing costs across different dimensions (country, campaign, channels).
- */
-export const useCostHeatmap = () => {
-  const [state, setState] = useState<HookState<CostHeatmapData[]>>({
-    data: null,
-    isLoading: false,
-    error: null,
-  });
-
-  const fetchHeatmapData = useCallback(
-    async (params?: { country?: string; campaign_id?: string; channels?: string[] }) => {
-      setState((prev) => ({ ...prev, isLoading: true }));
-      const result = await backendApi.fetchCostHeatmapData(params);
-
-      if (result instanceof Error) {
-        setState({ data: null, isLoading: false, error: result });
-      } else {
-        setState({ data: result, isLoading: false, error: null });
-      }
-    },
-    []
-  );
-
-  return { ...state, fetchHeatmapData };
-};
-
-/**
  * Hook to fetch monthly aggregated campaign data.
  * Returns monthly revenue, ad spend, and ROI data based on campaign filters.
  */
@@ -321,4 +294,56 @@ export const useMonthlyAggregatedData = () => {
   }, []);
 
   return { ...state, fetchMonthlyData };
+};
+
+/**
+ * Hook to fetch channel contribution data for the stacked column chart.
+ * Returns percentage contribution of each channel to different metrics (spending, views, etc.)
+ * Uses data from the latest 3 months.
+ */
+export const useChannelContribution = () => {
+  const [state, setState] = useState<HookState<ChannelContributionData>>({
+    data: null,
+    isLoading: false,
+    error: null,
+  });
+
+  const fetchChannelContribution = useCallback(async () => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.fetchChannelContribution();
+
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
+    }
+  }, []);
+
+  return { ...state, fetchChannelContribution };
+};
+
+/**
+ * Hook to fetch cost metrics heatmap data.
+ * Returns cost per lead, cost per view, and cost per new account metrics by channel
+ * for generating a heatmap visualization.
+ */
+export const useCostMetricsHeatmap = () => {
+  const [state, setState] = useState<HookState<CostMetricsHeatmapData>>({
+    data: null,
+    isLoading: false,
+    error: null,
+  });
+
+  const fetchCostMetricsHeatmap = useCallback(async () => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.fetchCostMetricsHeatmap();
+
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
+    }
+  }, []);
+
+  return { ...state, fetchCostMetricsHeatmap };
 };

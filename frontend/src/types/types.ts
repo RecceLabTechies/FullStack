@@ -81,14 +81,6 @@ export interface CsvUploadResponse {
   collection: string;
 }
 
-// Cost Heatmap API
-export interface CostHeatmapData {
-  channel: string;
-  costPerLead: number;
-  costPerView: number;
-  costPerAccount: number;
-}
-
 // Monthly performance data interfaces
 interface MonthlyAggregatedItem {
   date: number; // Unix timestamp for the month
@@ -102,4 +94,43 @@ interface MonthlyAggregatedItem {
 export interface MonthlyPerformanceData {
   items: MonthlyAggregatedItem[];
   filters: CampaignFilters;
+}
+
+// Channel contribution data interfaces
+interface ChannelMetricValues {
+  metric: string;
+  values: Record<string, number>;
+}
+
+export interface ChannelContributionData {
+  metrics: string[];
+  channels: string[];
+  data: ChannelMetricValues[];
+  time_range?: {
+    from_: string | null;
+    to: string | null;
+  };
+  error?: string | null;
+}
+
+// Cost metrics heatmap interfaces
+interface HeatmapCell {
+  value: number;
+  intensity: number;
+}
+
+interface HeatmapRow {
+  metric: string;
+  values: Record<string, HeatmapCell>;
+}
+
+export interface CostMetricsHeatmapData {
+  metrics: string[];
+  channels: string[];
+  data: HeatmapRow[];
+  time_range?: {
+    from_: string | null;
+    to: string | null;
+  };
+  error?: string | null;
 }

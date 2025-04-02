@@ -1,7 +1,8 @@
 import logging
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict, List, Any, Optional, TypedDict
 import pandas as pd
+import numpy as np
 from app.models.campaign import CampaignModel
 
 
@@ -298,89 +299,349 @@ def get_campaign_filter_options() -> Dict:
     }
 
 
-def get_cost_heatmap_data(
-    country: str, campaign_id: str, channels: List[str] = None
-) -> List[Dict]:
+
+class ChannelMetricValues(TypedDict):
+    """Type definition for a channel's metric values."""
+    metric: str
+    values: Dict[str, float]
+
+class TimeRange(TypedDict):
+    """Type definition for time range information."""
+    from_: Optional[str]
+    to: Optional[str]
+
+class ChannelContributionResponse(TypedDict):
+    """Type definition for channel contribution response."""
+    metrics: List[str]
+    channels: List[str]
+    data: List[ChannelMetricValues]
+    time_range: TimeRange
+    error: Optional[str]
+
+def get_channel_contribution_data() -> ChannelContributionResponse:
     """
-    Generate cost heatmap data showing cost metrics by channel.
-
-    Args:
-        country (str): Country to filter data for
-        campaign_id (str): Campaign ID to filter data for
-        channels (List[str], optional): List of channels to include. If None, uses default channels.
-
+    Generate channel contribution data for various metrics over the latest 3 months.
+    
     Returns:
-        List[Dict]: List of dictionaries with channel and cost metrics (costPerLead, costPerView, costPerAccount)
+        ChannelContributionResponse: Dictionary containing channel contribution percentages for
+                                    different metrics and metadata
     """
-    data = CampaignModel.get_all()  # Fetch data, excluding _id
-
+    # Default empty response
+    empty_response: ChannelContributionResponse = {
+        "metrics": [],
+        "channels": [],
+        "data": [],
+        "time_range": {"from_": None, "to": None},
+        "error": None
+    }
+    
+    # Get all campaign data
+    data = CampaignModel.get_all()
+    
     if not data:
-        return []
-
+        return empty_response
+    
+    # Convert to DataFrame
     df = pd.DataFrame(data)
-
-    # Apply filters
-    df = df[(df["country"] == country) & (df["campaign_id"] == campaign_id)]
-
-    # Filter for specific channels if provided, otherwise use default channels
-    default_channels = [
-        "LinkedIn",
-        "Facebook ads",
-        "Google banner ads",
-        "Influencer",
-        "Instagram Ads",
-        "TikTok ads",
-        "Sponsored search ads",
-    ]
-
-    channels_to_use = channels if channels else default_channels
-    df = df[df["channel"].isin(channels_to_use)]
-
+    
+    # Validate required columns exist
+    required_columns = ['date', 'channel', 'ad_spend', 'views', 'leads', 'new_accounts', 'revenue']
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        error_msg = f"Missing required columns: {missing_columns}"
+        logger.error(error_msg)
+        empty_response["error"] = error_msg
+        return empty_response
+    
+    # Ensure date field contains valid timestamps
+    try:
+        # Convert date from timestamp to datetime for filtering
+        df['datetime'] = pd.to_datetime(df['date'], unit='s', errors='coerce')
+        # Drop rows with invalid dates
+        invalid_dates = df['datetime'].isna().sum()
+        if invalid_dates > 0:
+            logger.warning(f"Found {invalid_dates} records with invalid date format")
+            df = df.dropna(subset=['datetime'])
+    except Exception as e:
+        error_msg = f"Date conversion error: {str(e)}"
+        logger.error(error_msg)
+        empty_response["error"] = error_msg
+        return empty_response
+    
     if df.empty:
-        return []
-
-    # Convert numeric columns
-    numeric_columns = ["ad_spend", "leads", "new_accounts", "views"]
+        return empty_response
+    
+    # Get the latest 3 months of data
+    df = df.sort_values('datetime', ascending=False)
+    unique_months = df['datetime'].dt.strftime('%Y-%m').unique()
+    latest_months = sorted(unique_months[:min(3, len(unique_months))])
+    
+    # Filter data for the latest 3 months
+    df['month'] = df['datetime'].dt.strftime('%Y-%m')
+    df = df[df['month'].isin(latest_months)]
+    
+    if df.empty:
+        return empty_response
+    
+    # Ensure numeric columns are parsed correctly
+    numeric_columns = ['ad_spend', 'views', 'leads', 'new_accounts', 'revenue']
     for col in numeric_columns:
-        df[col] = pd.to_numeric(df[col], errors="coerce")
-
-    # Drop rows with missing values
-    df.dropna(inplace=True)
-
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+    
+    # Drop rows with NaN values in numeric columns after conversion
+    df = df.dropna(subset=numeric_columns)
+    
     if df.empty:
-        return []
+        return empty_response
+    
+    # Group by channel and sum the metrics
+    channel_metrics = df.groupby('channel')[numeric_columns].sum().reset_index()
+    
+    # Get the list of unique channels
+    channels = sorted(channel_metrics['channel'].unique().tolist())
+    
+    if not channels:
+        return empty_response
+    
+    # Define metrics mapping
+    metrics_mapping: Dict[str, str] = {
+        'ad_spend': 'Spending',
+        'views': 'Views', 
+        'leads': 'Leads',
+        'new_accounts': 'New Accounts',
+        'revenue': 'Revenue'
+    }
+    
+    # Calculate percentage contribution for each metric
+    result_data: List[ChannelMetricValues] = []
+    
+    for metric, display_name in metrics_mapping.items():
+        # Calculate total for the metric
+        total = channel_metrics[metric].sum()
+        
+        if total <= 0:
+            # Skip metrics with zero or negative total to avoid division issues
+            logger.warning(f"Skipping metric '{metric}' as total is {total}")
+            continue
+        
+        # Calculate percentages for each channel
+        metric_data: ChannelMetricValues = {
+            'metric': display_name,
+            'values': {}
+        }
+        
+        for channel in channels:
+            # Use safe filtering to get channel value
+            channel_data = channel_metrics[channel_metrics['channel'] == channel]
+            if len(channel_data) > 0:
+                channel_value = channel_data[metric].iloc[0]
+                percentage = (channel_value / total) * 100
+                metric_data['values'][channel] = round(percentage, 2)
+            else:
+                # If channel doesn't have data for this metric, set to zero
+                metric_data['values'][channel] = 0.0
+        
+        result_data.append(metric_data)
+    
+    # Format the response
+    response: ChannelContributionResponse = {
+        'metrics': [item['metric'] for item in result_data],
+        'channels': channels,
+        'data': result_data,
+        'time_range': {
+            'from_': latest_months[0] if latest_months else None,
+            'to': latest_months[-1] if latest_months else None
+        },
+        'error': None
+    }
+    
+    return response
 
-    # Grouping by channel and calculating sums
-    df_grouped = (
-        df.groupby("channel")
+
+class HeatmapCell(TypedDict):
+    """Type definition for a heatmap cell data."""
+    value: float
+    intensity: float
+
+class HeatmapRow(TypedDict):
+    """Type definition for a heatmap row data."""
+    metric: str
+    values: Dict[str, HeatmapCell]
+
+class HeatmapResponse(TypedDict):
+    """Type definition for cost metrics heatmap response."""
+    metrics: List[str]
+    channels: List[str]
+    data: List[HeatmapRow]
+    time_range: TimeRange
+    error: Optional[str]
+
+def get_cost_metrics_heatmap() -> HeatmapResponse:
+    """
+    Generate cost metrics heatmap data showing different cost metrics by channel.
+    Uses data from the latest 3 months similar to channel contribution data.
+    
+    Returns:
+        HeatmapResponse: Dictionary containing cost metrics data formatted for heatmap visualization
+    """
+    # Default empty response
+    empty_response: HeatmapResponse = {
+        "metrics": [],
+        "channels": [],
+        "data": [],
+        "time_range": {"from_": None, "to": None},
+        "error": None
+    }
+    
+    # Get all campaign data
+    data = CampaignModel.get_all()
+    
+    if not data:
+        empty_response["error"] = "No campaign data found"
+        return empty_response
+    
+    # Convert to DataFrame
+    df = pd.DataFrame(data)
+    
+    # Validate required columns exist
+    required_columns = ['date', 'channel', 'ad_spend', 'views', 'leads', 'new_accounts']
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        error_msg = f"Missing required columns: {missing_columns}"
+        logger.error(error_msg)
+        empty_response["error"] = error_msg
+        return empty_response
+    
+    # Convert date from timestamp to datetime for filtering
+    try:
+        # Convert date from timestamp to datetime for filtering
+        df['datetime'] = pd.to_datetime(df['date'], unit='s', errors='coerce')
+        # Drop rows with invalid dates
+        invalid_dates = df['datetime'].isna().sum()
+        if invalid_dates > 0:
+            logger.warning(f"Found {invalid_dates} records with invalid date format")
+            df = df.dropna(subset=['datetime'])
+    except Exception as e:
+        error_msg = f"Date conversion error: {str(e)}"
+        logger.error(error_msg)
+        empty_response["error"] = error_msg
+        return empty_response
+    
+    if df.empty:
+        empty_response["error"] = "No valid data after filtering"
+        return empty_response
+    
+    # Get the latest 3 months of data
+    df = df.sort_values('datetime', ascending=False)
+    unique_months = df['datetime'].dt.strftime('%Y-%m').unique()
+    latest_months = sorted(unique_months[:min(3, len(unique_months))])
+    
+    # Filter data for the latest 3 months
+    df['month'] = df['datetime'].dt.strftime('%Y-%m')
+    df = df[df['month'].isin(latest_months)]
+    
+    if df.empty:
+        empty_response["error"] = "No data available for the latest 3 months"
+        return empty_response
+    
+    # Ensure numeric columns are parsed correctly
+    numeric_columns = ['ad_spend', 'views', 'leads', 'new_accounts']
+    for col in numeric_columns:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+    
+    # Drop rows with NaN values in numeric columns after conversion
+    df = df.dropna(subset=numeric_columns)
+    
+    if df.empty:
+        empty_response["error"] = "No valid data after filtering"
+        return empty_response
+    
+    # Group by channel and sum metrics
+    channel_metrics = (
+        df.groupby('channel')
         .agg(
             {
-                "ad_spend": "sum",
-                "leads": "sum",
-                "new_accounts": "sum",
-                "views": "sum",
+                'ad_spend': 'sum',
+                'views': 'sum',
+                'leads': 'sum',
+                'new_accounts': 'sum',
             }
         )
         .reset_index()
     )
-
+    
     # Calculate cost metrics, avoiding division by zero
-    df_grouped["costPerLead"] = df_grouped["ad_spend"] / df_grouped["leads"].replace(
-        0, 1e-6
-    )
-    df_grouped["costPerView"] = df_grouped["ad_spend"] / df_grouped["views"].replace(
-        0, 1e-6
-    )
-    df_grouped["costPerAccount"] = df_grouped["ad_spend"] / df_grouped[
-        "new_accounts"
-    ].replace(0, 1e-6)
-
-    # Round values
-    df_grouped = df_grouped.round(4)
-
-    # Prepare data for response
-    data_summary = df_grouped[
-        ["channel", "costPerLead", "costPerView", "costPerAccount"]
-    ].to_dict(orient="records")
-
-    return data_summary
+    channel_metrics['cost_per_lead'] = channel_metrics['ad_spend'] / channel_metrics['leads'].replace(0, np.nan)
+    channel_metrics['cost_per_view'] = channel_metrics['ad_spend'] / channel_metrics['views'].replace(0, np.nan)
+    channel_metrics['cost_per_account'] = channel_metrics['ad_spend'] / channel_metrics['new_accounts'].replace(0, np.nan)
+    
+    # Get list of channels
+    channels = sorted(channel_metrics['channel'].unique().tolist())
+    
+    if not channels:
+        empty_response["error"] = "No valid channels found"
+        return empty_response
+    
+    # Define metrics to display
+    metrics = ['cost_per_lead', 'cost_per_view', 'cost_per_account']
+    display_metrics = ['Cost Per Lead', 'Cost Per View', 'Cost Per New Account']
+    
+    # Calculate heatmap data
+    metrics_data: List[HeatmapRow] = []
+    
+    for i, metric in enumerate(metrics):
+        # Handle NaN values
+        metric_values = channel_metrics[metric].replace(np.nan, 0)
+        
+        # Skip if all values are zero
+        if all(metric_values == 0):
+            continue
+            
+        # Calculate intensity based on value (higher value = higher intensity)
+        max_value = metric_values.max()
+        
+        if max_value == 0:
+            # Avoid division by zero
+            continue
+            
+        heatmap_row: HeatmapRow = {
+            'metric': display_metrics[i],
+            'values': {}
+        }
+        
+        for channel in channels:
+            channel_data = channel_metrics[channel_metrics['channel'] == channel]
+            if len(channel_data) > 0:
+                value = float(channel_data[metric].iloc[0])
+                # Handle NaN values
+                if pd.isna(value):
+                    value = 0.0
+                
+                # Calculate intensity from 0 to 1
+                intensity = float(value / max_value) if max_value > 0 else 0
+                
+                heatmap_row['values'][channel] = {
+                    'value': round(value, 4),
+                    'intensity': round(intensity, 2)
+                }
+            else:
+                heatmap_row['values'][channel] = {
+                    'value': 0,
+                    'intensity': 0
+                }
+        
+        metrics_data.append(heatmap_row)
+    
+    # Format the response
+    response: HeatmapResponse = {
+        'metrics': [item['metric'] for item in metrics_data],
+        'channels': channels,
+        'data': metrics_data,
+        'time_range': {
+            'from_': latest_months[0] if latest_months else None,
+            'to': latest_months[-1] if latest_months else None
+        },
+        'error': None
+    }
+    
+    return response

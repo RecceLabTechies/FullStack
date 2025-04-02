@@ -6,7 +6,8 @@
 import {
   type CampaignFilterOptions,
   type CampaignFilters,
-  type CostHeatmapData,
+  type ChannelContributionData,
+  type CostMetricsHeatmapData,
   type CsvUploadResponse,
   type DbStructure,
   type FilterResponse,
@@ -257,29 +258,37 @@ export const uploadCsv = async (file: File): Promise<CsvUploadResponse | Error> 
  */
 
 /**
- * Fetches data for cost heatmap visualization
- * @param params Optional parameters to filter heatmap data
- * @param params.country Optional country filter
- * @param params.campaign_id Optional campaign ID filter
- * @param params.channels Optional array of channels to include
- * @returns Promise resolving to cost heatmap data or error
+ * Fetches channel contribution data for various metrics over the latest 3 months
+ * @returns Promise resolving to channel contribution data or error
  */
-export const fetchCostHeatmapData = async (params?: {
-  country?: string;
-  campaign_id?: string;
-  channels?: string[];
-}): Promise<CostHeatmapData[] | Error> => {
+export const fetchChannelContribution = async (): Promise<ChannelContributionData | Error> => {
   try {
     const response = await axios.get<{
-      data: CostHeatmapData[];
+      data: ChannelContributionData;
       status: number;
       success: boolean;
-    }>(`${API_BASE_URL}/api/v1/campaigns/cost-heatmap`, {
-      params,
-    });
+    }>(`${API_BASE_URL}/api/v1/campaigns/channel-contribution`);
     return response.data.data;
   } catch (error) {
-    console.error('Failed to fetch cost heatmap data', error);
-    return new Error('Failed to fetch cost heatmap data');
+    console.error('Failed to fetch channel contribution data', error);
+    return new Error('Failed to fetch channel contribution data');
+  }
+};
+
+/**
+ * Fetches cost metrics heatmap data showing different cost metrics by channel
+ * @returns Promise resolving to cost metrics heatmap data or error
+ */
+export const fetchCostMetricsHeatmap = async (): Promise<CostMetricsHeatmapData | Error> => {
+  try {
+    const response = await axios.get<{
+      data: CostMetricsHeatmapData;
+      status: number;
+      success: boolean;
+    }>(`${API_BASE_URL}/api/v1/campaigns/cost-metrics-heatmap`);
+    return response.data.data;
+  } catch (error) {
+    console.error('Failed to fetch cost metrics heatmap data', error);
+    return new Error('Failed to fetch cost metrics heatmap data');
   }
 };
