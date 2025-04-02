@@ -1,9 +1,10 @@
 'use client';
 
 import { useProphetPredictionsContext } from '@/context/prophet-predictions-context';
-import { TrendingUp } from 'lucide-react';
+import { Info, TrendingUp } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/card';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export function MetricsPredictedROICard() {
@@ -21,10 +22,27 @@ export function MetricsPredictedROICard() {
   return (
     <Card className="bg-neutral-100">
       <CardContent className="pt-6">
-        <div className="flex items-center gap-4">
-          <div className="rounded-full bg-orange-200 p-3">
-            <TrendingUp className="h-6 w-6" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="rounded-full bg-orange-200 p-3">
+              <TrendingUp className="h-6 w-6" />
+            </div>
           </div>
+          <HoverCard>
+            <HoverCardTrigger asChild>
+              <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+            </HoverCardTrigger>
+            <HoverCardContent className="w-80">
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold">Predicted Return on Investment (ROI)</h4>
+                <p className="text-sm text-muted-foreground">
+                  Forecasted ROI for upcoming periods, calculated using the same formula:
+                  ((Predicted Revenue - Predicted Ad Spend) / Predicted Ad Spend) × 100. This
+                  prediction helps in planning future advertising investments.
+                </p>
+              </div>
+            </HoverCardContent>
+          </HoverCard>
         </div>
         <div className="mt-4">
           {isLoading ? (
