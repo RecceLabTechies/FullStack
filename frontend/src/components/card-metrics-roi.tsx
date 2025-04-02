@@ -41,7 +41,7 @@ export function MetricsROICard() {
             <>
               <h2 className="text-3xl font-bold">{formatROI(data?.roi ?? 0)}</h2>
               <p className="text-sm text-muted-foreground mt-1">
-                ROI {data ? `${getMonthName(data.month)} ${data.year}` : ''}
+                ROI {data?.month && data?.year ? `${getMonthName(data.month)} ${data.year}` : ''}
               </p>
             </>
           )}
