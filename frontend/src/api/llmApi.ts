@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios from 'axios';
 
 // Define report results type
 export interface ReportResults {
@@ -27,32 +27,22 @@ export interface AnalysisResponse {
 
 // Type guards
 export function isChartResponse(response: AnalysisResponse): boolean {
-  return (
-    response.output && "chart" in response.output && !!response.output.chart
-  );
+  return response.output && 'chart' in response.output && !!response.output.chart;
 }
 
 export function isDescriptionResponse(response: AnalysisResponse): boolean {
-  return (
-    response.output &&
-    "description" in response.output &&
-    !!response.output.description
-  );
+  return response.output && 'description' in response.output && !!response.output.description;
 }
 
 export function isReportResponse(response: AnalysisResponse): boolean {
-  return (
-    response.output && "report" in response.output && !!response.output.report
-  );
+  return response.output && 'report' in response.output && !!response.output.report;
 }
 
 export function isErrorResponse(response: AnalysisResponse): boolean {
-  return (
-    response.output && "error" in response.output && !!response.output.error
-  );
+  return response.output && 'error' in response.output && !!response.output.error;
 }
 
-const LLM_API_BASE_URL = "http://localhost:5152";
+const LLM_API_BASE_URL = 'http://localhost:5152';
 
 export const analyzeData = async (query: string): Promise<AnalysisResponse> => {
   try {
@@ -64,6 +54,6 @@ export const analyzeData = async (query: string): Promise<AnalysisResponse> => {
     if (axios.isAxiosError(error) && error.response?.data) {
       return error.response.data as AnalysisResponse;
     }
-    throw new Error("Failed to connect to analysis service");
+    throw new Error('Failed to connect to analysis service');
   }
 };

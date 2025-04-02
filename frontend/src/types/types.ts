@@ -1,16 +1,3 @@
-export interface CampaignData {
-  date: string; // Format: YYYY-MM-DD, stored as datetime in backend
-  campaign_id: string;
-  channel: string;
-  age_group: string;
-  ad_spend: number;
-  views: number;
-  leads: number;
-  new_accounts: number;
-  country: string;
-  revenue: number;
-}
-
 export interface UserData {
   username: string;
   email: string;
@@ -24,9 +11,7 @@ export interface UserData {
 
 // Database structure interfaces
 export interface DbStructure {
-  test_database: {
-    campaign_data_mock: CampaignData[];
-  };
+  test_database: Record<string, string | unknown[]>;
 }
 
 // Campaign filter interfaces
@@ -38,8 +23,8 @@ export interface CampaignFilterOptions {
     countries: string[];
   };
   date_range: {
-    max_date: string;
-    min_date: string;
+    max_date: number;
+    min_date: number;
   };
   numeric_ranges: {
     ad_spend: { avg: number; max: number; min: number };
@@ -54,8 +39,8 @@ export interface CampaignFilters {
   countries?: string[];
   age_groups?: string[];
   campaign_ids?: string[];
-  from_date?: string;
-  to_date?: string;
+  from_date?: number;
+  to_date?: number;
   min_revenue?: number;
   max_revenue?: number;
   min_ad_spend?: number;
@@ -68,8 +53,8 @@ export interface CampaignFilters {
   page_size?: number;
 }
 
-export interface FilteredData {
-  Date: string;
+interface FilteredData {
+  date: number;
   ad_spend: string;
   age_group: string;
   campaign_id: string;
@@ -89,47 +74,6 @@ export interface FilterResponse {
   total_pages: number;
 }
 
-// Analytics data interfaces
-export interface RevenueData {
-  date: string;
-  revenue: number;
-}
-
-export interface ChannelRoi {
-  channel: string;
-  roi: number;
-}
-
-export interface AgeGroupRoi {
-  age_group: string;
-  roi: number;
-}
-
-export interface RevenuePastMonth {
-  revenue: number;
-}
-
-export interface RoiPastMonth {
-  roi: number;
-}
-
-// Monthly performance data interfaces
-export interface MonthlyPerformanceData {
-  months: string[];
-  revenue: number[];
-  ad_spend: number[];
-  roi: number[];
-}
-
-export interface MonthlyUpdateItem {
-  month: string;
-  revenue?: number;
-  ad_spend?: number;
-}
-
-// This is an array of update items to be sent to the API
-export type MonthlyUpdateData = MonthlyUpdateItem;
-
 // API response interfaces
 export interface CsvUploadResponse {
   message: string;
@@ -137,8 +81,76 @@ export interface CsvUploadResponse {
   collection: string;
 }
 
-export interface ApiResponse<T> {
-  data?: T;
-  message?: string;
-  error?: string;
+// Monthly performance data interfaces
+interface MonthlyAggregatedItem {
+  date: number; // Unix timestamp for the month
+  revenue: number;
+  ad_spend: number;
+  views: number;
+  leads: number;
+  new_accounts: number;
+}
+
+export interface MonthlyPerformanceData {
+  items: MonthlyAggregatedItem[];
+  filters: CampaignFilters;
+}
+
+// Channel contribution data interfaces
+interface ChannelMetricValues {
+  metric: string;
+  values: Record<string, number>;
+}
+
+export interface ChannelContributionData {
+  metrics: string[];
+  channels: string[];
+  data: ChannelMetricValues[];
+  time_range?: {
+    from_: string | null;
+    to: string | null;
+  };
+  error?: string | null;
+}
+
+// Cost metrics heatmap interfaces
+interface HeatmapCell {
+  value: number;
+  intensity: number;
+}
+
+interface HeatmapRow {
+  metric: string;
+  values: Record<string, HeatmapCell>;
+}
+
+export interface CostMetricsHeatmapData {
+  metrics: string[];
+  channels: string[];
+  data: HeatmapRow[];
+  time_range?: {
+    from_: string | null;
+    to: string | null;
+  };
+  error?: string | null;
+}
+
+/**
+ * Response type for latest month ROI endpoint
+ */
+export interface LatestMonthROI {
+  roi: number;
+  month: number;
+  year: number;
+  error: string | null;
+}
+
+/**
+ * Response type for latest month revenue endpoint
+ */
+export interface LatestMonthRevenue {
+  revenue: number;
+  month: number;
+  year: number;
+  error: string | null;
 }

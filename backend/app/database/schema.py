@@ -28,6 +28,14 @@ USER_FIELDS = {
     "user_management_access",
 }
 
+# Prophet prediction data fields definition
+PROPHET_PREDICTION_FIELDS = {
+    "date",
+    "revenue",
+    "ad_spend",
+    "new_accounts",
+}
+
 
 def matches_campaign_schema(field_names):
     """Check if a set of field names matches the campaign schema"""
@@ -37,3 +45,8 @@ def matches_campaign_schema(field_names):
 def matches_user_schema(field_names):
     """Check if a set of field names matches the user schema"""
     return field_names == USER_FIELDS
+
+
+def matches_prophet_prediction_schema(field_names):
+    """Check if a set of field names matches the prophet prediction schema"""
+    return field_names == PROPHET_PREDICTION_FIELDS

@@ -1,42 +1,12 @@
-"use client";
+'use client';
 
-import {
-  fetchCampaignFilterOptions,
-  fetchMonthlyPerformanceData,
-} from "@/api/backendApi";
-import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-} from "@/components/ui/form";
-import { MultiSelect } from "@/components/ui/multi-select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
-import {
-  type CampaignFilterOptions,
-  type CampaignFilters,
-  type MonthlyPerformanceData,
-} from "@/types/types";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { format } from "date-fns";
-import { CalendarIcon } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+
+import * as z from 'zod';
+import { type CampaignFilters } from '@/types/types';
+import { zodResolver } from '@hookform/resolvers/zod';
+import moment from 'moment';
 import {
   CartesianGrid,
   Legend,
@@ -46,476 +16,411 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-} from "recharts";
-import * as z from "zod";
-import SpendingTrendLineChart from "./spending-trend";
-import StackedBarChart from "./stacked-bar-chart";
-import CostTable from "./cost-heatmap";
+} from 'recharts';
 
-// Define form schema
-const FormSchema = z.object({
-  channels: z.array(z.string()).optional().default([]),
-  countries: z.array(z.string()).optional().default([]),
-  ageGroups: z.array(z.string()).optional().default([]),
-  fromDate: z.date().optional(),
-  toDate: z.date().optional(),
+import ChannelContributionChart from '@/components/chart-channel-contribution';
+import { CostMetricsHeatmap } from '@/components/chart-cost-metrics-heatmap';
+import { DatePickerWithRange } from '@/components/date-range-picker';
+import { MetricsRevenueCard } from '@/components/metrics-revenue-card';
+import { MetricsROICard } from '@/components/metrics-roi-card';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { MultiSelect } from '@/components/ui/multi-select';
+
+import {
+  useCampaignFilterOptions,
+  useCampaigns,
+  useMonthlyAggregatedData,
+} from '@/hooks/use-backend-api';
+
+const filterSchema = z.object({
+  dateRange: z
+    .object({
+      from: z.date().optional(),
+      to: z.date().optional(),
+    })
+    .optional(),
+  ageGroups: z.array(z.string()).optional(),
+  channels: z.array(z.string()).optional(),
+  countries: z.array(z.string()).optional(),
+  campaignIds: z.array(z.string()).optional(),
 });
 
-type FilterFormValues = z.infer<typeof FormSchema>;
+type FilterFormValues = z.infer<typeof filterSchema>;
 
-// FilterBar Component
-function FilterBar({
-  onFilterChange,
-}: {
-  onFilterChange: (filters: Partial<CampaignFilters>) => void;
-}) {
-  const [filterOptions, setFilterOptions] =
-    useState<CampaignFilterOptions | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+interface ChartData {
+  month: string;
+  revenue: number;
+  ad_spend: number;
+}
+
+export default function DashboardPage() {
+  const {
+    data: filterOptions,
+    isLoading: isLoadingOptions,
+    error: filterOptionsError,
+    fetchFilterOptions,
+  } = useCampaignFilterOptions();
+
+  const {
+    data: campaignData,
+    isLoading: isLoadingCampaigns,
+    error: campaignError,
+    fetchCampaigns,
+  } = useCampaigns();
+
+  const {
+    data: monthlyData,
+    error: monthlyDataError,
+    isLoading: isLoadingMonthlyData,
+    fetchMonthlyData,
+  } = useMonthlyAggregatedData();
 
   const form = useForm<FilterFormValues>({
-    resolver: zodResolver(FormSchema),
+    resolver: zodResolver(filterSchema),
     defaultValues: {
+      dateRange: undefined,
+      ageGroups: [],
       channels: [],
       countries: [],
-      ageGroups: [],
-      fromDate: undefined,
-      toDate: undefined,
+      campaignIds: [],
     },
   });
 
   useEffect(() => {
-    const subscription = form.watch((values) => {
-      const filters: Partial<CampaignFilters> = {};
+    void fetchFilterOptions();
+  }, [fetchFilterOptions]);
 
-      if (values.channels && values.channels.length > 0) {
-        filters.channels = values.channels.filter(
-          (channel): channel is string => channel !== undefined,
-        );
+  // Add effect to fetch initial campaign data
+  useEffect(() => {
+    if (filterOptions) {
+      const initialFilters: CampaignFilters = {
+        min_revenue: filterOptions.numeric_ranges.revenue.min,
+        max_revenue: filterOptions.numeric_ranges.revenue.max,
+        min_ad_spend: filterOptions.numeric_ranges.ad_spend.min,
+        max_ad_spend: filterOptions.numeric_ranges.ad_spend.max,
+        min_views: filterOptions.numeric_ranges.views.min,
+        min_leads: filterOptions.numeric_ranges.leads.min,
+      };
+      void fetchCampaigns(initialFilters);
+    }
+  }, [filterOptions, fetchCampaigns]);
+
+  // Effect to fetch monthly data when campaign data changes
+  useEffect(() => {
+    if (!campaignData || !filterOptions) return;
+
+    const fetchData = async () => {
+      try {
+        // Fetch monthly aggregated data with the same filters used to get the campaign data
+        const filterPayload = form.getValues();
+        const filters: CampaignFilters = {};
+
+        // Set numeric ranges
+        filters.min_revenue = filterOptions.numeric_ranges.revenue.min;
+        filters.max_revenue = filterOptions.numeric_ranges.revenue.max;
+        filters.min_ad_spend = filterOptions.numeric_ranges.ad_spend.min;
+        filters.max_ad_spend = filterOptions.numeric_ranges.ad_spend.max;
+        filters.min_views = filterOptions.numeric_ranges.views.min;
+        filters.min_leads = filterOptions.numeric_ranges.leads.min;
+
+        // Set filter values from form
+        if (filterPayload.channels?.length) {
+          filters.channels = filterPayload.channels;
+        }
+        if (filterPayload.countries?.length) {
+          filters.countries = filterPayload.countries;
+        }
+        if (filterPayload.ageGroups?.length) {
+          filters.age_groups = filterPayload.ageGroups;
+        }
+        if (filterPayload.campaignIds?.length) {
+          filters.campaign_ids = filterPayload.campaignIds;
+        }
+        if (filterPayload.dateRange?.from) {
+          filters.from_date = moment(filterPayload.dateRange.from).unix();
+        }
+        if (filterPayload.dateRange?.to) {
+          filters.to_date = moment(filterPayload.dateRange.to).unix();
+        }
+
+        await fetchMonthlyData(filters);
+      } catch (error) {
+        console.error('Error fetching monthly data:', error);
       }
+    };
 
-      if (values.countries && values.countries.length > 0) {
-        filters.countries = values.countries.filter(
-          (country): country is string => country !== undefined,
-        );
-      }
+    void fetchData();
+  }, [campaignData, fetchMonthlyData, form, filterOptions]);
 
-      if (values.ageGroups && values.ageGroups.length > 0) {
-        filters.age_groups = values.ageGroups.filter(
-          (ageGroup): ageGroup is string => ageGroup !== undefined,
-        );
-      }
+  // Transform the data for the chart
+  const chartData: ChartData[] = [];
 
-      if (values.fromDate) {
-        filters.from_date = format(values.fromDate, "yyyy-MM-dd");
-      }
+  if (
+    monthlyData &&
+    !(monthlyData instanceof Error) &&
+    monthlyData.items &&
+    Array.isArray(monthlyData.items)
+  ) {
+    // Sort the items by date
+    const sortedItems = [...monthlyData.items].sort((a, b) => a.date - b.date);
 
-      if (values.toDate) {
-        filters.to_date = format(values.toDate, "yyyy-MM-dd");
-      }
-
-      onFilterChange(filters);
+    // Transform the items to chart data format
+    sortedItems.forEach((item) => {
+      chartData.push({
+        month: moment.unix(item.date).format('MMM'),
+        revenue: item.revenue,
+        ad_spend: item.ad_spend,
+      });
     });
+  }
 
-    return () => subscription.unsubscribe();
-  }, [form, onFilterChange]);
+  if (isLoadingOptions) {
+    return <div>Loading...</div>;
+  }
 
-  useEffect(() => {
-    const loadFilterOptions = async () => {
-      setLoading(true);
-      try {
-        const options = await fetchCampaignFilterOptions();
-        if (options) {
-          setFilterOptions(options);
-          setError(null);
-          console.log("Filter options loaded:", options);
-        } else {
-          setError("Failed to load filter options");
-        }
-      } catch (err) {
-        setError("An error occurred while fetching filter options");
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
+  if (filterOptionsError) {
+    return <div>Error loading filter options</div>;
+  }
+
+  if (!filterOptions) {
+    return null;
+  }
+
+  const onSubmit = (data: FilterFormValues) => {
+    const filterPayload: CampaignFilters = {
+      min_revenue: filterOptions.numeric_ranges.revenue.min,
+      max_revenue: filterOptions.numeric_ranges.revenue.max,
+      min_ad_spend: filterOptions.numeric_ranges.ad_spend.min,
+      max_ad_spend: filterOptions.numeric_ranges.ad_spend.max,
+      min_views: filterOptions.numeric_ranges.views.min,
+      min_leads: filterOptions.numeric_ranges.leads.min,
     };
 
-    void loadFilterOptions();
-  }, []);
+    // Only add fields that have been filled out
+    if (data.channels?.length) {
+      filterPayload.channels = data.channels;
+    }
+    if (data.countries?.length) {
+      filterPayload.countries = data.countries;
+    }
+    if (data.ageGroups?.length) {
+      filterPayload.age_groups = data.ageGroups;
+    }
+    if (data.campaignIds?.length) {
+      filterPayload.campaign_ids = data.campaignIds;
+    }
+    if (data.dateRange?.from) {
+      filterPayload.from_date = moment(data.dateRange.from).unix();
+    }
+    if (data.dateRange?.to) {
+      filterPayload.to_date = moment(data.dateRange.to).unix();
+    }
 
-  if (loading) {
-    return <div className="p-4">Loading filter options...</div>;
-  }
-
-  if (error) {
-    return <div className="p-4 text-destructive">{error}</div>;
-  }
-
-  if (!filterOptions?.categorical) {
-    return <div className="text-warning p-4">No filter options available</div>;
-  }
-
-  return (
-    <Card className="mb-4">
-      <CardHeader>
-        <CardTitle>Filter Dashboard Data</CardTitle>
-      </CardHeader>
-      <Form {...form}>
-        <form>
-          <CardContent>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
-              {/* Channel Filter */}
-              <FormField
-                control={form.control}
-                name="channels"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Channel</FormLabel>
-                    <MultiSelect
-                      options={
-                        filterOptions?.categorical.channels.map((channel) => ({
-                          label: channel,
-                          value: channel,
-                        })) ?? []
-                      }
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                      placeholder="All Channels"
-                      maxCount={3}
-                    />
-                  </FormItem>
-                )}
-              />
-
-              {/* Country Filter */}
-              <FormField
-                control={form.control}
-                name="countries"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Country</FormLabel>
-                    <MultiSelect
-                      options={
-                        filterOptions?.categorical.countries.map((country) => ({
-                          label: country,
-                          value: country,
-                        })) ?? []
-                      }
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                      placeholder="All Countries"
-                      maxCount={3}
-                    />
-                  </FormItem>
-                )}
-              />
-
-              {/* Age Group Filter */}
-              <FormField
-                control={form.control}
-                name="ageGroups"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Age Group</FormLabel>
-                    <MultiSelect
-                      options={
-                        filterOptions?.categorical.age_groups.map(
-                          (ageGroup) => ({
-                            label: ageGroup,
-                            value: ageGroup,
-                          }),
-                        ) ?? []
-                      }
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                      placeholder="All Age Groups"
-                      maxCount={3}
-                    />
-                  </FormItem>
-                )}
-              />
-
-              {/* From Date Filter */}
-              <FormField
-                control={form.control}
-                name="fromDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>From Date</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full justify-start text-left font-normal",
-                              !field.value && "text-muted-foreground",
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value
-                              ? format(field.value, "PPP")
-                              : "Select date"}
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          initialFocus
-                          fromDate={
-                            filterOptions.date_range
-                              ? new Date(filterOptions.date_range.min_date)
-                              : undefined
-                          }
-                          toDate={
-                            filterOptions.date_range
-                              ? new Date(filterOptions.date_range.max_date)
-                              : undefined
-                          }
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </FormItem>
-                )}
-              />
-
-              {/* To Date Filter */}
-              <FormField
-                control={form.control}
-                name="toDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>To Date</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full justify-start text-left font-normal",
-                              !field.value && "text-muted-foreground",
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value
-                              ? format(field.value, "PPP")
-                              : "Select date"}
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          initialFocus
-                          fromDate={
-                            form.getValues().fromDate ??
-                            (filterOptions.date_range
-                              ? new Date(filterOptions.date_range.min_date)
-                              : undefined)
-                          }
-                          toDate={
-                            filterOptions.date_range
-                              ? new Date(filterOptions.date_range.max_date)
-                              : undefined
-                          }
-                          disabled={(date) => {
-                            const fromDate = form.getValues().fromDate;
-                            return fromDate ? date < fromDate : false;
-                          }}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </FormItem>
-                )}
-              />
-            </div>
-          </CardContent>
-        </form>
-      </Form>
-    </Card>
-  );
-}
-
-// Main Dashboard Component
-export default function Dashboard() {
-  const [chartData, setChartData] = useState<MonthlyPerformanceData | null>(
-    null,
-  );
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [activeFilters, setActiveFilters] = useState<Partial<CampaignFilters>>(
-    {},
-  );
-
-  // Fetch chart data on initial load and when filters change
-  useEffect(() => {
-    const fetchChartData = async () => {
-      setLoading(true);
-      try {
-        const data = await fetchMonthlyPerformanceData(activeFilters);
-        if (data) {
-          setChartData(data);
-          setError(null);
-        } else {
-          setError("Failed to load chart data");
-        }
-      } catch (err) {
-        setError("An error occurred while fetching chart data");
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void fetchChartData();
-  }, [activeFilters]);
-
-  // Handle filter changes from FilterBar
-  const handleFilterChange = (filters: Partial<CampaignFilters>) => {
-    setActiveFilters(filters);
-  };
-
-  // Transform chart data to format required by Recharts
-  const transformDataForChart = () => {
-    if (!chartData) return [];
-
-    return chartData.months.map((month, index) => ({
-      month,
-      revenue: chartData.revenue[index],
-      adSpend: chartData.ad_spend[index],
-      roi: chartData.roi[index],
-    }));
+    // Fetch campaigns with the filter payload
+    void fetchCampaigns(filterPayload);
   };
 
   return (
-    <div className="container mx-auto py-6">
-      {/* Filter Bar */}
-      <FilterBar onFilterChange={handleFilterChange} />
+    <div className="flex flex-col container gap-4 mx-auto pb-4">
+      <h1 className="text-2xl font-bold">Campaign Dashboard</h1>
 
-      <div className="flex w-full flex-row gap-4">
-        {/* Performance Chart */}
+      {/* Summary Cards */}
+
+      <div className="grid grid-cols-4 gap-4">
+        <MetricsRevenueCard />
+        <MetricsROICard />
+      </div>
+
+      <div className="flex gap-4">
+        {/* Revenue & Ad Spend Chart */}
         <Card className="w-full">
           <CardHeader>
-            <CardTitle>Monthly Performance</CardTitle>
+            <CardTitle>Revenue & Ad Spend Overview</CardTitle>
             <CardDescription>
-              View revenue, ad spend, and ROI trends over time
+              Monthly comparison of revenue generated versus advertising expenditure
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <div className="flex h-96 items-center justify-center">
-                <p>Loading chart data...</p>
+            {monthlyDataError ? (
+              <div className="flex h-[400px] w-full items-center justify-center text-muted-foreground">
+                {monthlyDataError.message}
               </div>
-            ) : error ? (
-              <div className="flex h-96 items-center justify-center">
-                <p className="text-destructive">{error}</p>
+            ) : isLoadingMonthlyData ? (
+              <div className="flex h-[400px] w-full items-center justify-center text-muted-foreground">
+                Loading...
               </div>
-            ) : !chartData || chartData.months.length === 0 ? (
-              <div className="flex h-96 items-center justify-center">
-                <p>No data available for the selected filters</p>
+            ) : chartData.length === 0 ? (
+              <div className="flex h-[400px] w-full items-center justify-center text-muted-foreground">
+                No data available for the selected filters
               </div>
             ) : (
-              <div className="h-96 w-full">
-                <ResponsiveContainer
-                  width="100%"
-                  height="100%"
-                  className="w-full"
-                >
+              <div className="h-[400px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
                   <LineChart
-                    data={transformDataForChart()}
-                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                    data={chartData}
+                    margin={{
+                      top: 5,
+                      right: 30,
+                      left: 20,
+                      bottom: 5,
+                    }}
                   >
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" />
-                    <YAxis yAxisId="left" />
-                    <YAxis yAxisId="right" orientation="right" />
+                    <YAxis />
                     <Tooltip />
                     <Legend />
                     <Line
-                      yAxisId="left"
                       type="monotone"
                       dataKey="revenue"
-                      name="Revenue"
                       stroke="#8884d8"
                       activeDot={{ r: 8 }}
+                      name="Revenue"
                     />
-                    <Line
-                      yAxisId="left"
-                      type="monotone"
-                      dataKey="adSpend"
-                      name="Ad Spend"
-                      stroke="#82ca9d"
-                    />
-                    <Line
-                      yAxisId="right"
-                      type="monotone"
-                      dataKey="roi"
-                      name="ROI"
-                      stroke="#ff7300"
-                    />
+                    <Line type="monotone" dataKey="ad_spend" stroke="#82ca9d" name="Ad Spend" />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
             )}
           </CardContent>
         </Card>
-        {/* Summary Cards */}
-        {chartData && (
-          <div className="grid grid-cols-1 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  {" "}
-                  $
-                  {chartData.revenue
-                    .reduce((sum, val) => sum + val, 0)
-                    .toFixed(2)}
-                </CardTitle>
-                <CardDescription>
-                  Total Revenue for selected period
-                </CardDescription>
-              </CardHeader>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  {" "}
-                  $
-                  {chartData.ad_spend
-                    .reduce((sum, val) => sum + val, 0)
-                    .toFixed(2)}
-                </CardTitle>
-                <CardDescription>
-                  Total Ad Spend for selected period
-                </CardDescription>
-              </CardHeader>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  {(
-                    chartData.roi.reduce((sum, val) => sum + val, 0) /
-                    (chartData.roi.length || 1)
-                  ).toFixed(2)}
-                  x
-                </CardTitle>
-                <CardDescription>Average return on investment</CardDescription>
-              </CardHeader>
-            </Card>
-          </div>
-        )}
+
+        <Card className="w-1/4">
+          <CardHeader>
+            <CardDescription>
+              Filter Revenue & Ad Spend Chart by date range, age groups, channels, countries, and
+              campaign IDs
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-2">
+                {/* Date Range Filter */}
+                <FormField
+                  control={form.control}
+                  name="dateRange"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date Range</FormLabel>
+                      <FormControl>
+                        <DatePickerWithRange
+                          onRangeChange={field.onChange}
+                          minDate={moment.unix(filterOptions.date_range.min_date).toDate()}
+                          maxDate={moment.unix(filterOptions.date_range.max_date).toDate()}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Age Groups Filter */}
+                <FormField
+                  control={form.control}
+                  name="ageGroups"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Age Groups</FormLabel>
+                      <FormControl>
+                        <MultiSelect
+                          options={filterOptions.categorical.age_groups.map((group) => ({
+                            label: group,
+                            value: group,
+                          }))}
+                          onValueChange={field.onChange}
+                          placeholder="Select age groups"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Channels Filter */}
+                <FormField
+                  control={form.control}
+                  name="channels"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Channels</FormLabel>
+                      <FormControl>
+                        <MultiSelect
+                          options={filterOptions.categorical.channels.map((channel) => ({
+                            label: channel,
+                            value: channel,
+                          }))}
+                          onValueChange={field.onChange}
+                          placeholder="Select channels"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Countries Filter */}
+                <FormField
+                  control={form.control}
+                  name="countries"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Countries</FormLabel>
+                      <FormControl>
+                        <MultiSelect
+                          options={filterOptions.categorical.countries.map((country) => ({
+                            label: country,
+                            value: country,
+                          }))}
+                          onValueChange={field.onChange}
+                          placeholder="Select countries"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Campaign IDs Filter */}
+                <FormField
+                  control={form.control}
+                  name="campaignIds"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Campaigns</FormLabel>
+                      <FormControl>
+                        <MultiSelect
+                          options={filterOptions.categorical.campaign_ids.map((id) => ({
+                            label: id,
+                            value: id,
+                          }))}
+                          onValueChange={field.onChange}
+                          placeholder="Select campaigns"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit">Apply Filters</Button>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
       </div>
-      <section className="mt-6 space-y-6">
-        <CostTable />
-        <StackedBarChart />
-        <SpendingTrendLineChart />
-      </section>
+
+      <div className="grid grid-cols-2 gap-4">
+        <ChannelContributionChart />
+        <CostMetricsHeatmap />
+      </div>
     </div>
   );
 }

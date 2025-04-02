@@ -1,6 +1,15 @@
-"use client";
+'use client';
 
-import { AppSidebar } from "@/components/app-sidebar";
+/**
+ * Dashboard Layout Component Module
+ * Provides the main layout structure for the dashboard interface,
+ * including sidebar, breadcrumb navigation, and content area.
+ */
+import React from 'react';
+
+import { usePathname } from 'next/navigation';
+
+import { AppSidebar } from '@/components/app-sidebar';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -8,45 +17,57 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
-import { Separator } from "@/components/ui/separator";
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
-import { usePathname } from "next/navigation";
-import React from "react";
+} from '@/components/ui/breadcrumb';
+import { Separator } from '@/components/ui/separator';
+import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 
-function getBreadcrumbItems(pathname: string) {
-  const segments = pathname.split("/").filter(Boolean);
-  const items = segments.map((segment, index) => {
-    const href = `/${segments.slice(0, index + 1).join("/")}`;
-    const isLast = index === segments.length - 1;
-    const label = segment.charAt(0).toUpperCase() + segment.slice(1);
+/**
+ * Generates breadcrumb items from the current pathname
+ * Features:
+ * - Splits pathname into segments
+ * - Capitalizes first letter of each segment
+ * - Generates appropriate href for each segment
+ * - Marks the last item for special rendering
+ *
+ * @param {string} pathname - Current URL pathname
+ * @returns Array of breadcrumb items with href, label, and isLast properties
+ */
+const getBreadcrumbItems = (pathname: string) =>
+  pathname
+    .split('/')
+    .filter(Boolean)
+    .map((segment, index, segments) => ({
+      href: `/${segments.slice(0, index + 1).join('/')}`,
+      label: segment.charAt(0).toUpperCase() + segment.slice(1),
+      isLast: index === segments.length - 1,
+    }));
 
-    return {
-      href,
-      label,
-      isLast,
-    };
-  });
-
-  return items;
-}
-
-export function DashboardLayoutContent({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const pathname = usePathname();
-  const breadcrumbItems = getBreadcrumbItems(pathname);
+/**
+ * Main dashboard layout component that wraps all dashboard pages
+ * Features:
+ * - Responsive sidebar with collapse functionality
+ * - Dynamic breadcrumb navigation
+ * - Consistent header layout
+ * - Main content area
+ *
+ * Layout Structure:
+ * - SidebarProvider: Manages sidebar state
+ *   - AppSidebar: Main navigation sidebar
+ *   - SidebarInset: Main content area
+ *     - Header: Contains sidebar trigger and breadcrumbs
+ *     - Main: Renders child components
+ *
+ * @param {Object} props - Component props
+ * @param {React.ReactNode} props.children - Child components to render in the layout
+ * @returns JSX.Element - Dashboard layout structure
+ */
+export function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
+  const breadcrumbItems = getBreadcrumbItems(usePathname());
 
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset className="bg-neutral-50">
+      <SidebarInset className="bg-sidebar-background">
         <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
           <nav className="flex items-center gap-2 px-4">
             <SidebarTrigger className="-ml-1" />
@@ -59,21 +80,17 @@ export function DashboardLayoutContent({
                       {item.isLast ? (
                         <BreadcrumbPage>{item.label}</BreadcrumbPage>
                       ) : (
-                        <BreadcrumbLink href={item.href}>
-                          {item.label}
-                        </BreadcrumbLink>
+                        <BreadcrumbLink href={item.href}>{item.label}</BreadcrumbLink>
                       )}
                     </BreadcrumbItem>
-                    {index < breadcrumbItems.length - 1 && (
-                      <BreadcrumbSeparator />
-                    )}
+                    {index < breadcrumbItems.length - 1 && <BreadcrumbSeparator />}
                   </React.Fragment>
                 ))}
               </BreadcrumbList>
             </Breadcrumb>
           </nav>
         </header>
-        <main className="h-[calc(100vh_-_4rem)] px-4">{children}</main>
+        <main>{children}</main>
       </SidebarInset>
     </SidebarProvider>
   );

@@ -16,6 +16,9 @@ ENV NODE_ENV=development
 ENV WDS_SOCKET_PORT=0
 ENV WATCHPACK_POLLING=true
 
+# Create .next directory and set permissions
+RUN mkdir -p .next && chmod -R 777 .next
+
 EXPOSE 3000
 
 # Start the development server

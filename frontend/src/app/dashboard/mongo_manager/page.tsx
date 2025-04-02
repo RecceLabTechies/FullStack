@@ -1,16 +1,13 @@
-"use client";
+'use client';
 
-import { fetchDbStructure, uploadCsv } from "@/api/backendApi";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import React, { useCallback, useState } from 'react';
+
+import { type DbStructure } from '@/types/types';
+
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
@@ -18,17 +15,14 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { type DbStructure } from "@/types/types";
-import React, { useCallback, useState } from "react";
+} from '@/components/ui/table';
 
-interface UploadButtonProps {
-  onUploadSuccess?: () => void;
-}
+import { useCsvUpload, useDbStructure } from '@/hooks/use-backend-api';
 
-// Define a type for collection documents
+// Common types
 type CollectionDocument = Record<string, unknown>;
 
+// UI Components
 const LoadingSpinner = () => (
   <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-current" />
 );
@@ -38,145 +32,156 @@ const StatusMessage = ({
   type,
 }: {
   message: string;
-  type: "success" | "error" | "info";
+  type: 'success' | 'error' | 'info';
 }) => {
   const styles = {
-    success: "bg-primary/10 text-primary",
-    error: "bg-destructive/15 text-destructive",
-    info: "text-muted-foreground",
+    success: 'bg-primary/10 text-primary',
+    error: 'bg-destructive/15 text-destructive',
+    info: 'text-muted-foreground',
   };
 
   return <div className={`rounded-md p-3 ${styles[type]}`}>{message}</div>;
 };
 
-const CollectionTable = React.memo(
-  ({ collection }: { collection: CollectionDocument[] }) => {
-    if (!collection.length) return null;
+// Collection table component
+const CollectionTable = ({ collection }: { collection: CollectionDocument[] }) => {
+  if (!collection.length) return null;
 
-    const headers = Object.keys(collection[0] ?? {});
+  const headers = Object.keys(collection[0] ?? {});
 
-    return (
-      <div className="rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {headers.map((key) => (
-                <TableHead key={key}>{key}</TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {collection.map((doc, index) => (
-              <TableRow key={index}>
-                {Object.entries(doc).map(([key, value]) => (
-                  <TableCell key={key}>
-                    {typeof value === "object" && value !== null
-                      ? JSON.stringify(value)
-                      : String(value)}
-                  </TableCell>
-                ))}
-              </TableRow>
+  // Helper to format cell values
+  const formatCellValue = (value: unknown, key: string) => {
+    if (typeof value !== 'object' || value === null) return String(value);
+
+    // Handle MongoDB ObjectId
+    if (key === '_id' && value !== null && typeof value === 'object' && '$oid' in value) {
+      return (value as { $oid: string }).$oid;
+    }
+
+    return JSON.stringify(value);
+  };
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          {headers.map((key) => (
+            <TableHead key={key}>{key}</TableHead>
+          ))}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {collection.map((doc, index) => (
+          <TableRow key={index}>
+            {Object.entries(doc).map(([key, value]) => (
+              <TableCell key={key}>{formatCellValue(value, key)}</TableCell>
             ))}
-          </TableBody>
-        </Table>
-      </div>
-    );
-  },
-);
-
-CollectionTable.displayName = "CollectionTable";
-
-const DatabaseStructure = React.memo(
-  ({ dbStructure }: { dbStructure: DbStructure }) => {
-    return (
-      <div className="mt-6 space-y-6">
-        {Object.entries(dbStructure).map(([dbName, collections]) => (
-          <Card key={dbName}>
-            <CardHeader>
-              <CardTitle className="text-xl">{dbName}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {Object.entries(
-                  collections as Record<string, CollectionDocument[] | string>,
-                ).map(([collectionName, collection]) => (
-                  <div key={collectionName} className="space-y-2">
-                    <h3 className="text-lg font-semibold">
-                      Collection: {collectionName}
-                    </h3>
-                    {typeof collection === "string" ? (
-                      <p className="text-muted-foreground">{collection}</p>
-                    ) : Array.isArray(collection) && collection.length > 0 ? (
-                      <CollectionTable collection={collection} />
-                    ) : (
-                      <p className="text-muted-foreground">No data available</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          </TableRow>
         ))}
-      </div>
-    );
-  },
+      </TableBody>
+    </Table>
+  );
+};
+
+// Database structure component
+const DatabaseStructure = ({ dbStructure }: { dbStructure: DbStructure }) => (
+  <div className="mt-6 space-y-6">
+    {Object.entries(dbStructure).map(([dbName, collections]) => (
+      <Card key={dbName}>
+        <CardHeader>
+          <h2 className="text-xl">{dbName}</h2>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {Object.entries(collections as Record<string, CollectionDocument[] | string>).map(
+              ([collectionName, collection]) => (
+                <div key={collectionName} className="space-y-2">
+                  <h3 className="text-lg font-semibold">Collection: {collectionName}</h3>
+                  {typeof collection === 'string' ? (
+                    <p className="text-muted-foreground">{collection}</p>
+                  ) : Array.isArray(collection) && collection.length > 0 ? (
+                    <CollectionTable collection={collection} />
+                  ) : (
+                    <p className="text-muted-foreground">No data available</p>
+                  )}
+                </div>
+              )
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    ))}
+  </div>
 );
 
-DatabaseStructure.displayName = "DatabaseStructure";
-
-function UploadButton({ onUploadSuccess }: UploadButtonProps) {
+// Upload button component
+const UploadButton = ({ onUploadSuccess }: { onUploadSuccess?: () => void }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
+  const [uploadState, setUploadState] = useState<{
+    message: string | null;
+    type: 'success' | 'error' | 'info';
+  }>({ message: null, type: 'info' });
+  const { uploadCsv, isLoading: isUploading, data } = useCsvUpload();
+  const lastProcessedData = React.useRef<typeof data>(null);
 
-  const handleFileChange = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0] ?? null;
-      setSelectedFile(file);
-      setUploadStatus(null);
-    },
-    [],
-  );
+  const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    setSelectedFile(file);
+    setUploadState({ message: null, type: 'info' });
+    lastProcessedData.current = null;
+  }, []);
 
   const handleUpload = useCallback(async () => {
     if (!selectedFile) {
-      setUploadStatus("Please select a CSV file.");
+      setUploadState({
+        message: 'Please select a CSV file.',
+        type: 'error',
+      });
       return;
     }
 
-    if (!selectedFile.name.endsWith(".csv")) {
-      setUploadStatus("Only CSV files are accepted.");
+    if (!selectedFile.name.endsWith('.csv')) {
+      setUploadState({
+        message: 'Only CSV files are accepted.',
+        type: 'error',
+      });
       return;
     }
 
-    setIsUploading(true);
-    setUploadStatus("Uploading...");
+    setUploadState({
+      message: 'Uploading...',
+      type: 'info',
+    });
+    lastProcessedData.current = null;
 
     try {
-      const result = await uploadCsv(selectedFile);
-
-      if (result) {
-        setUploadStatus(
-          `Success: Uploaded ${result.count} records to ${result.collection}`,
-        );
-        setSelectedFile(null);
-        const fileInput = document.querySelector('input[type="file"]');
-        if (fileInput instanceof HTMLInputElement) {
-          fileInput.value = "";
-        }
-        onUploadSuccess?.();
-      } else {
-        setUploadStatus("Error: Failed to upload CSV");
-      }
+      await uploadCsv(selectedFile);
     } catch (error) {
-      console.error("Error uploading file:", error);
-      setUploadStatus(
-        `Error uploading file: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
-    } finally {
-      setIsUploading(false);
+      console.error('Error uploading file:', error);
+      setUploadState({
+        message: `Error uploading file: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        type: 'error',
+      });
     }
-  }, [selectedFile, onUploadSuccess]);
+  }, [selectedFile, uploadCsv]);
+
+  // Handle successful upload
+  React.useEffect(() => {
+    if (data && data !== lastProcessedData.current) {
+      lastProcessedData.current = data;
+      setUploadState({
+        message: `Success: Uploaded ${data.count} records to ${data.collection}`,
+        type: 'success',
+      });
+      setSelectedFile(null);
+
+      // Reset file input
+      const fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
+      if (fileInput) fileInput.value = '';
+
+      onUploadSuccess?.();
+    }
+  }, [data, onUploadSuccess]);
 
   return (
     <div className="space-y-4">
@@ -202,46 +207,23 @@ function UploadButton({ onUploadSuccess }: UploadButtonProps) {
             <span className="ml-2">Uploading...</span>
           </>
         ) : (
-          "Upload CSV"
+          'Upload CSV'
         )}
       </Button>
-      {uploadStatus && (
-        <StatusMessage
-          message={uploadStatus}
-          type={uploadStatus.startsWith("Success") ? "success" : "error"}
-        />
+      {uploadState.message && (
+        <StatusMessage message={uploadState.message} type={uploadState.type} />
       )}
     </div>
   );
-}
+};
 
+// Main component
 export default function DatabaseHelper() {
-  const [dbStructure, setDbStructure] = useState<DbStructure | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadDbStructure = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const data = await fetchDbStructure();
-      if (data) {
-        setDbStructure(data);
-      } else {
-        setError("Failed to fetch database structure");
-      }
-    } catch (err) {
-      setError(
-        `Error fetching database structure: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const { data: dbStructure, isLoading, error, fetchStructure } = useDbStructure();
 
   React.useEffect(() => {
-    void loadDbStructure();
-  }, [loadDbStructure]);
+    void fetchStructure();
+  }, [fetchStructure]); // Empty dependency array to run only once
 
   return (
     <main className="container mx-auto flex-1 space-y-4 p-4 pt-6 md:p-8">
@@ -258,37 +240,28 @@ export default function DatabaseHelper() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <section className="space-y-4">
-              {isLoading && (
-                <div className="flex items-center space-x-4">
-                  <LoadingSpinner />
-                  <p className="text-muted-foreground">
-                    Loading database structure...
-                  </p>
-                </div>
-              )}
-              {error && <StatusMessage message={error} type="error" />}
-              {dbStructure && (
-                <StatusMessage
-                  message="Database structure loaded successfully!"
-                  type="success"
-                />
-              )}
-              {dbStructure && <DatabaseStructure dbStructure={dbStructure} />}
-            </section>
+            {isLoading && (
+              <div className="flex items-center space-x-4">
+                <LoadingSpinner />
+                <p className="text-muted-foreground">Loading database structure...</p>
+              </div>
+            )}
+            {error && <StatusMessage message={error.message} type="error" />}
+            {dbStructure && (
+              <StatusMessage message="Database structure loaded successfully!" type="success" />
+            )}
+            {dbStructure && <DatabaseStructure dbStructure={dbStructure} />}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
             <CardTitle>Actions</CardTitle>
-            <CardDescription>
-              Refresh the database structure or upload new data.
-            </CardDescription>
+            <CardDescription>Refresh the database structure or upload new data.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Button
-              onClick={() => void loadDbStructure()}
+              onClick={() => void fetchStructure()}
               disabled={isLoading}
               variant="secondary"
               className="w-full sm:w-auto"
@@ -299,10 +272,10 @@ export default function DatabaseHelper() {
                   <span className="ml-2">Refreshing...</span>
                 </>
               ) : (
-                "Refresh Database Structure"
+                'Refresh Database Structure'
               )}
             </Button>
-            <UploadButton onUploadSuccess={() => void loadDbStructure()} />
+            <UploadButton onUploadSuccess={() => void fetchStructure()} />
           </CardContent>
         </Card>
       </div>

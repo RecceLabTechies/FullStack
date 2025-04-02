@@ -2,6 +2,12 @@
 venv/
 ENV/
 env/
+.env/
+.venv/
+.conda/
+conda-env/
+anaconda/
+miniconda/
 
 # Python bytecode
 __pycache__/
@@ -12,15 +18,27 @@ __pycache__/
 dist/
 build/
 *.egg-info/
+eggs/
+.eggs/
+*.egg
+MANIFEST
 
 # Environment variables
 .env
+.env.*
+!.env.example
 
 # IDE files
 .idea/
 .vscode/
 *.swp
 *.swo
+*.sublime-project
+*.sublime-workspace
+.project
+.pydevproject
+.spyderproject
+.spyproject
 
 # Logs
 *.log
@@ -29,15 +47,55 @@ logs/
 # Local database files
 *.db
 *.sqlite3
+*.sqlite
 
 # Mac OS
 .DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
 
 # Testing
 .coverage
+.coverage.*
 htmlcov/
 .pytest_cache/
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
 
-# Data files
-Data/**
-!Data/.gitkeep 
+# Jupyter Notebooks
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+profile_default/
+ipython_config.py
+
+# Cache files
+.cache/
+__pypackages__/
+.ruff_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Profiling data
+*.prof
+.prof/
+
+# Ignore all temporary files
+*~
+*.bak
+*.tmp
+*.temp
+
+# Virtual environment files
+pyvenv.cfg
+pip-log.txt
+pip-delete-this-directory.txt 

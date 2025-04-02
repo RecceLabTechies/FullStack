@@ -28,14 +28,14 @@ class Database:
     @classmethod
     def get_collection(cls, collection_name):
         """Get a reference to a specific collection"""
-        if not cls.db:
+        if cls.db is None:
             cls.initialize()
         return cls.db[collection_name]
 
     @classmethod
     def list_collections(cls):
         """List all collections in the database"""
-        if not cls.db:
+        if cls.db is None:
             cls.initialize()
         return cls.db.list_collection_names()
 

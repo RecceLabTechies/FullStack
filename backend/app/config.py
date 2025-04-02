@@ -17,6 +17,6 @@ LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 # CORS Configuration
 CORS_CONFIG = {
     "origins": "*",
-    "methods": ["GET", "POST", "OPTIONS"],
+    "methods": ["GET", "POST", "PATCH", "OPTIONS"],
     "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
 }

@@ -29,6 +29,7 @@ dependencies:
       - certifi==2025.1.31
       - charset-normalizer==3.4.1
       - click==8.1.8
+      - coverage==7.8.0
       - decorator==5.2.1
       - dnspython==2.7.0
       - executing==2.2.0
@@ -50,6 +51,7 @@ dependencies:
       - langchain-ollama==0.3.0
       - langsmith==0.3.19
       - markupsafe==3.0.2
+      - marshmallow==3.26.1
       - matplotlib-inline==0.1.7
       - mypy-extensions==1.0.0
       - numpy==2.2.4
@@ -70,6 +72,7 @@ dependencies:
       - pygments==2.19.1
       - pymongo==4.11.3
       - pytest==8.3.5
+      - pytest-cov==6.0.0
       - python-dateutil==2.9.0.post0
       - python-dotenv==1.1.0
       - pytz==2025.2

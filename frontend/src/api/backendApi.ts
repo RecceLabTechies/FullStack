@@ -1,368 +1,332 @@
+/**
+ * This module contains all API calls to the backend server.
+ * It provides functions for interacting with users, campaigns, and database operations.
+ * All functions handle errors gracefully and return either the expected data or an Error object.
+ */
 import {
-  type AgeGroupRoi,
   type CampaignFilterOptions,
   type CampaignFilters,
-  type ChannelRoi,
+  type ChannelContributionData,
+  type CostMetricsHeatmapData,
   type CsvUploadResponse,
   type DbStructure,
   type FilterResponse,
+  type LatestMonthRevenue,
+  type LatestMonthROI,
   type MonthlyPerformanceData,
-  type MonthlyUpdateData,
-  type RevenueData,
-  type RevenuePastMonth,
-  type RoiPastMonth,
   type UserData,
-} from "@/types/types";
-import axios, { type AxiosResponse } from "axios";
+} from '@/types/types';
+import axios from 'axios';
 
-const API_BASE_URL = "http://localhost:5001";
+/** Base URL for all API endpoints */
+const API_BASE_URL = 'http://localhost:5001';
 
-export const fetchDbStructure = async (): Promise<DbStructure | null> => {
+/**
+ * Database Structure API Section
+ */
+
+/**
+ * Fetches the current database structure from the backend
+ * @returns Promise resolving to DbStructure containing tables and relationships
+ */
+export const fetchDbStructure = async (): Promise<DbStructure | Error> => {
   try {
-    const response = await axios.get(
-      `${API_BASE_URL}/api/v1/database-structures`,
-    );
-    return response.data as DbStructure;
+    const response = await axios.get(`${API_BASE_URL}/api/v1/database/structure`);
+    const apiResponse = response.data as {
+      data: DbStructure;
+      status: number;
+      success: boolean;
+    };
+    return apiResponse.data;
   } catch (error) {
-    console.error("Failed to fetch database structure", error);
-    return null;
+    console.error('Failed to fetch database structure', error);
+    return new Error('Failed to fetch database structure');
   }
 };
 
-// User-related API calls
-export const fetchUsers = async (): Promise<UserData[] | null> => {
+/**
+ * User Management API Section
+ */
+
+/**
+ * Fetches users from the backend
+ * @param username Optional - If provided, fetches a specific user
+ * @returns Promise resolving to either a single user or array of users
+ */
+export const fetchUsers = async (username?: string): Promise<UserData[] | UserData | Error> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/users`);
-    return response.data as UserData[];
+    const url = username
+      ? `${API_BASE_URL}/api/v1/users?username=${username}`
+      : `${API_BASE_URL}/api/v1/users`;
+    const response = await axios.get<UserData[] | UserData>(url);
+    return response.data;
   } catch (error) {
-    console.error("Failed to fetch users", error);
-    return null;
+    console.error('Failed to fetch users', error);
+    return new Error('Failed to fetch users');
   }
 };
 
-export const addUser = async (user: UserData): Promise<string | null> => {
+/**
+ * Creates a new user in the system
+ * @param user User data object containing all required user information
+ * @returns Promise resolving to a success message or error
+ */
+export const addUser = async (user: UserData): Promise<string | Error> => {
   try {
     interface AddUserResponse {
       message: string;
       id?: string;
     }
-    const response = await axios.post<AddUserResponse>(
-      `${API_BASE_URL}/api/users`,
-      user,
-    );
+    const response = await axios.post<AddUserResponse>(`${API_BASE_URL}/api/v1/users`, user);
     return response.data.message;
   } catch (error) {
-    console.error("Failed to add user", error);
-    return null;
+    console.error('Failed to add user', error);
+    return new Error('Failed to add user');
   }
 };
 
-export const fetchUserByUsername = async (
-  username: string,
-): Promise<UserData | null> => {
+/**
+ * Retrieves a specific user by their username
+ * @param username The unique username to search for
+ * @returns Promise resolving to the user data or error
+ */
+export const fetchUserByUsername = async (username: string): Promise<UserData | Error> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/users/${username}`);
+    const response = await axios.get(`${API_BASE_URL}/api/v1/users/${username}`);
     return response.data as UserData;
   } catch (error) {
-    console.error("Failed to fetch user by username", error);
-    return null;
+    console.error('Failed to fetch user by username', error);
+    return new Error('Failed to fetch user by username');
   }
 };
 
-export const updateUser = async (
-  username: string,
-  userData: UserData,
-): Promise<string | null> => {
+/**
+ * Updates all fields of an existing user
+ * @param username The username of the user to update
+ * @param userData Complete user data object with new values
+ * @returns Promise resolving to a success message or error
+ */
+export const updateUser = async (username: string, userData: UserData): Promise<string | Error> => {
   try {
     interface UpdateUserResponse {
       message: string;
     }
     const response = await axios.put<UpdateUserResponse>(
-      `${API_BASE_URL}/api/users/${username}`,
-      userData,
+      `${API_BASE_URL}/api/v1/users/${username}`,
+      userData
     );
     return response.data.message;
   } catch (error) {
-    console.error("Failed to update user", error);
-    return null;
+    console.error('Failed to update user', error);
+    return new Error('Failed to update user');
   }
 };
 
-export const deleteUser = async (username: string): Promise<string | null> => {
+/**
+ * Removes a user from the system
+ * @param username The username of the user to delete
+ * @returns Promise resolving to a success message or error
+ */
+export const deleteUser = async (username: string): Promise<string | Error> => {
   try {
     interface DeleteUserResponse {
       message: string;
     }
     const response = await axios.delete<DeleteUserResponse>(
-      `${API_BASE_URL}/api/users/${username}`,
+      `${API_BASE_URL}/api/v1/users/${username}`
     );
     return response.data.message;
   } catch (error) {
-    console.error("Failed to delete user", error);
-    return null;
+    console.error('Failed to delete user', error);
+    return new Error('Failed to delete user');
   }
 };
 
+/**
+ * Partially updates a user's information
+ * @param username The username of the user to update
+ * @param patchData Object containing only the fields to be updated
+ * @returns Promise resolving to a success message or error
+ */
 export const patchUser = async (
   username: string,
-  patchData: Partial<UserData>,
-): Promise<string | null> => {
+  patchData: Partial<UserData>
+): Promise<string | Error> => {
   try {
     interface PatchUserResponse {
       message: string;
     }
     const response = await axios.patch<PatchUserResponse>(
-      `${API_BASE_URL}/api/users/${username}`,
-      patchData,
+      `${API_BASE_URL}/api/v1/users/${username}`,
+      patchData
     );
     return response.data.message;
   } catch (error) {
-    console.error("Failed to patch user", error);
-    return null;
+    console.error('Failed to patch user', error);
+    return new Error('Failed to patch user');
   }
 };
 
-// Campaign-related API calls
-export const fetchCampaignFilterOptions =
-  async (): Promise<CampaignFilterOptions | null> => {
-    try {
-      const response = await axios.get(
-        `${API_BASE_URL}/api/v1/campaigns/filter-options`,
-      );
-      return response.data as CampaignFilterOptions;
-    } catch (error) {
-      console.error("Failed to fetch campaign filter options", error);
-      return null;
-    }
-  };
+/**
+ * Campaign Management API Section
+ */
 
-export const fetchCampaigns = async (
-  filters: CampaignFilters,
-): Promise<FilterResponse | null> => {
+/**
+ * Retrieves available filter options for campaigns
+ * @returns Promise resolving to campaign filter options or error
+ */
+export const fetchCampaignFilterOptions = async (): Promise<CampaignFilterOptions | Error> => {
   try {
-    // Map frontend filter names to backend expected format
-    const apiFilters: Record<string, unknown> = { ...filters };
-
-    // Convert to query parameters for GET request
-    if (Object.keys(filters).length > 0) {
-      const response = await axios.get<FilterResponse>(
-        `${API_BASE_URL}/api/v1/campaigns`,
-        { params: apiFilters },
-      );
-      return response.data;
-    } else {
-      const response = await axios.get<FilterResponse>(
-        `${API_BASE_URL}/api/v1/campaigns`,
-      );
-      return response.data;
-    }
+    const response = await axios.get<{
+      data: CampaignFilterOptions;
+      status: number;
+      success: boolean;
+    }>(`${API_BASE_URL}/api/v1/campaigns/filter-options`);
+    return response.data.data;
   } catch (error) {
-    console.error("Failed to fetch campaign data", error);
-    return null;
+    console.error('Failed to fetch campaign filter options', error);
+    return new Error('Failed to fetch campaign filter options');
   }
 };
 
-export const fetchRevenueData = async (): Promise<RevenueData[] | null> => {
+/**
+ * Fetches filtered campaign data based on provided criteria
+ * @param filters Object containing filter parameters for campaigns
+ * @returns Promise resolving to filtered campaign data or error
+ */
+export const fetchCampaigns = async (filters: CampaignFilters): Promise<FilterResponse | Error> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/v1/revenues`);
-    return response.data as RevenueData[];
-  } catch (error) {
-    console.error("Failed to fetch revenue data", error);
-    return null;
-  }
-};
-
-export const fetchMonthlyPerformanceData = async (
-  filters?: Partial<CampaignFilters>,
-): Promise<MonthlyPerformanceData | null> => {
-  try {
-    const response = await axios.get<MonthlyPerformanceData>(
-      `${API_BASE_URL}/api/v1/chart/monthly-performance`,
-      { params: filters },
-    );
+    const response = await axios.post<FilterResponse>(`${API_BASE_URL}/api/v1/campaigns`, filters);
     return response.data;
   } catch (error) {
-    console.error("Failed to fetch monthly performance data", error);
-    return null;
+    console.error('Failed to fetch campaign data', error);
+    return new Error('Failed to fetch campaign data');
   }
 };
 
-export const updateMonthlyData = async (
-  updates: MonthlyUpdateData[],
-): Promise<MonthlyPerformanceData | null> => {
+/**
+ * Retrieves aggregated monthly performance data for campaigns
+ * @param filters Filter criteria for the monthly aggregation
+ * @returns Promise resolving to monthly performance metrics or error
+ */
+export const fetchMonthlyAggregatedData = async (
+  filters: CampaignFilters
+): Promise<MonthlyPerformanceData | Error> => {
   try {
-    interface UpdateMonthlyResponse {
-      message: string;
-      months: string[];
-      revenue: number[];
-      ad_spend: number[];
-      roi: number[];
-    }
-
-    const response = await axios.post<UpdateMonthlyResponse>(
-      `${API_BASE_URL}/api/v1/chart/update-monthly-data`,
-      { updates },
-    );
-
-    return {
-      months: response.data.months,
-      revenue: response.data.revenue,
-      ad_spend: response.data.ad_spend,
-      roi: response.data.roi,
-    };
+    const response = await axios.post<{
+      data: MonthlyPerformanceData;
+      status: number;
+      success: boolean;
+    }>(`${API_BASE_URL}/api/v1/campaigns/monthly-aggregated`, filters);
+    return response.data.data;
   } catch (error) {
-    console.error("Failed to update monthly data", error);
-    return null;
+    console.error('Failed to fetch monthly aggregated data', error);
+    return new Error('Failed to fetch monthly aggregated data');
   }
 };
 
-export const uploadCsv = async (
-  file: File,
-): Promise<CsvUploadResponse | null> => {
+/**
+ * Data Import API Section
+ */
+
+/**
+ * Uploads and processes a CSV file for data import
+ * @param file The CSV file to be uploaded
+ * @returns Promise resolving to upload response containing processing results
+ */
+export const uploadCsv = async (file: File): Promise<CsvUploadResponse | Error> => {
   try {
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append('file', file);
 
     const response = await axios.post<CsvUploadResponse>(
-      `${API_BASE_URL}/api/v1/csv-imports`,
+      `${API_BASE_URL}/api/v1/imports/csv`,
       formData,
       {
         headers: {
-          "Content-Type": "multipart/form-data",
+          'Content-Type': 'multipart/form-data',
         },
-      },
+      }
     );
     return response.data;
   } catch (error) {
-    console.error("Failed to upload CSV", error);
-    return null;
+    console.error('Failed to upload CSV', error);
+    return new Error('Failed to upload CSV');
   }
 };
 
-export const fetchChannelRoi = async (): Promise<ChannelRoi[] | null> => {
+/**
+ * Analytics API Section
+ */
+
+/**
+ * Fetches channel contribution data for various metrics over the latest 3 months
+ * @returns Promise resolving to channel contribution data or error
+ */
+export const fetchChannelContribution = async (): Promise<ChannelContributionData | Error> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/v1/channel-roi`);
-    return response.data as ChannelRoi[];
+    const response = await axios.get<{
+      data: ChannelContributionData;
+      status: number;
+      success: boolean;
+    }>(`${API_BASE_URL}/api/v1/campaigns/channel-contribution`);
+    return response.data.data;
   } catch (error) {
-    console.error("Failed to fetch channel ROI data", error);
-    return null;
+    console.error('Failed to fetch channel contribution data', error);
+    return new Error('Failed to fetch channel contribution data');
   }
 };
 
-export const fetchAgeGroupRoi = async (): Promise<AgeGroupRoi[] | null> => {
+/**
+ * Fetches cost metrics heatmap data showing different cost metrics by channel
+ * @returns Promise resolving to cost metrics heatmap data or error
+ */
+export const fetchCostMetricsHeatmap = async (): Promise<CostMetricsHeatmapData | Error> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/v1/age-group-roi`);
-    return response.data as AgeGroupRoi[];
+    const response = await axios.get<{
+      data: CostMetricsHeatmapData;
+      status: number;
+      success: boolean;
+    }>(`${API_BASE_URL}/api/v1/campaigns/cost-metrics-heatmap`);
+    return response.data.data;
   } catch (error) {
-    console.error("Failed to fetch age group ROI data", error);
-    return null;
+    console.error('Failed to fetch cost metrics heatmap data', error);
+    return new Error('Failed to fetch cost metrics heatmap data');
   }
 };
 
-export const fetchRevenuePastMonth = async (): Promise<number | null> => {
+/**
+ * Fetches ROI (Return on Investment) for the latest month
+ * @returns Promise resolving to latest month's ROI data or error
+ */
+export const fetchLatestMonthROI = async (): Promise<LatestMonthROI | Error> => {
   try {
-    const response = await axios.get<RevenuePastMonth>(
-      `${API_BASE_URL}/api/v1/revenue-past-month`,
-    );
-    return response.data.revenue;
+    const response = await axios.get<{
+      data: LatestMonthROI;
+      status: number;
+      success: boolean;
+    }>(`${API_BASE_URL}/api/v1/campaigns/latest-month-roi`);
+    return response.data.data;
   } catch (error) {
-    console.error("Failed to fetch past month revenue", error);
-    return null;
+    console.error('Failed to fetch latest month ROI', error);
+    return new Error('Failed to fetch latest month ROI');
   }
 };
 
-export const fetchRoiPastMonth = async (): Promise<number | null> => {
+/**
+ * Fetches total revenue for the latest month
+ * @returns Promise resolving to latest month's revenue data or error
+ */
+export const fetchLatestMonthRevenue = async (): Promise<LatestMonthRevenue | Error> => {
   try {
-    const response = await axios.get<RoiPastMonth>(
-      `${API_BASE_URL}/api/v1/roi-past-month`,
-    );
-    return response.data.roi;
+    const response = await axios.get<{
+      data: LatestMonthRevenue;
+      status: number;
+      success: boolean;
+    }>(`${API_BASE_URL}/api/v1/campaigns/latest-month-revenue`);
+    return response.data.data;
   } catch (error) {
-    console.error("Failed to fetch past month ROI", error);
-    return null;
-  }
-};
-
-export const getDateTypes = async (): Promise<{
-  value: unknown;
-  type: string;
-} | null> => {
-  try {
-    interface DateTypeResponse {
-      value: unknown;
-      type: string;
-    }
-
-    const response = await axios.get<DateTypeResponse>(
-      `${API_BASE_URL}/api/v1/date-types`,
-    );
-    return response.data;
-  } catch (error) {
-    console.error("Failed to get date types", error);
-    return null;
-  }
-};
-
-type FilteredData = {
-  Date: string;
-  ad_spend: string;
-  age_group: string;
-  campaign_id: string;
-  channel: string;
-  country: string;
-  leads: string;
-  new_accounts: string;
-  revenue: string;
-  views: string;
-};
-
-// Yuting Function
-
-export const fetchFilteredData = async ({
-  channels,
-  ageGroups,
-  countries,
-  from,
-  to,
-}: {
-  channels?: string[];
-  ageGroups?: string[];
-  countries?: string[];
-  from?: string;
-  to?: string;
-}): Promise<FilteredData[]> => {
-  const response: AxiosResponse<FilteredData[]> = await axios.post(
-    "http://localhost:5001/api/filter-data",
-    {
-      channels,
-      ageGroups,
-      countries,
-      from,
-      to,
-    },
-  );
-
-  return response.data;
-};
-
-// data for cost heatmap
-export interface CostHeatmapData {
-  channel: string;
-  costPerLead: number;
-  costPerView: number;
-  costPerAccount: number;
-}
-
-export const fetchCostHeatmapData = async (): Promise<
-  CostHeatmapData[] | null
-> => {
-  try {
-    const response = await axios.get(
-      "http://localhost:5001/api/get-cost-heatmap-data",
-    );
-    return response.data as CostHeatmapData[];
-  } catch (error) {
-    console.error("Failed to fetch cost heatmap data", error);
-    return null;
+    console.error('Failed to fetch latest month revenue', error);
+    return new Error('Failed to fetch latest month revenue');
   }
 };
