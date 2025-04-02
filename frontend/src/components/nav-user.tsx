@@ -80,11 +80,16 @@ export function NavUser({
 
   /**
    * Handles user logout action
-   * Currently redirects to home page
-   * TODO: Implement actual logout logic
+   * Clears authentication data and redirects to home page
    */
   const handleLogout = () => {
-    // Handle actual logout logic here
+    // Clear localStorage
+    localStorage.removeItem('user');
+
+    // Clear auth cookie by setting expiration to past date
+    document.cookie = 'auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+
+    // Redirect to home/login page
     router.push('/');
   };
 

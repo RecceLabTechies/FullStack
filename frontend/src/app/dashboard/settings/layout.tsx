@@ -6,5 +6,5 @@ export const metadata: Metadata = {
 };
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
-  return <article>{children}</article>;
+  return <>{children}</>;
 }

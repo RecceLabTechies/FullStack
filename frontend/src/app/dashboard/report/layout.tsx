@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function ReportLayout({ children }: { children: React.ReactNode }) {
-  return <article>{children}</article>;
+  return <>{children}</>;
 }

@@ -102,9 +102,14 @@ export default function AuthPage() {
         return;
       }
 
+      // Set both localStorage and cookie
       localStorage.setItem('user', JSON.stringify(user));
+
+      // Set cookie for server-side auth check
+      document.cookie = `auth-token=${btoa(JSON.stringify({ username: user.username, email: user.email }))}; path=/; max-age=${60 * 60 * 24 * 7}`; // 7 days expiry
+
       router.push('/dashboard');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Login error:', error);
       setError('An unexpected error occurred during login.');
     }
