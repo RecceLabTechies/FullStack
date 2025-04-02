@@ -15,31 +15,30 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 
 import { useChannelContribution } from '@/hooks/use-backend-api';
 
-// Define color scheme for different channels
+// Define color scheme for different channels using CSS variables
 const CHANNEL_COLORS: Record<string, string> = {
-  Facebook: '#4267B2',
-  Instagram: '#E1306C',
-  Google: '#4285F4',
-  LinkedIn: '#0077B5',
-  TikTok: '#000000',
-  Email: '#D44638',
-  TV: '#FF0000',
-  Search: '#34A853',
-  // Add more channels and colors as needed
+  Facebook: 'hsl(var(--chart-1))',
+  Instagram: 'hsl(var(--chart-2))',
+  Google: 'hsl(var(--chart-3))',
+  LinkedIn: 'hsl(var(--chart-4))',
+  TikTok: 'hsl(var(--chart-5))',
+  Email: 'hsl(var(--chart-6))',
+  TV: 'hsl(var(--chart-7))',
+  Search: 'hsl(var(--chart-8))',
 };
 
-// For any channel not in the above list
+// For any channel not in the above list, use the remaining chart colors
 const DEFAULT_COLORS = [
-  '#8884d8',
-  '#83a6ed',
-  '#8dd1e1',
-  '#82ca9d',
-  '#a4de6c',
-  '#d0ed57',
-  '#ffc658',
-  '#ff9e6d',
-  '#ffadad',
-  '#b0a8b9',
+  'hsl(var(--chart-9))',
+  'hsl(var(--chart-10))',
+  'hsl(var(--chart-11))',
+  'hsl(var(--chart-12))',
+  'hsl(var(--chart-13))',
+  'hsl(var(--chart-14))',
+  'hsl(var(--chart-15))',
+  'hsl(var(--chart-16))',
+  'hsl(var(--chart-17))',
+  'hsl(var(--chart-18))',
 ];
 
 /**
@@ -57,7 +56,7 @@ export default function ChannelContributionChart() {
     return (
       <Card>
         <CardContent className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
         </CardContent>
       </Card>
     );
@@ -65,8 +64,8 @@ export default function ChannelContributionChart() {
 
   if (error) {
     return (
-      <Card className="border-red-200">
-        <CardContent className="pt-6 text-red-700">
+      <Card className="border-destructive/50">
+        <CardContent className="pt-6 text-destructive">
           <p className="font-medium">Error loading chart data</p>
           <p className="text-sm">{error.message}</p>
         </CardContent>
@@ -77,7 +76,7 @@ export default function ChannelContributionChart() {
   if (!data?.channels?.length || !data?.metrics?.length) {
     return (
       <Card>
-        <CardContent className="pt-6 text-center text-gray-500">
+        <CardContent className="pt-6 text-center text-muted-foreground">
           No data available for channel contribution analysis
         </CardContent>
       </Card>
@@ -86,12 +85,10 @@ export default function ChannelContributionChart() {
 
   // Prepare data for the chart
   const chartData = data.data.map((item) => {
-    // Start with the metric name
     const dataPoint: Record<string, string | number> = {
       metric: item.metric,
     };
 
-    // Add values for each channel
     Object.entries(item.values).forEach(([channel, value]) => {
       dataPoint[channel] = value;
     });
@@ -112,17 +109,25 @@ export default function ChannelContributionChart() {
       <CardContent className="h-[30rem]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} margin={{ right: 30, left: 20 }} stackOffset="expand">
-            <CartesianGrid strokeDasharray="3 3" />
+            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
             <XAxis
               dataKey="metric"
               label={{ value: 'Metrics', position: 'insideBottom', offset: -5 }}
+              className="text-muted-foreground"
             />
             <YAxis
               tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
               label={{ value: 'Percentage', angle: -90, position: 'insideLeft' }}
+              className="text-muted-foreground"
             />
-            <Tooltip />
-            <Legend />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: 'hsl(var(--background))',
+                borderColor: 'hsl(var(--border))',
+                color: 'hsl(var(--foreground))',
+              }}
+            />
+            <Legend className="text-muted-foreground" />
             {data.channels.map((channel, index) => (
               <Bar
                 key={channel}

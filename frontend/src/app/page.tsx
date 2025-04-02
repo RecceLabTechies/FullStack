@@ -330,7 +330,7 @@ export default function AuthPage() {
                         <Input
                           id="password"
                           type="password"
-                          placeholder="••••••••"
+                          placeholder="********"
                           {...field}
                           aria-describedby="password-error"
                         />
