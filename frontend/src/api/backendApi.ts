@@ -1,3 +1,8 @@
+/**
+ * This module contains all API calls to the backend server.
+ * It provides functions for interacting with users, campaigns, and database operations.
+ * All functions handle errors gracefully and return either the expected data or an Error object.
+ */
 import {
   type CampaignFilterOptions,
   type CampaignFilters,
@@ -10,9 +15,17 @@ import {
 } from '@/types/types';
 import axios from 'axios';
 
+/** Base URL for all API endpoints */
 const API_BASE_URL = 'http://localhost:5001';
 
-// Database Structure API
+/**
+ * Database Structure API Section
+ */
+
+/**
+ * Fetches the current database structure from the backend
+ * @returns Promise resolving to DbStructure containing tables and relationships
+ */
 export const fetchDbStructure = async (): Promise<DbStructure | Error> => {
   try {
     const response = await axios.get(`${API_BASE_URL}/api/v1/database/structure`);
@@ -28,7 +41,15 @@ export const fetchDbStructure = async (): Promise<DbStructure | Error> => {
   }
 };
 
-// User-related API calls
+/**
+ * User Management API Section
+ */
+
+/**
+ * Fetches users from the backend
+ * @param username Optional - If provided, fetches a specific user
+ * @returns Promise resolving to either a single user or array of users
+ */
 export const fetchUsers = async (username?: string): Promise<UserData[] | UserData | Error> => {
   try {
     const url = username
@@ -42,6 +63,11 @@ export const fetchUsers = async (username?: string): Promise<UserData[] | UserDa
   }
 };
 
+/**
+ * Creates a new user in the system
+ * @param user User data object containing all required user information
+ * @returns Promise resolving to a success message or error
+ */
 export const addUser = async (user: UserData): Promise<string | Error> => {
   try {
     interface AddUserResponse {
@@ -56,6 +82,11 @@ export const addUser = async (user: UserData): Promise<string | Error> => {
   }
 };
 
+/**
+ * Retrieves a specific user by their username
+ * @param username The unique username to search for
+ * @returns Promise resolving to the user data or error
+ */
 export const fetchUserByUsername = async (username: string): Promise<UserData | Error> => {
   try {
     const response = await axios.get(`${API_BASE_URL}/api/v1/users/${username}`);
@@ -66,6 +97,12 @@ export const fetchUserByUsername = async (username: string): Promise<UserData | 
   }
 };
 
+/**
+ * Updates all fields of an existing user
+ * @param username The username of the user to update
+ * @param userData Complete user data object with new values
+ * @returns Promise resolving to a success message or error
+ */
 export const updateUser = async (username: string, userData: UserData): Promise<string | Error> => {
   try {
     interface UpdateUserResponse {
@@ -82,6 +119,11 @@ export const updateUser = async (username: string, userData: UserData): Promise<
   }
 };
 
+/**
+ * Removes a user from the system
+ * @param username The username of the user to delete
+ * @returns Promise resolving to a success message or error
+ */
 export const deleteUser = async (username: string): Promise<string | Error> => {
   try {
     interface DeleteUserResponse {
@@ -97,6 +139,12 @@ export const deleteUser = async (username: string): Promise<string | Error> => {
   }
 };
 
+/**
+ * Partially updates a user's information
+ * @param username The username of the user to update
+ * @param patchData Object containing only the fields to be updated
+ * @returns Promise resolving to a success message or error
+ */
 export const patchUser = async (
   username: string,
   patchData: Partial<UserData>
@@ -116,7 +164,14 @@ export const patchUser = async (
   }
 };
 
-// Campaign-related API calls
+/**
+ * Campaign Management API Section
+ */
+
+/**
+ * Retrieves available filter options for campaigns
+ * @returns Promise resolving to campaign filter options or error
+ */
 export const fetchCampaignFilterOptions = async (): Promise<CampaignFilterOptions | Error> => {
   try {
     const response = await axios.get<{
@@ -131,6 +186,11 @@ export const fetchCampaignFilterOptions = async (): Promise<CampaignFilterOption
   }
 };
 
+/**
+ * Fetches filtered campaign data based on provided criteria
+ * @param filters Object containing filter parameters for campaigns
+ * @returns Promise resolving to filtered campaign data or error
+ */
 export const fetchCampaigns = async (filters: CampaignFilters): Promise<FilterResponse | Error> => {
   try {
     const response = await axios.post<FilterResponse>(`${API_BASE_URL}/api/v1/campaigns`, filters);
@@ -141,6 +201,11 @@ export const fetchCampaigns = async (filters: CampaignFilters): Promise<FilterRe
   }
 };
 
+/**
+ * Retrieves aggregated monthly performance data for campaigns
+ * @param filters Filter criteria for the monthly aggregation
+ * @returns Promise resolving to monthly performance metrics or error
+ */
 export const fetchMonthlyAggregatedData = async (
   filters: CampaignFilters
 ): Promise<MonthlyPerformanceData | Error> => {
@@ -157,7 +222,15 @@ export const fetchMonthlyAggregatedData = async (
   }
 };
 
-// CSV Import API
+/**
+ * Data Import API Section
+ */
+
+/**
+ * Uploads and processes a CSV file for data import
+ * @param file The CSV file to be uploaded
+ * @returns Promise resolving to upload response containing processing results
+ */
 export const uploadCsv = async (file: File): Promise<CsvUploadResponse | Error> => {
   try {
     const formData = new FormData();
@@ -179,6 +252,18 @@ export const uploadCsv = async (file: File): Promise<CsvUploadResponse | Error> 
   }
 };
 
+/**
+ * Analytics API Section
+ */
+
+/**
+ * Fetches data for cost heatmap visualization
+ * @param params Optional parameters to filter heatmap data
+ * @param params.country Optional country filter
+ * @param params.campaign_id Optional campaign ID filter
+ * @param params.channels Optional array of channels to include
+ * @returns Promise resolving to cost heatmap data or error
+ */
 export const fetchCostHeatmapData = async (params?: {
   country?: string;
   campaign_id?: string;

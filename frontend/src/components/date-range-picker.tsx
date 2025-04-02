@@ -1,3 +1,9 @@
+/**
+ * Date Range Picker Component Module
+ * Provides a popover calendar interface for selecting date ranges
+ * with customizable constraints and styling options.
+ */
+
 'use client';
 
 import * as React from 'react';
@@ -12,6 +18,23 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 
 import { cn } from '@/lib/utils';
 
+/**
+ * Date Range Picker Component Module
+ * Provides a popover calendar interface for selecting date ranges
+ * with customizable constraints and styling options.
+ */
+
+/**
+ * Props interface for the DatePickerWithRange component
+ * Extends standard HTML div attributes with custom date range functionality
+ *
+ * @interface DatePickerWithRangeProps
+ * @extends {React.HTMLAttributes<HTMLDivElement>}
+ * @property {(range: DateRange | undefined) => void} [onRangeChange] - Callback when date range changes
+ * @property {DateRange | undefined} [initialDateRange] - Initial date range to display
+ * @property {Date} [minDate] - Minimum selectable date
+ * @property {Date} [maxDate] - Maximum selectable date
+ */
 interface DatePickerWithRangeProps extends React.HTMLAttributes<HTMLDivElement> {
   onRangeChange?: (range: DateRange | undefined) => void;
   initialDateRange?: DateRange | undefined;
@@ -19,6 +42,31 @@ interface DatePickerWithRangeProps extends React.HTMLAttributes<HTMLDivElement> 
   maxDate?: Date;
 }
 
+/**
+ * DatePickerWithRange Component
+ * A customizable date range picker with popover calendar interface
+ *
+ * Features:
+ * - Two-month calendar view
+ * - Date range selection
+ * - Min/max date constraints
+ * - Formatted date display
+ * - Accessible button trigger
+ * - Customizable styling
+ *
+ * Usage:
+ * ```tsx
+ * <DatePickerWithRange
+ *   onRangeChange={(range) => console.log(range)}
+ *   initialDateRange={{ from: new Date(), to: new Date() }}
+ *   minDate={new Date(2024, 0, 1)}
+ *   maxDate={new Date(2024, 11, 31)}
+ * />
+ * ```
+ *
+ * @param {DatePickerWithRangeProps} props - Component props
+ * @returns JSX.Element - Date range picker component
+ */
 export function DatePickerWithRange({
   className,
   onRangeChange,
@@ -26,6 +74,7 @@ export function DatePickerWithRange({
   minDate,
   maxDate,
 }: DatePickerWithRangeProps) {
+  // State to track the selected date range
   const [date, setDate] = React.useState<DateRange | undefined>(
     initialDateRange ?? {
       from: undefined,
@@ -33,6 +82,11 @@ export function DatePickerWithRange({
     }
   );
 
+  /**
+   * Handles date range selection
+   * Updates internal state and calls the onRangeChange callback if provided
+   * @param {DateRange | undefined} selectedDate - The newly selected date range
+   */
   const handleSelect = (selectedDate: DateRange | undefined) => {
     setDate(selectedDate);
     if (onRangeChange) {

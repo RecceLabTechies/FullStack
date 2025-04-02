@@ -1,3 +1,9 @@
+/**
+ * Navigation User Component Module
+ * Provides a user profile dropdown menu in the navigation bar
+ * with responsive design for both mobile and desktop views.
+ */
+
 'use client';
 
 import React from 'react';
@@ -22,6 +28,27 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 
+/**
+ * Navigation User Component Module
+ * Provides a user profile dropdown menu in the navigation bar
+ * with responsive design for both mobile and desktop views.
+ */
+
+/**
+ * NavUser component that displays user information and provides logout functionality
+ * Features:
+ * - User avatar with initials
+ * - Dropdown menu with user details
+ * - Logout functionality
+ * - Responsive design (mobile/desktop)
+ * - Accessible dropdown interface
+ *
+ * @param {Object} props - Component props
+ * @param {Object} props.user - User information object
+ * @param {string} props.user.name - User's display name
+ * @param {string} props.user.email - User's email address
+ * @returns JSX.Element - Navigation user interface component
+ */
 export function NavUser({
   user,
 }: {
@@ -34,13 +61,23 @@ export function NavUser({
   const router = useRouter();
   const userInitials = user.name.slice(0, 2).toUpperCase();
 
-  // Extracted common UI elements
+  /**
+   * UserAvatar component
+   * Displays a circular avatar with user's initials
+   * @returns JSX.Element - Avatar component
+   */
   const UserAvatar = () => (
     <Avatar className="h-8 w-8 rounded-lg">
       <AvatarFallback className="rounded-lg">{userInitials}</AvatarFallback>
     </Avatar>
   );
 
+  /**
+   * UserInfo component
+   * Displays user's name and email in a grid layout
+   * Features truncation for long text
+   * @returns JSX.Element - User information display
+   */
   const UserInfo = () => (
     <div className="grid flex-1 text-left text-sm leading-tight">
       <span className="truncate font-semibold">{user.name}</span>
@@ -48,6 +85,11 @@ export function NavUser({
     </div>
   );
 
+  /**
+   * Handles user logout action
+   * Currently redirects to home page
+   * TODO: Implement actual logout logic
+   */
   const handleLogout = () => {
     // Handle actual logout logic here
     router.push('/');

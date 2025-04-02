@@ -1,3 +1,8 @@
+/**
+ * Create User Modal Component Module
+ * Provides a modal interface for creating new users with role-based permissions
+ * and detailed form validation.
+ */
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 
@@ -36,6 +41,16 @@ import { Switch } from '@/components/ui/switch';
 
 import { useAddUser } from '@/hooks/use-backend-api';
 
+/**
+ * Zod schema for user creation form validation
+ * Defines the structure and validation rules for new user data:
+ * - Username: Required
+ * - Email: Required, must be valid email format
+ * - Password: Required, min 8 chars, must contain uppercase, lowercase, and number
+ * - Role: Must be one of 'user', 'admin', or 'root'
+ * - Various boolean flags for specific access permissions
+ * - Company: Required field for organizational assignment
+ */
 const formSchema = z.object({
   username: z.string().min(1, 'Username is required'),
   email: z
@@ -59,10 +74,27 @@ const formSchema = z.object({
   company: z.string().min(1, 'Company is required'),
 });
 
+/**
+ * CreateUserModal Component
+ * A modal dialog component that provides a form interface for creating new users.
+ * Features:
+ * - Form validation using Zod schema
+ * - Role selection (user, admin, root)
+ * - Granular permission controls
+ * - Success/error notifications
+ * - Automatic form reset after successful submission
+ *
+ * @returns JSX.Element - The modal dialog component
+ */
 export default function CreateUserModal() {
+  // State for controlling modal visibility
   const [open, setOpen] = useState(false);
   const { addUser, isLoading } = useAddUser();
 
+  /**
+   * Form initialization with react-hook-form
+   * Sets up validation and default values for all fields
+   */
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -77,10 +109,14 @@ export default function CreateUserModal() {
     },
   });
 
+  /**
+   * Form submission handler
+   * Processes the form data, creates the user, and handles success/error states
+   * @param values - The validated form data matching the formSchema type
+   */
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
       await addUser(values);
-
       toast.success('User created successfully');
       setOpen(false);
       form.reset();

@@ -1,3 +1,9 @@
+/**
+ * Dashboard Layout Component Module
+ * Provides the main layout structure for the dashboard interface,
+ * including sidebar, breadcrumb navigation, and content area.
+ */
+
 'use client';
 
 import React from 'react';
@@ -16,6 +22,23 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 
+/**
+ * Dashboard Layout Component Module
+ * Provides the main layout structure for the dashboard interface,
+ * including sidebar, breadcrumb navigation, and content area.
+ */
+
+/**
+ * Generates breadcrumb items from the current pathname
+ * Features:
+ * - Splits pathname into segments
+ * - Capitalizes first letter of each segment
+ * - Generates appropriate href for each segment
+ * - Marks the last item for special rendering
+ *
+ * @param {string} pathname - Current URL pathname
+ * @returns Array of breadcrumb items with href, label, and isLast properties
+ */
 const getBreadcrumbItems = (pathname: string) =>
   pathname
     .split('/')
@@ -26,6 +49,25 @@ const getBreadcrumbItems = (pathname: string) =>
       isLast: index === segments.length - 1,
     }));
 
+/**
+ * Main dashboard layout component that wraps all dashboard pages
+ * Features:
+ * - Responsive sidebar with collapse functionality
+ * - Dynamic breadcrumb navigation
+ * - Consistent header layout
+ * - Main content area
+ *
+ * Layout Structure:
+ * - SidebarProvider: Manages sidebar state
+ *   - AppSidebar: Main navigation sidebar
+ *   - SidebarInset: Main content area
+ *     - Header: Contains sidebar trigger and breadcrumbs
+ *     - Main: Renders child components
+ *
+ * @param {Object} props - Component props
+ * @param {React.ReactNode} props.children - Child components to render in the layout
+ * @returns JSX.Element - Dashboard layout structure
+ */
 export function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const breadcrumbItems = getBreadcrumbItems(usePathname());
 

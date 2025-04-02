@@ -1,3 +1,9 @@
+/**
+ * Admin Page Component Module
+ * This module provides the main administrative interface for user management.
+ * It implements role-based access control and user management functionality.
+ */
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -13,6 +19,17 @@ import CreateUserModal from './admin-create-user-modal';
 import SearchBar from './admin-search-bar';
 import StaffList from './admin-staff-list';
 
+/**
+ * Admin Page Component Module
+ * This module provides the main administrative interface for user management.
+ * It implements role-based access control and user management functionality.
+ */
+
+/**
+ * Loading skeleton component for the staff list
+ * Displays a placeholder grid of cards while the actual data is being fetched
+ * @returns JSX.Element representing the loading state
+ */
 function SkeletonStaffList() {
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -41,11 +58,26 @@ function SkeletonStaffList() {
   );
 }
 
+/**
+ * Main admin page component that provides user management functionality
+ * Features:
+ * - Role-based access control (Root, Admin, User hierarchy)
+ * - User filtering and search
+ * - Real-time user list updates
+ * - User creation and management
+ *
+ * @returns JSX.Element representing the admin interface
+ */
 export default function AdminPage() {
+  // State management for user data and filtering
   const [filteredUsers, setFilteredUsers] = useState<UserData[] | null>(null);
   const [currentUser, setCurrentUser] = useState<UserData | null>(null);
   const { data: users, isLoading, error, fetchUsers } = useUsers();
 
+  /**
+   * Effect hook to load the current user's data from localStorage
+   * This determines the user's permissions and available actions
+   */
   useEffect(() => {
     // Get current user from localStorage
     const userStr = localStorage.getItem('user');
@@ -55,12 +87,24 @@ export default function AdminPage() {
     }
   }, []);
 
+  /**
+   * Effect hook to fetch all users when the current user is loaded
+   * Only fetches data if the current user has appropriate permissions
+   */
   useEffect(() => {
     if (currentUser) {
       void fetchUsers();
     }
   }, [currentUser, fetchUsers]);
 
+  /**
+   * Effect hook to filter users based on role hierarchy
+   * Implements the following rules:
+   * - Root users can see all other users
+   * - Admin users can only see regular users
+   * - Regular users cannot see any other users
+   * - Users cannot see themselves in the list
+   */
   useEffect(() => {
     if (!users) return;
 
@@ -90,6 +134,11 @@ export default function AdminPage() {
     setFilteredUsers(filtered);
   }, [users, currentUser]);
 
+  /**
+   * Handles the search functionality for users
+   * Filters users based on username and role, while respecting role hierarchy
+   * @param searchTerm - The search string to filter users by
+   */
   const handleSearch = (searchTerm: string) => {
     if (!users || !Array.isArray(users)) return;
 
@@ -118,11 +167,15 @@ export default function AdminPage() {
     setFilteredUsers(filtered);
   };
 
+  /**
+   * Callback function to refresh the users list
+   * Called after user creation, deletion, or updates
+   */
   const handleUsersUpdate = () => {
     void fetchUsers(); // Refresh the users list
   };
 
-  // Don't render the page if user is not admin or root
+  // Access control check - only allow admin and root users
   if (
     !currentUser ||
     (currentUser.role.toLowerCase() !== 'admin' && currentUser.role.toLowerCase() !== 'root')
