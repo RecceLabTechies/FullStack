@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { type CampaignFilters } from '@/types/types';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { BarChart3, EyeOff, Globe, Users2 } from 'lucide-react';
 import moment from 'moment';
 import {
   CartesianGrid,
@@ -18,11 +19,14 @@ import {
   YAxis,
 } from 'recharts';
 
+import { MetricsRevenueCard } from '@/components/card-metrics-revenue';
+import { MetricsROICard } from '@/components/card-metrics-roi';
 import ChannelContributionChart from '@/components/chart-channel-contribution';
 import { CostMetricsHeatmap } from '@/components/chart-cost-metrics-heatmap';
+import AgeGroupPerformanceCharts from '@/components/charts-adspend-revenue-agegroup';
+import ChannelPerformanceCharts from '@/components/charts-adspend-revenue-channels';
+import CountryPerformanceCharts from '@/components/charts-adspend-revenue-countries';
 import { DatePickerWithRange } from '@/components/date-range-picker';
-import { MetricsRevenueCard } from '@/components/metrics-revenue-card';
-import { MetricsROICard } from '@/components/metrics-roi-card';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -34,6 +38,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { MultiSelect } from '@/components/ui/multi-select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import {
   useCampaignFilterOptions,
@@ -231,17 +236,51 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col container gap-4 mx-auto pb-4">
-      <h1 className="text-2xl font-bold">Campaign Dashboard</h1>
-
       {/* Summary Cards */}
 
-      <div className="grid grid-cols-4 gap-4">
+      <section className="grid grid-cols-4 gap-4">
         <MetricsRevenueCard />
         <MetricsROICard />
-      </div>
+      </section>
 
-      <div className="flex gap-4">
-        {/* Revenue & Ad Spend Chart */}
+      {/* Every Revenue & Ad Spend Chart */}
+
+      <section>
+        <Tabs defaultValue="hidden">
+          <TabsList>
+            <TabsTrigger value="channelcharts" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Channel Performance Charts
+            </TabsTrigger>
+            <TabsTrigger value="agegroupcharts" className="flex items-center gap-2">
+              <Users2 className="h-4 w-4" />
+              Age Group Performance Charts
+            </TabsTrigger>
+            <TabsTrigger value="countrycharts" className="flex items-center gap-2">
+              <Globe className="h-4 w-4" />
+              Country Performance Charts
+            </TabsTrigger>
+            <TabsTrigger value="hidden" className="flex items-center gap-2">
+              <EyeOff className="h-4 w-4" />
+              Hide Tables
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="channelcharts">
+            <ChannelPerformanceCharts />
+          </TabsContent>
+          <TabsContent value="agegroupcharts">
+            <AgeGroupPerformanceCharts />
+          </TabsContent>
+          <TabsContent value="countrycharts">
+            <CountryPerformanceCharts />
+          </TabsContent>
+          <TabsContent value="hidden"></TabsContent>
+        </Tabs>
+      </section>
+
+      {/* Detailed Revenue & Ad Spend Chart */}
+
+      <section className="flex gap-4">
         <Card className="w-full">
           <CardHeader>
             <CardTitle>Revenue & Ad Spend Overview</CardTitle>
@@ -282,11 +321,16 @@ export default function DashboardPage() {
                     <Line
                       type="monotone"
                       dataKey="revenue"
-                      stroke="#8884d8"
+                      stroke="hsl(var(--chart-1))"
                       activeDot={{ r: 8 }}
                       name="Revenue"
                     />
-                    <Line type="monotone" dataKey="ad_spend" stroke="#82ca9d" name="Ad Spend" />
+                    <Line
+                      type="monotone"
+                      dataKey="ad_spend"
+                      stroke="hsl(var(--chart-2))"
+                      name="Ad Spend"
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -415,12 +459,12 @@ export default function DashboardPage() {
             </Form>
           </CardContent>
         </Card>
-      </div>
+      </section>
 
-      <div className="grid grid-cols-2 gap-4">
+      <section className="grid grid-cols-2 gap-4">
         <ChannelContributionChart />
         <CostMetricsHeatmap />
-      </div>
+      </section>
     </div>
   );
 }

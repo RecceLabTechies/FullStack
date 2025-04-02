@@ -17,6 +17,9 @@ from app.services.campaign_service import (
     get_cost_metrics_heatmap,
     get_latest_month_roi,
     get_latest_month_revenue,
+    get_monthly_age_data,
+    get_monthly_channel_data,
+    get_monthly_country_data,
 )
 from app.utils.data_processing import (
     find_matching_collection,
@@ -552,6 +555,107 @@ def get_latest_month_revenue_route():
     return format_response(data)
 
 
+@data_bp.route("/api/v1/prophet-predictions", methods=["GET"])
+@handle_exceptions
+def get_prophet_predictions():
+    """
+    Retrieve prophet prediction data, optionally filtered by date range.
+    """
+    try:
+        # Get date range filters if provided
+        from_date = request.args.get("from_date", type=float)
+        to_date = request.args.get("to_date", type=float)
+
+        # Import here to avoid circular imports
+        from app.models.prophet_prediction import ProphetPredictionModel
+
+        # Retrieve data based on filters
+        if from_date and to_date:
+            logger.info(f"Retrieving prophet predictions from {from_date} to {to_date}")
+            predictions = ProphetPredictionModel.get_date_range(from_date, to_date)
+        else:
+            logger.info("Retrieving all prophet predictions")
+            predictions = ProphetPredictionModel.get_all()
+
+        # Return the data
+        return format_response({"data": predictions, "count": len(predictions)})
+
+    except Exception as e:
+        logger.error(f"Error retrieving prophet predictions: {e}")
+        return error_response(500, f"Internal server error: {str(e)}", "server_error")
+
+
+@data_bp.route("/api/v1/campaigns/monthly-channel-data", methods=["GET"])
+@handle_exceptions
+def get_monthly_channel_data_route():
+    """
+    Get monthly data aggregated by channel for charting purposes.
+    Returns revenue and ad spend metrics per month per channel.
+
+    Returns:
+        JSON object containing:
+        - months: List of months as timestamps
+        - channels: List of available channels
+        - revenue: Dictionary with channel keys and monthly revenue arrays
+        - ad_spend: Dictionary with channel keys and monthly ad spend arrays
+    """
+    try:
+
+        data = get_monthly_channel_data()
+        return format_response(data)
+
+    except Exception as e:
+        logger.error(f"Error getting monthly channel data: {e}")
+        return error_response(500, f"Internal server error: {str(e)}", "server_error")
+
+
+@data_bp.route("/api/v1/campaigns/monthly-age-data", methods=["GET"])
+@handle_exceptions
+def get_monthly_age_data_route():
+    """
+    Get monthly data aggregated by age group for charting purposes.
+    Returns revenue and ad spend metrics per month per age group.
+
+    Returns:
+        JSON object containing:
+        - months: List of months as timestamps
+        - age_groups: List of available age groups
+        - revenue: Dictionary with age group keys and monthly revenue arrays
+        - ad_spend: Dictionary with age group keys and monthly ad spend arrays
+    """
+    try:
+
+        data = get_monthly_age_data()
+        return format_response(data)
+
+    except Exception as e:
+        logger.error(f"Error getting monthly age group data: {e}")
+        return error_response(500, f"Internal server error: {str(e)}", "server_error")
+
+
+@data_bp.route("/api/v1/campaigns/monthly-country-data", methods=["GET"])
+@handle_exceptions
+def get_monthly_country_data_route():
+    """
+    Get monthly data aggregated by country for charting purposes.
+    Returns revenue and ad spend metrics per month per country.
+
+    Returns:
+        JSON object containing:
+        - months: List of months as timestamps
+        - countries: List of available countries
+        - revenue: Dictionary with country keys and monthly revenue arrays
+        - ad_spend: Dictionary with country keys and monthly ad spend arrays
+    """
+    try:
+        data = get_monthly_country_data()
+        return format_response(data)
+
+    except Exception as e:
+        logger.error(f"Error getting monthly country data: {e}")
+        return error_response(500, f"Internal server error: {str(e)}", "server_error")
+
+
 # ----------------------------------------------------------------
 # CSV import endpoints
 # ----------------------------------------------------------------
@@ -634,33 +738,3 @@ def handle_csv_import():
     except Exception as e:
         logger.error(f"Error uploading CSV: {e}")
         return format_response({"error": str(e)}, 500)
-
-
-@data_bp.route("/api/v1/prophet-predictions", methods=["GET"])
-@handle_exceptions
-def get_prophet_predictions():
-    """
-    Retrieve prophet prediction data, optionally filtered by date range.
-    """
-    try:
-        # Get date range filters if provided
-        from_date = request.args.get("from_date", type=float)
-        to_date = request.args.get("to_date", type=float)
-
-        # Import here to avoid circular imports
-        from app.models.prophet_prediction import ProphetPredictionModel
-
-        # Retrieve data based on filters
-        if from_date and to_date:
-            logger.info(f"Retrieving prophet predictions from {from_date} to {to_date}")
-            predictions = ProphetPredictionModel.get_date_range(from_date, to_date)
-        else:
-            logger.info("Retrieving all prophet predictions")
-            predictions = ProphetPredictionModel.get_all()
-
-        # Return the data
-        return format_response({"data": predictions, "count": len(predictions)})
-
-    except Exception as e:
-        logger.error(f"Error retrieving prophet predictions: {e}")
-        return error_response(500, f"Internal server error: {str(e)}", "server_error")

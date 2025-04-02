@@ -11,6 +11,9 @@ import {
   type FilterResponse,
   type LatestMonthRevenue,
   type LatestMonthROI,
+  type MonthlyAgeData,
+  type MonthlyChannelData,
+  type MonthlyCountryData,
   type MonthlyPerformanceData,
   type ProphetPredictionData,
   type UserData,
@@ -424,4 +427,79 @@ export const useProphetPredictions = () => {
   }, []);
 
   return { ...state, fetchPredictions };
+};
+
+/**
+ * Hook to fetch monthly data aggregated by channel for charting purposes.
+ * Returns revenue and ad spend metrics per month per channel.
+ */
+export const useMonthlyChannelData = () => {
+  const [state, setState] = useState<HookState<MonthlyChannelData>>({
+    data: null,
+    isLoading: false,
+    error: null,
+  });
+
+  const fetchMonthlyChannelData = useCallback(async () => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.fetchMonthlyChannelData();
+
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
+    }
+  }, []);
+
+  return { ...state, fetchMonthlyChannelData };
+};
+
+/**
+ * Hook to fetch monthly data aggregated by age group for charting purposes.
+ * Returns revenue and ad spend metrics per month per age group.
+ */
+export const useMonthlyAgeData = () => {
+  const [state, setState] = useState<HookState<MonthlyAgeData>>({
+    data: null,
+    isLoading: false,
+    error: null,
+  });
+
+  const fetchMonthlyAgeData = useCallback(async () => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.fetchMonthlyAgeData();
+
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
+    }
+  }, []);
+
+  return { ...state, fetchMonthlyAgeData };
+};
+
+/**
+ * Hook to fetch monthly data aggregated by country for charting purposes.
+ * Returns revenue and ad spend metrics per month per country.
+ */
+export const useMonthlyCountryData = () => {
+  const [state, setState] = useState<HookState<MonthlyCountryData>>({
+    data: null,
+    isLoading: false,
+    error: null,
+  });
+
+  const fetchMonthlyCountryData = useCallback(async () => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.fetchMonthlyCountryData();
+
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
+    }
+  }, []);
+
+  return { ...state, fetchMonthlyCountryData };
 };

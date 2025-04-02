@@ -13,6 +13,9 @@ import {
   type FilterResponse,
   type LatestMonthRevenue,
   type LatestMonthROI,
+  type MonthlyAgeData,
+  type MonthlyChannelData,
+  type MonthlyCountryData,
   type MonthlyPerformanceData,
   type ProphetPredictionData,
   type UserData,
@@ -355,5 +358,62 @@ export const fetchProphetPredictions = async (
   } catch (error) {
     console.error('Failed to fetch prophet predictions', error);
     return new Error('Failed to fetch prophet predictions');
+  }
+};
+
+/**
+ * Fetches monthly data aggregated by channel for charting purposes.
+ * Returns revenue and ad spend metrics per month per channel.
+ * @returns Promise resolving to monthly channel data or error
+ */
+export const fetchMonthlyChannelData = async (): Promise<MonthlyChannelData | Error> => {
+  try {
+    const response = await axios.get<{
+      data: MonthlyChannelData;
+      status: number;
+      success: boolean;
+    }>(`${API_BASE_URL}/api/v1/campaigns/monthly-channel-data`);
+    return response.data.data;
+  } catch (error) {
+    console.error('Failed to fetch monthly channel data', error);
+    return new Error('Failed to fetch monthly channel data');
+  }
+};
+
+/**
+ * Fetches monthly data aggregated by age group for charting purposes.
+ * Returns revenue and ad spend metrics per month per age group.
+ * @returns Promise resolving to monthly age group data or error
+ */
+export const fetchMonthlyAgeData = async (): Promise<MonthlyAgeData | Error> => {
+  try {
+    const response = await axios.get<{
+      data: MonthlyAgeData;
+      status: number;
+      success: boolean;
+    }>(`${API_BASE_URL}/api/v1/campaigns/monthly-age-data`);
+    return response.data.data;
+  } catch (error) {
+    console.error('Failed to fetch monthly age group data', error);
+    return new Error('Failed to fetch monthly age group data');
+  }
+};
+
+/**
+ * Fetches monthly data aggregated by country for charting purposes.
+ * Returns revenue and ad spend metrics per month per country.
+ * @returns Promise resolving to monthly country data or error
+ */
+export const fetchMonthlyCountryData = async (): Promise<MonthlyCountryData | Error> => {
+  try {
+    const response = await axios.get<{
+      data: MonthlyCountryData;
+      status: number;
+      success: boolean;
+    }>(`${API_BASE_URL}/api/v1/campaigns/monthly-country-data`);
+    return response.data.data;
+  } catch (error) {
+    console.error('Failed to fetch monthly country data', error);
+    return new Error('Failed to fetch monthly country data');
   }
 };

@@ -161,3 +161,27 @@ export interface ProphetPredictionData {
   ad_spend: number;
   new_accounts: number;
 }
+
+export interface MonthlyChannelData {
+  months: number[];
+  channels: string[];
+  revenue: Record<string, number[]>;
+  ad_spend: Record<string, number[]>;
+}
+
+export interface MonthlyAgeData {
+  months: number[];
+  age_groups: string[];
+  revenue: Record<string, number[]>;
+  ad_spend: Record<string, number[]>;
+}
+
+/**
+ * Monthly data aggregated by country for charting purposes.
+ */
+export interface MonthlyCountryData {
+  months: number[]; // Array of Unix timestamps
+  countries: string[]; // Array of country names
+  revenue: Record<string, number[]>; // Map of country to revenue values per month
+  ad_spend: Record<string, number[]>; // Map of country to ad spend values per month
+}
