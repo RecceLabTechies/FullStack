@@ -19,7 +19,7 @@ import {
 } from 'recharts';
 
 import ChannelContributionChart from '@/components/chart-channel-contribution';
-import CostMetricsHeatmap from '@/components/chart-cost-metrics-heatmap';
+import { CostMetricsHeatmap } from '@/components/chart-cost-metrics-heatmap';
 import { DatePickerWithRange } from '@/components/date-range-picker';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -228,129 +228,126 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="mb-8">
-        <h1 className="mb-4 text-2xl font-bold">Campaign Dashboard</h1>
+    <div className="flex flex-col container gap-4 mx-auto">
+      <h1 className="text-2xl font-bold">Campaign Dashboard</h1>
+      <Card>
+        <CardHeader>
+          <CardTitle>Filter Campaigns</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-5 gap-2">
+              {/* Date Range Filter */}
+              <FormField
+                control={form.control}
+                name="dateRange"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Date Range</FormLabel>
+                    <FormControl>
+                      <DatePickerWithRange
+                        onRangeChange={field.onChange}
+                        minDate={moment.unix(filterOptions.date_range.min_date).toDate()}
+                        maxDate={moment.unix(filterOptions.date_range.max_date).toDate()}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Filter Campaigns</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-5 gap-2">
-                {/* Date Range Filter */}
-                <FormField
-                  control={form.control}
-                  name="dateRange"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Date Range</FormLabel>
-                      <FormControl>
-                        <DatePickerWithRange
-                          onRangeChange={field.onChange}
-                          minDate={moment.unix(filterOptions.date_range.min_date).toDate()}
-                          maxDate={moment.unix(filterOptions.date_range.max_date).toDate()}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              {/* Age Groups Filter */}
+              <FormField
+                control={form.control}
+                name="ageGroups"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Age Groups</FormLabel>
+                    <FormControl>
+                      <MultiSelect
+                        options={filterOptions.categorical.age_groups.map((group) => ({
+                          label: group,
+                          value: group,
+                        }))}
+                        onValueChange={field.onChange}
+                        placeholder="Select age groups"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-                {/* Age Groups Filter */}
-                <FormField
-                  control={form.control}
-                  name="ageGroups"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Age Groups</FormLabel>
-                      <FormControl>
-                        <MultiSelect
-                          options={filterOptions.categorical.age_groups.map((group) => ({
-                            label: group,
-                            value: group,
-                          }))}
-                          onValueChange={field.onChange}
-                          placeholder="Select age groups"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              {/* Channels Filter */}
+              <FormField
+                control={form.control}
+                name="channels"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Channels</FormLabel>
+                    <FormControl>
+                      <MultiSelect
+                        options={filterOptions.categorical.channels.map((channel) => ({
+                          label: channel,
+                          value: channel,
+                        }))}
+                        onValueChange={field.onChange}
+                        placeholder="Select channels"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-                {/* Channels Filter */}
-                <FormField
-                  control={form.control}
-                  name="channels"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Channels</FormLabel>
-                      <FormControl>
-                        <MultiSelect
-                          options={filterOptions.categorical.channels.map((channel) => ({
-                            label: channel,
-                            value: channel,
-                          }))}
-                          onValueChange={field.onChange}
-                          placeholder="Select channels"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              {/* Countries Filter */}
+              <FormField
+                control={form.control}
+                name="countries"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Countries</FormLabel>
+                    <FormControl>
+                      <MultiSelect
+                        options={filterOptions.categorical.countries.map((country) => ({
+                          label: country,
+                          value: country,
+                        }))}
+                        onValueChange={field.onChange}
+                        placeholder="Select countries"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-                {/* Countries Filter */}
-                <FormField
-                  control={form.control}
-                  name="countries"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Countries</FormLabel>
-                      <FormControl>
-                        <MultiSelect
-                          options={filterOptions.categorical.countries.map((country) => ({
-                            label: country,
-                            value: country,
-                          }))}
-                          onValueChange={field.onChange}
-                          placeholder="Select countries"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Campaign IDs Filter */}
-                <FormField
-                  control={form.control}
-                  name="campaignIds"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Campaigns</FormLabel>
-                      <FormControl>
-                        <MultiSelect
-                          options={filterOptions.categorical.campaign_ids.map((id) => ({
-                            label: id,
-                            value: id,
-                          }))}
-                          onValueChange={field.onChange}
-                          placeholder="Select campaigns"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit">Apply Filters</Button>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
-      </div>
+              {/* Campaign IDs Filter */}
+              <FormField
+                control={form.control}
+                name="campaignIds"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Campaigns</FormLabel>
+                    <FormControl>
+                      <MultiSelect
+                        options={filterOptions.categorical.campaign_ids.map((id) => ({
+                          label: id,
+                          value: id,
+                        }))}
+                        onValueChange={field.onChange}
+                        placeholder="Select campaigns"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="submit">Apply Filters</Button>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
 
       {isLoadingCampaigns && <div>Loading campaign data...</div>}
       {campaignError && <div>Error loading campaign data</div>}

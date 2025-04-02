@@ -22,11 +22,26 @@
     --border: 0 0% 89.8%;
     --input: 0 0% 89.8%;
     --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    --chart-1: 340 80% 65%; /* Soft Pink */
+    --chart-2: 200 90% 45%; /* Deep Sky Blue */
+    --chart-3: 40 100% 50%; /* Vivid Orange */
+    --chart-4: 120 60% 50%; /* Moderate Green */
+    --chart-5: 260 70% 60%; /* Soft Lavender */
+    --chart-6: 0 85% 40%; /* Strong Red */
+    --chart-7: 180 50% 50%; /* Moderate Cyan */
+    --chart-8: 300 60% 50%; /* Medium Violet */
+    --chart-9: 60 100% 50%; /* Bright Yellow */
+    --chart-10: 210 100% 40%; /* Strong Blue */
+    --chart-11: 30 100% 60%; /* Pastel Orange */
+    --chart-12: 90 100% 40%; /* Strong Lime Green */
+    --chart-13: 240 100% 50%; /* Pure Blue */
+    --chart-14: 15 100% 40%; /* Dark Orange Red */
+    --chart-15: 195 100% 40%; /* Dark Cyan Blue */
+    --chart-16: 270 100% 50%; /* Vivid Purple */
+    --chart-17: 330 100% 50%; /* Deep Pink */
+    --chart-18: 75 100% 40%; /* Dark Yellow Green */
+    --chart-19: 285 100% 40%; /* Dark Violet */
+    --chart-20: 315 100% 40%; /* Dark Pink */
     --radius: 0.5rem;
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -57,11 +72,26 @@
     --border: 0 0% 14.9%;
     --input: 0 0% 14.9%;
     --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --chart-1: 340 80% 65%; /* Soft Pink */
+    --chart-2: 200 90% 45%; /* Deep Sky Blue */
+    --chart-3: 40 100% 50%; /* Vivid Orange */
+    --chart-4: 120 60% 50%; /* Moderate Green */
+    --chart-5: 260 70% 60%; /* Soft Lavender */
+    --chart-6: 0 85% 40%; /* Strong Red */
+    --chart-7: 180 50% 50%; /* Moderate Cyan */
+    --chart-8: 300 60% 50%; /* Medium Violet */
+    --chart-9: 60 100% 50%; /* Bright Yellow */
+    --chart-10: 210 100% 40%; /* Strong Blue */
+    --chart-11: 30 100% 60%; /* Pastel Orange */
+    --chart-12: 90 100% 40%; /* Strong Lime Green */
+    --chart-13: 240 100% 50%; /* Pure Blue */
+    --chart-14: 15 100% 40%; /* Dark Orange Red */
+    --chart-15: 195 100% 40%; /* Dark Cyan Blue */
+    --chart-16: 270 100% 50%; /* Vivid Purple */
+    --chart-17: 330 100% 50%; /* Deep Pink */
+    --chart-18: 75 100% 40%; /* Dark Yellow Green */
+    --chart-19: 285 100% 40%; /* Dark Violet */
+    --chart-20: 315 100% 40%; /* Dark Pink */
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
