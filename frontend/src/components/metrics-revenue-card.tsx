@@ -43,7 +43,8 @@ export function MetricsRevenueCard() {
             <>
               <h2 className="text-3xl font-bold">{formatRevenue(data?.revenue ?? 0)}</h2>
               <p className="text-sm text-muted-foreground mt-1">
-                Revenue {data ? `${getMonthName(data.month)} ${data.year}` : ''}
+                Revenue{' '}
+                {data?.month && data?.year ? `${getMonthName(data.month)} ${data.year}` : ''}
               </p>
             </>
           )}
