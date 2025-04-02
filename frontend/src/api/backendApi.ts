@@ -11,6 +11,8 @@ import {
   type CsvUploadResponse,
   type DbStructure,
   type FilterResponse,
+  type LatestMonthRevenue,
+  type LatestMonthROI,
   type MonthlyPerformanceData,
   type UserData,
 } from '@/types/types';
@@ -290,5 +292,41 @@ export const fetchCostMetricsHeatmap = async (): Promise<CostMetricsHeatmapData 
   } catch (error) {
     console.error('Failed to fetch cost metrics heatmap data', error);
     return new Error('Failed to fetch cost metrics heatmap data');
+  }
+};
+
+/**
+ * Fetches ROI (Return on Investment) for the latest month
+ * @returns Promise resolving to latest month's ROI data or error
+ */
+export const fetchLatestMonthROI = async (): Promise<LatestMonthROI | Error> => {
+  try {
+    const response = await axios.get<{
+      data: LatestMonthROI;
+      status: number;
+      success: boolean;
+    }>(`${API_BASE_URL}/api/v1/campaigns/latest-month-roi`);
+    return response.data.data;
+  } catch (error) {
+    console.error('Failed to fetch latest month ROI', error);
+    return new Error('Failed to fetch latest month ROI');
+  }
+};
+
+/**
+ * Fetches total revenue for the latest month
+ * @returns Promise resolving to latest month's revenue data or error
+ */
+export const fetchLatestMonthRevenue = async (): Promise<LatestMonthRevenue | Error> => {
+  try {
+    const response = await axios.get<{
+      data: LatestMonthRevenue;
+      status: number;
+      success: boolean;
+    }>(`${API_BASE_URL}/api/v1/campaigns/latest-month-revenue`);
+    return response.data.data;
+  } catch (error) {
+    console.error('Failed to fetch latest month revenue', error);
+    return new Error('Failed to fetch latest month revenue');
   }
 };

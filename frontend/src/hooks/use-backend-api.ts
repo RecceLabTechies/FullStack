@@ -9,6 +9,8 @@ import {
   type CsvUploadResponse,
   type DbStructure,
   type FilterResponse,
+  type LatestMonthRevenue,
+  type LatestMonthROI,
   type MonthlyPerformanceData,
   type UserData,
 } from '@/types/types';
@@ -346,4 +348,54 @@ export const useCostMetricsHeatmap = () => {
   }, []);
 
   return { ...state, fetchCostMetricsHeatmap };
+};
+
+/**
+ * Hook to fetch the latest month's ROI (Return on Investment).
+ * Returns ROI percentage, month, and year.
+ */
+export const useLatestMonthROI = () => {
+  const [state, setState] = useState<HookState<LatestMonthROI>>({
+    data: null,
+    isLoading: false,
+    error: null,
+  });
+
+  const fetchLatestMonthROI = useCallback(async () => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.fetchLatestMonthROI();
+
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
+    }
+  }, []);
+
+  return { ...state, fetchLatestMonthROI };
+};
+
+/**
+ * Hook to fetch the latest month's total revenue.
+ * Returns revenue amount, month, and year.
+ */
+export const useLatestMonthRevenue = () => {
+  const [state, setState] = useState<HookState<LatestMonthRevenue>>({
+    data: null,
+    isLoading: false,
+    error: null,
+  });
+
+  const fetchLatestMonthRevenue = useCallback(async () => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.fetchLatestMonthRevenue();
+
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
+    }
+  }, []);
+
+  return { ...state, fetchLatestMonthRevenue };
 };

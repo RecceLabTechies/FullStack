@@ -21,6 +21,8 @@ import {
 import ChannelContributionChart from '@/components/chart-channel-contribution';
 import { CostMetricsHeatmap } from '@/components/chart-cost-metrics-heatmap';
 import { DatePickerWithRange } from '@/components/date-range-picker';
+import { MetricsRevenueCard } from '@/components/metrics-revenue-card';
+import { MetricsROICard } from '@/components/metrics-roi-card';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -230,6 +232,13 @@ export default function DashboardPage() {
   return (
     <div className="flex flex-col container gap-4 mx-auto pb-4">
       <h1 className="text-2xl font-bold">Campaign Dashboard</h1>
+
+      {/* Summary Cards */}
+
+      <div className="grid grid-cols-4 gap-4">
+        <MetricsRevenueCard />
+        <MetricsROICard />
+      </div>
       <Card>
         <CardHeader>
           <CardTitle>Filter Campaigns</CardTitle>
@@ -401,8 +410,10 @@ export default function DashboardPage() {
           )}
         </CardContent>
       </Card>
-      <ChannelContributionChart />
-      <CostMetricsHeatmap />
+      <div className="grid grid-cols-2 gap-4">
+        <ChannelContributionChart />
+        <CostMetricsHeatmap />
+      </div>
     </div>
   );
 }

@@ -15,6 +15,8 @@ from app.services.campaign_service import (
     get_monthly_aggregated_data,
     get_channel_contribution_data,
     get_cost_metrics_heatmap,
+    get_latest_month_roi,
+    get_latest_month_revenue,
 )
 from app.utils.data_processing import (
     find_matching_collection,
@@ -515,6 +517,39 @@ def get_cost_metrics_heatmap_route():
     except Exception as e:
         logger.error(f"Error retrieving cost metrics heatmap data: {e}")
         return error_response(500, str(e), "server_error")
+
+
+@data_bp.route("/api/v1/campaigns/latest-month-roi", methods=["GET"])
+@handle_exceptions
+def get_latest_month_roi_route():
+    """
+    Get ROI (Return on Investment) for the latest month in the dataset.
+    ROI is calculated as (Revenue - Ad Spend) / Ad Spend * 100.
+
+    Returns:
+        JSON object containing:
+        - roi: ROI value as percentage
+        - month: Month number (1-12)
+        - year: Year number
+    """
+    data = get_latest_month_roi()
+    return format_response(data)
+
+
+@data_bp.route("/api/v1/campaigns/latest-month-revenue", methods=["GET"])
+@handle_exceptions
+def get_latest_month_revenue_route():
+    """
+    Get total revenue for the latest month in the dataset.
+
+    Returns:
+        JSON object containing:
+        - revenue: Total revenue value
+        - month: Month number (1-12)
+        - year: Year number
+    """
+    data = get_latest_month_revenue()
+    return format_response(data)
 
 
 # ----------------------------------------------------------------

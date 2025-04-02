@@ -661,3 +661,118 @@ def get_cost_metrics_heatmap() -> HeatmapResponse:
     }
 
     return response
+
+
+def get_latest_month_roi() -> Dict:
+    """
+    Calculate ROI for the latest month in the dataset.
+    ROI = (Revenue - Ad Spend) / Ad Spend * 100
+
+    Returns:
+        Dict: Dictionary containing ROI value, month, and year
+    """
+    # Get all campaign data
+    data = CampaignModel.get_all()
+
+    if not data:
+        return {"roi": 0, "month": None, "year": None, "error": "No data available"}
+
+    # Convert to DataFrame
+    df = pd.DataFrame(data)
+
+    try:
+        # Convert date from timestamp to datetime for filtering
+        df["datetime"] = pd.to_datetime(df["date"], unit="s")
+
+        # Get the latest month's data
+        df["month_year"] = df["datetime"].dt.strftime("%Y-%m")
+        latest_month = df["month_year"].max()
+
+        if not latest_month:
+            return {
+                "roi": 0,
+                "month": None,
+                "year": None,
+                "error": "No valid dates found",
+            }
+
+        # Filter for latest month
+        latest_data = df[df["month_year"] == latest_month]
+
+        # Calculate total revenue and ad spend
+        total_revenue = latest_data["revenue"].sum()
+        total_ad_spend = latest_data["ad_spend"].sum()
+
+        # Calculate ROI
+        roi = (
+            ((total_revenue - total_ad_spend) / total_ad_spend * 100)
+            if total_ad_spend > 0
+            else 0
+        )
+
+        # Extract month and year
+        date_parts = latest_month.split("-")
+
+        return {
+            "roi": round(roi, 2),
+            "month": int(date_parts[1]),
+            "year": int(date_parts[0]),
+            "error": None,
+        }
+
+    except Exception as e:
+        logger.error(f"Error calculating ROI: {e}")
+        return {"roi": 0, "month": None, "year": None, "error": str(e)}
+
+
+def get_latest_month_revenue() -> Dict:
+    """
+    Get total revenue for the latest month in the dataset.
+
+    Returns:
+        Dict: Dictionary containing revenue value, month, and year
+    """
+    # Get all campaign data
+    data = CampaignModel.get_all()
+
+    if not data:
+        return {"revenue": 0, "month": None, "year": None, "error": "No data available"}
+
+    # Convert to DataFrame
+    df = pd.DataFrame(data)
+
+    try:
+        # Convert date from timestamp to datetime for filtering
+        df["datetime"] = pd.to_datetime(df["date"], unit="s")
+
+        # Get the latest month's data
+        df["month_year"] = df["datetime"].dt.strftime("%Y-%m")
+        latest_month = df["month_year"].max()
+
+        if not latest_month:
+            return {
+                "revenue": 0,
+                "month": None,
+                "year": None,
+                "error": "No valid dates found",
+            }
+
+        # Filter for latest month
+        latest_data = df[df["month_year"] == latest_month]
+
+        # Calculate total revenue
+        total_revenue = latest_data["revenue"].sum()
+
+        # Extract month and year
+        date_parts = latest_month.split("-")
+
+        return {
+            "revenue": round(total_revenue, 2),
+            "month": int(date_parts[1]),
+            "year": int(date_parts[0]),
+            "error": None,
+        }
+
+    except Exception as e:
+        logger.error(f"Error calculating revenue: {e}")
+        return {"revenue": 0, "month": None, "year": None, "error": str(e)}

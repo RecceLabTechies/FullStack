@@ -134,3 +134,23 @@ export interface CostMetricsHeatmapData {
   };
   error?: string | null;
 }
+
+/**
+ * Response type for latest month ROI endpoint
+ */
+export interface LatestMonthROI {
+  roi: number;
+  month: number;
+  year: number;
+  error: string | null;
+}
+
+/**
+ * Response type for latest month revenue endpoint
+ */
+export interface LatestMonthRevenue {
+  revenue: number;
+  month: number;
+  year: number;
+  error: string | null;
+}
