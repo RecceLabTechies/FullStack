@@ -1,11 +1,10 @@
+'use client';
+
 /**
  * Admin Page Component Module
  * This module provides the main administrative interface for user management.
  * It implements role-based access control and user management functionality.
  */
-
-'use client';
-
 import { useEffect, useState } from 'react';
 
 import type { UserData } from '@/types/types';
@@ -18,12 +17,6 @@ import { useUsers } from '@/hooks/use-backend-api';
 import CreateUserModal from './admin-create-user-modal';
 import SearchBar from './admin-search-bar';
 import StaffList from './admin-staff-list';
-
-/**
- * Admin Page Component Module
- * This module provides the main administrative interface for user management.
- * It implements role-based access control and user management functionality.
- */
 
 /**
  * Loading skeleton component for the staff list

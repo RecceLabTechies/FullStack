@@ -1,11 +1,10 @@
+'use client';
+
 /**
  * Date Range Picker Component Module
  * Provides a popover calendar interface for selecting date ranges
  * with customizable constraints and styling options.
  */
-
-'use client';
-
 import * as React from 'react';
 import { type DateRange } from 'react-day-picker';
 
@@ -17,12 +16,6 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 import { cn } from '@/lib/utils';
-
-/**
- * Date Range Picker Component Module
- * Provides a popover calendar interface for selecting date ranges
- * with customizable constraints and styling options.
- */
 
 /**
  * Props interface for the DatePickerWithRange component

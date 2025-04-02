@@ -18,6 +18,8 @@ import {
   YAxis,
 } from 'recharts';
 
+import ChannelContributionChart from '@/components/chart-channel-contribution';
+import CostMetricsHeatmap from '@/components/chart-cost-metrics-heatmap';
 import { DatePickerWithRange } from '@/components/date-range-picker';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -405,6 +407,8 @@ export default function DashboardPage() {
           )}
         </CardContent>
       </Card>
+      <ChannelContributionChart />
+      <CostMetricsHeatmap />
     </div>
   );
 }

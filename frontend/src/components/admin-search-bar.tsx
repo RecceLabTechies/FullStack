@@ -1,20 +1,13 @@
+'use client';
+
 /**
  * Search Bar Component Module
  * Provides a real-time search input for filtering staff members
  * in the admin interface. Implements controlled input with immediate search feedback.
  */
-
-'use client';
-
 import { useState } from 'react';
 
 import { Input } from '@/components/ui/input';
-
-/**
- * Search Bar Component Module
- * Provides a real-time search input for filtering staff members
- * in the admin interface. Implements controlled input with immediate search feedback.
- */
 
 /**
  * Props interface for the SearchBar component

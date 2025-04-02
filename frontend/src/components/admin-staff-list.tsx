@@ -1,11 +1,10 @@
+'use client';
+
 /**
  * Staff List Component Module
  * Provides a grid layout of staff member cards with permission management capabilities.
  * Implements real-time permission updates and user-friendly tooltips.
  */
-
-'use client';
-
 import { useEffect, useState } from 'react';
 
 import { type UserData } from '@/types/types';
@@ -16,12 +15,6 @@ import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 import { usePatchUser } from '@/hooks/use-backend-api';
-
-/**
- * Staff List Component Module
- * Provides a grid layout of staff member cards with permission management capabilities.
- * Implements real-time permission updates and user-friendly tooltips.
- */
 
 /**
  * Props interface for the StaffList component

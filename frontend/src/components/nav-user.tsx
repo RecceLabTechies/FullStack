@@ -1,11 +1,10 @@
+'use client';
+
 /**
  * Navigation User Component Module
  * Provides a user profile dropdown menu in the navigation bar
  * with responsive design for both mobile and desktop views.
  */
-
-'use client';
-
 import React from 'react';
 
 import { useRouter } from 'next/navigation';
@@ -27,12 +26,6 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar';
-
-/**
- * Navigation User Component Module
- * Provides a user profile dropdown menu in the navigation bar
- * with responsive design for both mobile and desktop views.
- */
 
 /**
  * NavUser component that displays user information and provides logout functionality

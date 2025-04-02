@@ -1,11 +1,10 @@
+'use client';
+
 /**
  * Dashboard Layout Component Module
  * Provides the main layout structure for the dashboard interface,
  * including sidebar, breadcrumb navigation, and content area.
  */
-
-'use client';
-
 import React from 'react';
 
 import { usePathname } from 'next/navigation';
@@ -21,12 +20,6 @@ import {
 } from '@/components/ui/breadcrumb';
 import { Separator } from '@/components/ui/separator';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
-
-/**
- * Dashboard Layout Component Module
- * Provides the main layout structure for the dashboard interface,
- * including sidebar, breadcrumb navigation, and content area.
- */
 
 /**
  * Generates breadcrumb items from the current pathname

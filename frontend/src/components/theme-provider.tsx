@@ -1,20 +1,13 @@
+'use client';
+
 /**
  * Theme Provider Component Module
  * Provides theme management functionality using next-themes,
  * with support for system theme, light/dark modes, and SSR.
  */
-
-'use client';
-
 import * as React from 'react';
 
 import { ThemeProvider as NextThemesProvider, type ThemeProviderProps } from 'next-themes';
-
-/**
- * Theme Provider Component Module
- * Provides theme management functionality using next-themes,
- * with support for system theme, light/dark modes, and SSR.
- */
 
 /**
  * ThemeProvider Component
