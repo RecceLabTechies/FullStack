@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Define report results type
-export interface ReportResults {
+interface ReportResults {
   results: Array<{
     description?: string;
     chart?: string | Record<string, unknown>;

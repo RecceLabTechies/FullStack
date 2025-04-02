@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
+import { useProphetPredictionsContext } from '@/context/prophet-predictions-context';
 import {
   CartesianGrid,
   Legend,
@@ -24,7 +25,7 @@ import {
 } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 
-import { useLatestTwelveMonths, useProphetPredictions } from '@/hooks/use-backend-api';
+import { useLatestTwelveMonths } from '@/hooks/use-backend-api';
 
 export function MLPredictionsChart() {
   const {
@@ -38,8 +39,7 @@ export function MLPredictionsChart() {
     data: prophetData,
     isLoading: isLoadingProphet,
     error: prophetError,
-    fetchPredictions,
-  } = useProphetPredictions();
+  } = useProphetPredictionsContext();
 
   // State for prediction months slider
   const [predictionMonths, setPredictionMonths] = useState<number>(0);
@@ -53,8 +53,7 @@ export function MLPredictionsChart() {
   // Effect to fetch latest twelve months data
   useEffect(() => {
     void fetchLatestTwelveMonths();
-    void fetchPredictions(); // Fetch prophet predictions
-  }, [fetchLatestTwelveMonths, fetchPredictions]);
+  }, [fetchLatestTwelveMonths]);
 
   // Effect to reset prediction months when data changes
   useEffect(() => {
