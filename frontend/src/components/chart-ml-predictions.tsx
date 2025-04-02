@@ -149,6 +149,7 @@ export function MLPredictionsChart() {
               dataKey="revenue"
               stroke="hsl(var(--chart-1))"
               activeDot={{ r: 8 }}
+              strokeWidth={3}
               name="Revenue"
             />
             <Line
@@ -156,14 +157,22 @@ export function MLPredictionsChart() {
               dataKey="predicted_revenue"
               stroke="hsl(var(--chart-1))"
               strokeDasharray="5 5"
+              strokeWidth={5}
               name="Predicted Revenue"
             />
-            <Line type="monotone" dataKey="ad_spend" stroke="hsl(var(--chart-2))" name="Ad Spend" />
+            <Line
+              type="monotone"
+              dataKey="ad_spend"
+              stroke="hsl(var(--chart-2))"
+              name="Ad Spend"
+              strokeWidth={3}
+            />
             <Line
               type="monotone"
               dataKey="predicted_ad_spend"
               stroke="hsl(var(--chart-2))"
               strokeDasharray="5 5"
+              strokeWidth={5}
               name="Predicted Ad Spend"
             />
           </LineChart>

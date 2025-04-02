@@ -30,16 +30,39 @@ import {
   SidebarRail,
 } from '@/components/ui/sidebar';
 
-// Navigation items configuration
+// Navigation items configuration with permission requirements
 const navigationItems = [
-  { name: 'Home', url: '/dashboard', icon: LayoutDashboard },
-  { name: 'Report', url: '/dashboard/report', icon: Clipboard },
-  { name: 'Admin', url: '/dashboard/admin', icon: ShieldEllipsis },
-  { name: 'Settings', url: '/dashboard/settings', icon: Settings },
+  {
+    name: 'Home',
+    url: '/dashboard',
+    icon: LayoutDashboard,
+    requiresPermission: false,
+  },
+  {
+    name: 'Report',
+    url: '/dashboard/report',
+    icon: Clipboard,
+    requiresPermission: true,
+    permission: 'report_generation_access',
+  },
+  {
+    name: 'Admin',
+    url: '/dashboard/admin',
+    icon: ShieldEllipsis,
+    requiresPermission: true,
+    permission: 'user_management_access',
+  },
+  {
+    name: 'Settings',
+    url: '/dashboard/settings',
+    icon: Settings,
+    requiresPermission: false,
+  },
   {
     name: 'Mongo Manager',
     url: '/dashboard/mongo_manager',
     icon: DatabaseBackup,
+    requiresPermission: false,
   },
 ] as const;
 
@@ -55,6 +78,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       console.error('Error parsing user data:', error);
     }
   }, []);
+
+  // Filter navigation items based on user permissions
+  const authorizedNavItems = navigationItems.filter((item) => {
+    if (!item.requiresPermission) return true;
+    if (!user) return false;
+    return item.permission ? user[item.permission as keyof UserData] : true;
+  });
 
   return (
     <Sidebar
@@ -82,7 +112,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarGroup>
           <SidebarGroupLabel className="text-sidebar-foreground">Platform</SidebarGroupLabel>
           <SidebarMenu>
-            {navigationItems.map((item) => (
+            {authorizedNavItems.map((item) => (
               <SidebarMenuItem key={item.name}>
                 <SidebarMenuButton
                   tooltip={item.name}

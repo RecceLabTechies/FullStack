@@ -151,6 +151,7 @@ const AgeGroupPerformanceCharts = () => {
               />
               <Legend />
               <Line
+                strokeWidth={2}
                 type="monotone"
                 dataKey="revenue"
                 name="Revenue"
@@ -159,6 +160,7 @@ const AgeGroupPerformanceCharts = () => {
                 activeDot={{ r: 8 }}
               />
               <Line
+                strokeWidth={2}
                 type="monotone"
                 dataKey="ad_spend"
                 name="Ad Spend"
@@ -166,6 +168,7 @@ const AgeGroupPerformanceCharts = () => {
                 dot={{ r: 4 }}
               />
               <Line
+                strokeWidth={2}
                 type="monotone"
                 dataKey="avg_revenue"
                 name="Avg Revenue"
@@ -174,6 +177,7 @@ const AgeGroupPerformanceCharts = () => {
                 dot={false}
               />
               <Line
+                strokeWidth={2}
                 type="monotone"
                 dataKey="avg_ad_spend"
                 name="Avg Ad Spend"

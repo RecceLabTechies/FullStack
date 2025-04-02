@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { type CampaignFilters } from '@/types/types';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Info } from 'lucide-react';
 import moment from 'moment';
 import {
   CartesianGrid,
@@ -29,6 +30,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { MultiSelect } from '@/components/ui/multi-select';
 
 import { useCampaignFilterOptions, useMonthlyAggregatedData } from '@/hooks/use-backend-api';
@@ -171,10 +173,30 @@ export function RevenueAdSpendChart() {
     <div className="flex gap-4">
       <Card className="w-full">
         <CardHeader>
-          <CardTitle>Revenue & Ad Spend Filter Chart</CardTitle>
-          <CardDescription>
-            Monthly comparison of revenue generated versus advertising expenditure
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Revenue & Ad Spend Filter Chart</CardTitle>
+              <CardDescription>
+                Monthly comparison of revenue generated versus advertising expenditure
+              </CardDescription>
+            </div>
+            <HoverCard>
+              <HoverCardTrigger asChild>
+                <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+              </HoverCardTrigger>
+              <HoverCardContent className="w-80">
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold">Revenue & Ad Spend Analysis</h4>
+                  <p className="text-sm text-muted-foreground">
+                    This chart visualizes the relationship between your revenue and advertising
+                    costs over time. Compare monthly trends to identify periods of high ROI and
+                    optimize your ad strategy. Use the filters to analyze specific campaigns,
+                    channels, regions, or time periods.
+                  </p>
+                </div>
+              </HoverCardContent>
+            </HoverCard>
+          </div>
         </CardHeader>
         <CardContent>
           {monthlyDataError ? (
@@ -212,12 +234,14 @@ export function RevenueAdSpendChart() {
                     stroke="hsl(var(--chart-1))"
                     activeDot={{ r: 8 }}
                     name="Revenue"
+                    strokeWidth={3}
                   />
                   <Line
                     type="monotone"
                     dataKey="ad_spend"
                     stroke="hsl(var(--chart-2))"
                     name="Ad Spend"
+                    strokeWidth={3}
                   />
                 </LineChart>
               </ResponsiveContainer>

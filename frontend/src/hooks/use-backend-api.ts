@@ -1,3 +1,8 @@
+/**
+ * This module provides React hooks for interacting with the backend API.
+ * It includes hooks for managing users, campaigns, analytics, and data processing.
+ * Each hook handles its own state management and error handling.
+ */
 import { useCallback, useState } from 'react';
 
 import * as backendApi from '@/api/backendApi';
@@ -21,32 +26,83 @@ import {
   type UserData,
 } from '@/types/types';
 
-// Generic hook state type that provides loading, error, and data states
+/**
+ * Generic state interface for all hooks
+ * Provides consistent state management across different data types
+ */
 interface HookState<T> {
+  /** The data returned from the API */
   data: T | null;
+  /** Loading state indicator */
   isLoading: boolean;
+  /** Error object if the operation failed */
   error: Error | null;
 }
 
 /**
- * Hook to fetch the database structure.
- * Returns the database schema and table information.
+ * Initial state factory for hooks
+ * Creates a fresh state object with default values
+ */
+const createInitialState = <T>(): HookState<T> => ({
+  data: null,
+  isLoading: false,
+  error: null,
+});
+
+/**
+ * Generic state update helper for successful API calls
+ */
+const handleSuccess = <T>(
+  setState: React.Dispatch<React.SetStateAction<HookState<T>>>,
+  data: T
+) => {
+  setState({ data, isLoading: false, error: null });
+};
+
+/**
+ * Generic state update helper for failed API calls
+ */
+const handleError = <T>(
+  setState: React.Dispatch<React.SetStateAction<HookState<T>>>,
+  error: Error
+) => {
+  setState({ data: null, isLoading: false, error });
+};
+
+/**
+ * Database Structure API Hooks
+ */
+
+/**
+ * Hook for fetching the database structure
+ *
+ * @example
+ * ```tsx
+ * function DatabaseViewer() {
+ *   const { data, isLoading, error, fetchStructure } = useDbStructure();
+ *
+ *   useEffect(() => {
+ *     void fetchStructure();
+ *   }, [fetchStructure]);
+ *
+ *   if (isLoading) return <Loading />;
+ *   if (error) return <Error message={error.message} />;
+ *   if (!data) return null;
+ *
+ *   return <DatabaseStructure data={data} />;
+ * }
  */
 export const useDbStructure = () => {
-  const [state, setState] = useState<HookState<DbStructure>>({
-    data: null,
-    isLoading: false,
-    error: null,
-  });
+  const [state, setState] = useState<HookState<DbStructure>>(createInitialState());
 
   const fetchStructure = useCallback(async () => {
     setState((prev) => ({ ...prev, isLoading: true }));
     const result = await backendApi.fetchDbStructure();
 
     if (result instanceof Error) {
-      setState({ data: null, isLoading: false, error: result });
+      handleError(setState, result);
     } else {
-      setState({ data: result, isLoading: false, error: null });
+      handleSuccess(setState, result);
     }
   }, []);
 
@@ -54,24 +110,35 @@ export const useDbStructure = () => {
 };
 
 /**
- * Hook to fetch users from the backend.
- * Can fetch all users or a specific user by username.
+ * User Management API Hooks
+ */
+
+/**
+ * Hook for fetching users
+ * Can retrieve all users or filter by username
+ *
+ * @example
+ * ```tsx
+ * function UserList() {
+ *   const { data, isLoading, fetchUsers } = useUsers();
+ *
+ *   useEffect(() => {
+ *     void fetchUsers();
+ *   }, [fetchUsers]);
+ *
+ *   return isLoading ? <Loading /> : <UserTable users={data || []} />;
  */
 export const useUsers = () => {
-  const [state, setState] = useState<HookState<UserData[] | UserData>>({
-    data: null,
-    isLoading: false,
-    error: null,
-  });
+  const [state, setState] = useState<HookState<UserData[] | UserData>>(createInitialState());
 
   const fetchUsers = useCallback(async (username?: string) => {
     setState((prev) => ({ ...prev, isLoading: true }));
     const result = await backendApi.fetchUsers(username);
 
     if (result instanceof Error) {
-      setState({ data: null, isLoading: false, error: result });
+      handleError(setState, result);
     } else {
-      setState({ data: result, isLoading: false, error: null });
+      handleSuccess(setState, result);
     }
   }, []);
 
@@ -79,24 +146,30 @@ export const useUsers = () => {
 };
 
 /**
- * Hook to add a new user to the system.
- * Takes UserData object and creates a new user record.
+ * Hook for adding new users
+ *
+ * @example
+ * ```tsx
+ * function AddUserForm() {
+ *   const { isLoading, error, addUser } = useAddUser();
+ *
+ *   const handleSubmit = async (userData: UserData) => {
+ *     await addUser(userData);
+ *   };
+ *
+ *   return <UserForm onSubmit={handleSubmit} loading={isLoading} error={error} />;
  */
 export const useAddUser = () => {
-  const [state, setState] = useState<HookState<string>>({
-    data: null,
-    isLoading: false,
-    error: null,
-  });
+  const [state, setState] = useState<HookState<string>>(createInitialState());
 
   const addUser = useCallback(async (userData: UserData) => {
     setState((prev) => ({ ...prev, isLoading: true }));
     const result = await backendApi.addUser(userData);
 
     if (result instanceof Error) {
-      setState({ data: null, isLoading: false, error: result });
+      handleError(setState, result);
     } else {
-      setState({ data: result, isLoading: false, error: null });
+      handleSuccess(setState, result);
     }
   }, []);
 
@@ -204,24 +277,24 @@ export const usePatchUser = () => {
 };
 
 /**
- * Hook to fetch available campaign filter options.
- * Returns possible values for filtering campaigns (e.g., categories, statuses).
+ * Campaign Management API Hooks
+ */
+
+/**
+ * Hook for fetching campaign filter options
+ * Returns available filters for campaign data
  */
 export const useCampaignFilterOptions = () => {
-  const [state, setState] = useState<HookState<CampaignFilterOptions>>({
-    data: null,
-    isLoading: false,
-    error: null,
-  });
+  const [state, setState] = useState<HookState<CampaignFilterOptions>>(createInitialState());
 
   const fetchFilterOptions = useCallback(async () => {
     setState((prev) => ({ ...prev, isLoading: true }));
     const result = await backendApi.fetchCampaignFilterOptions();
 
     if (result instanceof Error) {
-      setState({ data: null, isLoading: false, error: result });
+      handleError(setState, result);
     } else {
-      setState({ data: result, isLoading: false, error: null });
+      handleSuccess(setState, result);
     }
   }, []);
 
@@ -305,25 +378,24 @@ export const useMonthlyAggregatedData = () => {
 };
 
 /**
- * Hook to fetch channel contribution data for the stacked column chart.
- * Returns percentage contribution of each channel to different metrics (spending, views, etc.)
- * Uses data from the latest 3 months.
+ * Analytics API Hooks
+ */
+
+/**
+ * Hook for fetching channel contribution data
+ * Returns channel performance metrics for visualization
  */
 export const useChannelContribution = () => {
-  const [state, setState] = useState<HookState<ChannelContributionData>>({
-    data: null,
-    isLoading: false,
-    error: null,
-  });
+  const [state, setState] = useState<HookState<ChannelContributionData>>(createInitialState());
 
   const fetchChannelContribution = useCallback(async () => {
     setState((prev) => ({ ...prev, isLoading: true }));
     const result = await backendApi.fetchChannelContribution();
 
     if (result instanceof Error) {
-      setState({ data: null, isLoading: false, error: result });
+      handleError(setState, result);
     } else {
-      setState({ data: result, isLoading: false, error: null });
+      handleSuccess(setState, result);
     }
   }, []);
 
@@ -404,6 +476,56 @@ export const useLatestMonthRevenue = () => {
   }, []);
 
   return { ...state, fetchLatestMonthRevenue };
+};
+
+/**
+ * Prophet Pipeline API Hooks
+ */
+
+/**
+ * Hook for managing the Prophet prediction pipeline
+ * Provides functionality to trigger predictions and check status
+ */
+export const useProphetPipelineTrigger = () => {
+  const [state, setState] = useState<HookState<ProphetPipelineResponse>>(createInitialState());
+
+  const triggerPipeline = useCallback(async () => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.triggerProphetPipeline();
+
+    if (result instanceof Error) {
+      handleError(setState, result);
+    } else {
+      handleSuccess(setState, result);
+    }
+  }, []);
+
+  return { ...state, triggerPipeline };
+};
+
+/**
+ * Hook to check the status of the Prophet prediction pipeline.
+ * Returns a function to check the current status and status information.
+ */
+export const useProphetPipelineStatus = () => {
+  const [state, setState] = useState<HookState<ProphetPipelineResponse>>({
+    data: null,
+    isLoading: false,
+    error: null,
+  });
+
+  const checkStatus = useCallback(async () => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.checkProphetPipelineStatus();
+
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
+    }
+  }, []);
+
+  return { ...state, checkStatus };
 };
 
 /**
@@ -529,54 +651,4 @@ export const useLatestTwelveMonths = () => {
   }, []);
 
   return { ...state, fetchLatestTwelveMonths };
-};
-
-/**
- * Hook to trigger the Prophet prediction pipeline.
- * Returns a function to start the prediction process and status information.
- */
-export const useProphetPipelineTrigger = () => {
-  const [state, setState] = useState<HookState<ProphetPipelineResponse>>({
-    data: null,
-    isLoading: false,
-    error: null,
-  });
-
-  const triggerPipeline = useCallback(async () => {
-    setState((prev) => ({ ...prev, isLoading: true }));
-    const result = await backendApi.triggerProphetPipeline();
-
-    if (result instanceof Error) {
-      setState({ data: null, isLoading: false, error: result });
-    } else {
-      setState({ data: result, isLoading: false, error: null });
-    }
-  }, []);
-
-  return { ...state, triggerPipeline };
-};
-
-/**
- * Hook to check the status of the Prophet prediction pipeline.
- * Returns a function to check the current status and status information.
- */
-export const useProphetPipelineStatus = () => {
-  const [state, setState] = useState<HookState<ProphetPipelineResponse>>({
-    data: null,
-    isLoading: false,
-    error: null,
-  });
-
-  const checkStatus = useCallback(async () => {
-    setState((prev) => ({ ...prev, isLoading: true }));
-    const result = await backendApi.checkProphetPipelineStatus();
-
-    if (result instanceof Error) {
-      setState({ data: null, isLoading: false, error: result });
-    } else {
-      setState({ data: result, isLoading: false, error: null });
-    }
-  }, []);
-
-  return { ...state, checkStatus };
 };

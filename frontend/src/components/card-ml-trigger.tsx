@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
 
-import { PlayCircle } from 'lucide-react';
+import { Info, PlayCircle } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardTitle } from '@/components/ui/card';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 
 import { useProphetPipelineStatus, useProphetPipelineTrigger } from '@/hooks/use-backend-api';
 
@@ -76,11 +77,29 @@ export function CardMLTrigger() {
   return (
     <Card>
       <CardContent className="pt-6 flex flex-col gap-6">
-        <div className="flex items-center gap-4">
-          <div className="rounded-full bg-secondary p-3">
-            <PlayCircle className="h-6 w-6" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="rounded-full bg-secondary p-3">
+              <PlayCircle className="h-6 w-6" />
+            </div>
+            <CardTitle>Prophet ML</CardTitle>
           </div>
-          <CardTitle>Prophet ML</CardTitle>
+          <HoverCard>
+            <HoverCardTrigger asChild>
+              <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+            </HoverCardTrigger>
+            <HoverCardContent className="w-80">
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold">Prophet ML Model</h4>
+                <p className="text-sm text-muted-foreground">
+                  This triggers Facebook&apos;s Prophet machine learning model to analyze your
+                  historical advertising data and generate predictions for future revenue, ad spend,
+                  and ROI. The model identifies patterns and trends to help optimize your
+                  advertising strategy.
+                </p>
+              </div>
+            </HoverCardContent>
+          </HoverCard>
         </div>
         <div className="flex flex-col gap-2 ">
           <div className="text-sm text-muted-foreground mt-1">{getStatusDisplay()}</div>

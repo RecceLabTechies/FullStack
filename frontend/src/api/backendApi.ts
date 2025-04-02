@@ -1,7 +1,7 @@
 /**
  * This module contains all API calls to the backend server.
- * It provides functions for interacting with users, campaigns, and database operations.
- * All functions handle errors gracefully and return either the expected data or an Error object.
+ * It provides functions for interacting with users, campaigns, analytics, and database operations.
+ * All functions use a consistent error handling pattern, returning either the expected data or an Error object.
  */
 import {
   type CampaignFilterOptions,
@@ -29,22 +29,36 @@ import axios from 'axios';
 const API_BASE_URL = 'http://localhost:5001';
 
 /**
- * Database Structure API Section
+ * Standard API response interface used across endpoints
+ */
+interface ApiResponse<T> {
+  data: T;
+  status: number;
+  success: boolean;
+}
+
+/**
+ * User response interfaces
+ */
+interface UserResponse {
+  message: string;
+  id?: string;
+}
+
+/**
+ * Database Structure API
  */
 
 /**
- * Fetches the current database structure from the backend
- * @returns Promise resolving to DbStructure containing tables and relationships
+ * Fetches the current database structure
+ * @returns Database structure containing tables and relationships
  */
 export const fetchDbStructure = async (): Promise<DbStructure | Error> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/v1/database/structure`);
-    const apiResponse = response.data as {
-      data: DbStructure;
-      status: number;
-      success: boolean;
-    };
-    return apiResponse.data;
+    const response = await axios.get<ApiResponse<DbStructure>>(
+      `${API_BASE_URL}/api/v1/database/structure`
+    );
+    return response.data.data;
   } catch (error) {
     console.error('Failed to fetch database structure', error);
     return new Error('Failed to fetch database structure');
@@ -52,13 +66,13 @@ export const fetchDbStructure = async (): Promise<DbStructure | Error> => {
 };
 
 /**
- * User Management API Section
+ * User Management API
  */
 
 /**
- * Fetches users from the backend
- * @param username Optional - If provided, fetches a specific user
- * @returns Promise resolving to either a single user or array of users
+ * Fetches all users or a specific user if username is provided
+ * @param username Optional - Username to fetch a specific user
+ * @returns All users or a specific user
  */
 export const fetchUsers = async (username?: string): Promise<UserData[] | UserData | Error> => {
   try {
@@ -74,17 +88,13 @@ export const fetchUsers = async (username?: string): Promise<UserData[] | UserDa
 };
 
 /**
- * Creates a new user in the system
- * @param user User data object containing all required user information
- * @returns Promise resolving to a success message or error
+ * Creates a new user
+ * @param user User data with all required fields
+ * @returns Success message
  */
 export const addUser = async (user: UserData): Promise<string | Error> => {
   try {
-    interface AddUserResponse {
-      message: string;
-      id?: string;
-    }
-    const response = await axios.post<AddUserResponse>(`${API_BASE_URL}/api/v1/users`, user);
+    const response = await axios.post<UserResponse>(`${API_BASE_URL}/api/v1/users`, user);
     return response.data.message;
   } catch (error) {
     console.error('Failed to add user', error);
@@ -93,14 +103,14 @@ export const addUser = async (user: UserData): Promise<string | Error> => {
 };
 
 /**
- * Retrieves a specific user by their username
- * @param username The unique username to search for
- * @returns Promise resolving to the user data or error
+ * Fetches a user by username
+ * @param username Username to search for
+ * @returns User data
  */
 export const fetchUserByUsername = async (username: string): Promise<UserData | Error> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/v1/users/${username}`);
-    return response.data as UserData;
+    const response = await axios.get<UserData>(`${API_BASE_URL}/api/v1/users/${username}`);
+    return response.data;
   } catch (error) {
     console.error('Failed to fetch user by username', error);
     return new Error('Failed to fetch user by username');
@@ -108,17 +118,14 @@ export const fetchUserByUsername = async (username: string): Promise<UserData | 
 };
 
 /**
- * Updates all fields of an existing user
- * @param username The username of the user to update
- * @param userData Complete user data object with new values
- * @returns Promise resolving to a success message or error
+ * Updates all fields of a user
+ * @param username Username of the user to update
+ * @param userData Complete user data with new values
+ * @returns Success message
  */
 export const updateUser = async (username: string, userData: UserData): Promise<string | Error> => {
   try {
-    interface UpdateUserResponse {
-      message: string;
-    }
-    const response = await axios.put<UpdateUserResponse>(
+    const response = await axios.put<UserResponse>(
       `${API_BASE_URL}/api/v1/users/${username}`,
       userData
     );
@@ -130,18 +137,13 @@ export const updateUser = async (username: string, userData: UserData): Promise<
 };
 
 /**
- * Removes a user from the system
- * @param username The username of the user to delete
- * @returns Promise resolving to a success message or error
+ * Deletes a user
+ * @param username Username of the user to delete
+ * @returns Success message
  */
 export const deleteUser = async (username: string): Promise<string | Error> => {
   try {
-    interface DeleteUserResponse {
-      message: string;
-    }
-    const response = await axios.delete<DeleteUserResponse>(
-      `${API_BASE_URL}/api/v1/users/${username}`
-    );
+    const response = await axios.delete<UserResponse>(`${API_BASE_URL}/api/v1/users/${username}`);
     return response.data.message;
   } catch (error) {
     console.error('Failed to delete user', error);
@@ -150,20 +152,17 @@ export const deleteUser = async (username: string): Promise<string | Error> => {
 };
 
 /**
- * Partially updates a user's information
- * @param username The username of the user to update
- * @param patchData Object containing only the fields to be updated
- * @returns Promise resolving to a success message or error
+ * Partially updates a user
+ * @param username Username of the user to update
+ * @param patchData Fields to update
+ * @returns Success message
  */
 export const patchUser = async (
   username: string,
   patchData: Partial<UserData>
 ): Promise<string | Error> => {
   try {
-    interface PatchUserResponse {
-      message: string;
-    }
-    const response = await axios.patch<PatchUserResponse>(
+    const response = await axios.patch<UserResponse>(
       `${API_BASE_URL}/api/v1/users/${username}`,
       patchData
     );
@@ -175,20 +174,18 @@ export const patchUser = async (
 };
 
 /**
- * Campaign Management API Section
+ * Campaign Management API
  */
 
 /**
- * Retrieves available filter options for campaigns
- * @returns Promise resolving to campaign filter options or error
+ * Fetches available campaign filter options
+ * @returns Available filter options for campaigns
  */
 export const fetchCampaignFilterOptions = async (): Promise<CampaignFilterOptions | Error> => {
   try {
-    const response = await axios.get<{
-      data: CampaignFilterOptions;
-      status: number;
-      success: boolean;
-    }>(`${API_BASE_URL}/api/v1/campaigns/filter-options`);
+    const response = await axios.get<ApiResponse<CampaignFilterOptions>>(
+      `${API_BASE_URL}/api/v1/campaigns/filter-options`
+    );
     return response.data.data;
   } catch (error) {
     console.error('Failed to fetch campaign filter options', error);
@@ -197,9 +194,9 @@ export const fetchCampaignFilterOptions = async (): Promise<CampaignFilterOption
 };
 
 /**
- * Fetches filtered campaign data based on provided criteria
- * @param filters Object containing filter parameters for campaigns
- * @returns Promise resolving to filtered campaign data or error
+ * Fetches filtered campaign data
+ * @param filters Filter parameters for campaigns
+ * @returns Filtered campaign data
  */
 export const fetchCampaigns = async (filters: CampaignFilters): Promise<FilterResponse | Error> => {
   try {
@@ -212,19 +209,18 @@ export const fetchCampaigns = async (filters: CampaignFilters): Promise<FilterRe
 };
 
 /**
- * Retrieves aggregated monthly performance data for campaigns
- * @param filters Filter criteria for the monthly aggregation
- * @returns Promise resolving to monthly performance metrics or error
+ * Fetches aggregated monthly performance data
+ * @param filters Filter criteria for aggregation
+ * @returns Monthly performance metrics
  */
 export const fetchMonthlyAggregatedData = async (
   filters: CampaignFilters
 ): Promise<MonthlyPerformanceData | Error> => {
   try {
-    const response = await axios.post<{
-      data: MonthlyPerformanceData;
-      status: number;
-      success: boolean;
-    }>(`${API_BASE_URL}/api/v1/campaigns/monthly-aggregated`, filters);
+    const response = await axios.post<ApiResponse<MonthlyPerformanceData>>(
+      `${API_BASE_URL}/api/v1/campaigns/monthly-aggregated`,
+      filters
+    );
     return response.data.data;
   } catch (error) {
     console.error('Failed to fetch monthly aggregated data', error);
@@ -233,13 +229,13 @@ export const fetchMonthlyAggregatedData = async (
 };
 
 /**
- * Data Import API Section
+ * Data Import API
  */
 
 /**
- * Uploads and processes a CSV file for data import
- * @param file The CSV file to be uploaded
- * @returns Promise resolving to upload response containing processing results
+ * Uploads and processes a CSV file
+ * @param file CSV file to upload
+ * @returns Processing results
  */
 export const uploadCsv = async (file: File): Promise<CsvUploadResponse | Error> => {
   try {
@@ -263,20 +259,18 @@ export const uploadCsv = async (file: File): Promise<CsvUploadResponse | Error> 
 };
 
 /**
- * Analytics API Section
+ * Analytics API
  */
 
 /**
- * Fetches channel contribution data for various metrics over the latest 3 months
- * @returns Promise resolving to channel contribution data or error
+ * Fetches channel contribution data for the latest 3 months
+ * @returns Channel contribution metrics
  */
 export const fetchChannelContribution = async (): Promise<ChannelContributionData | Error> => {
   try {
-    const response = await axios.get<{
-      data: ChannelContributionData;
-      status: number;
-      success: boolean;
-    }>(`${API_BASE_URL}/api/v1/campaigns/channel-contribution`);
+    const response = await axios.get<ApiResponse<ChannelContributionData>>(
+      `${API_BASE_URL}/api/v1/campaigns/channel-contribution`
+    );
     return response.data.data;
   } catch (error) {
     console.error('Failed to fetch channel contribution data', error);
@@ -285,16 +279,14 @@ export const fetchChannelContribution = async (): Promise<ChannelContributionDat
 };
 
 /**
- * Fetches cost metrics heatmap data showing different cost metrics by channel
- * @returns Promise resolving to cost metrics heatmap data or error
+ * Fetches cost metrics heatmap data
+ * @returns Cost metrics by channel
  */
 export const fetchCostMetricsHeatmap = async (): Promise<CostMetricsHeatmapData | Error> => {
   try {
-    const response = await axios.get<{
-      data: CostMetricsHeatmapData;
-      status: number;
-      success: boolean;
-    }>(`${API_BASE_URL}/api/v1/campaigns/cost-metrics-heatmap`);
+    const response = await axios.get<ApiResponse<CostMetricsHeatmapData>>(
+      `${API_BASE_URL}/api/v1/campaigns/cost-metrics-heatmap`
+    );
     return response.data.data;
   } catch (error) {
     console.error('Failed to fetch cost metrics heatmap data', error);
@@ -303,16 +295,14 @@ export const fetchCostMetricsHeatmap = async (): Promise<CostMetricsHeatmapData 
 };
 
 /**
- * Fetches ROI (Return on Investment) for the latest month
- * @returns Promise resolving to latest month's ROI data or error
+ * Fetches ROI for the latest month
+ * @returns Latest month's ROI data
  */
 export const fetchLatestMonthROI = async (): Promise<LatestMonthROI | Error> => {
   try {
-    const response = await axios.get<{
-      data: LatestMonthROI;
-      status: number;
-      success: boolean;
-    }>(`${API_BASE_URL}/api/v1/campaigns/latest-month-roi`);
+    const response = await axios.get<ApiResponse<LatestMonthROI>>(
+      `${API_BASE_URL}/api/v1/campaigns/latest-month-roi`
+    );
     return response.data.data;
   } catch (error) {
     console.error('Failed to fetch latest month ROI', error);
@@ -321,16 +311,14 @@ export const fetchLatestMonthROI = async (): Promise<LatestMonthROI | Error> => 
 };
 
 /**
- * Fetches total revenue for the latest month
- * @returns Promise resolving to latest month's revenue data or error
+ * Fetches revenue for the latest month
+ * @returns Latest month's revenue data
  */
 export const fetchLatestMonthRevenue = async (): Promise<LatestMonthRevenue | Error> => {
   try {
-    const response = await axios.get<{
-      data: LatestMonthRevenue;
-      status: number;
-      success: boolean;
-    }>(`${API_BASE_URL}/api/v1/campaigns/latest-month-revenue`);
+    const response = await axios.get<ApiResponse<LatestMonthRevenue>>(
+      `${API_BASE_URL}/api/v1/campaigns/latest-month-revenue`
+    );
     return response.data.data;
   } catch (error) {
     console.error('Failed to fetch latest month revenue', error);
@@ -339,10 +327,10 @@ export const fetchLatestMonthRevenue = async (): Promise<LatestMonthRevenue | Er
 };
 
 /**
- * Fetches prophet prediction data, optionally filtered by date range.
- * @param fromDate Optional start date as Unix timestamp
- * @param toDate Optional end date as Unix timestamp
- * @returns Promise resolving to prophet prediction data or error
+ * Fetches prophet prediction data
+ * @param fromDate Optional start date (Unix timestamp)
+ * @param toDate Optional end date (Unix timestamp)
+ * @returns Prophet prediction data
  */
 export const fetchProphetPredictions = async (
   fromDate?: number,
@@ -368,17 +356,14 @@ export const fetchProphetPredictions = async (
 };
 
 /**
- * Fetches monthly data aggregated by channel for charting purposes.
- * Returns revenue and ad spend metrics per month per channel.
- * @returns Promise resolving to monthly channel data or error
+ * Fetches monthly data by channel
+ * @returns Revenue and ad spend per month per channel
  */
 export const fetchMonthlyChannelData = async (): Promise<MonthlyChannelData | Error> => {
   try {
-    const response = await axios.get<{
-      data: MonthlyChannelData;
-      status: number;
-      success: boolean;
-    }>(`${API_BASE_URL}/api/v1/campaigns/monthly-channel-data`);
+    const response = await axios.get<ApiResponse<MonthlyChannelData>>(
+      `${API_BASE_URL}/api/v1/campaigns/monthly-channel-data`
+    );
     return response.data.data;
   } catch (error) {
     console.error('Failed to fetch monthly channel data', error);
@@ -387,17 +372,14 @@ export const fetchMonthlyChannelData = async (): Promise<MonthlyChannelData | Er
 };
 
 /**
- * Fetches monthly data aggregated by age group for charting purposes.
- * Returns revenue and ad spend metrics per month per age group.
- * @returns Promise resolving to monthly age group data or error
+ * Fetches monthly data by age group
+ * @returns Revenue and ad spend per month per age group
  */
 export const fetchMonthlyAgeData = async (): Promise<MonthlyAgeData | Error> => {
   try {
-    const response = await axios.get<{
-      data: MonthlyAgeData;
-      status: number;
-      success: boolean;
-    }>(`${API_BASE_URL}/api/v1/campaigns/monthly-age-data`);
+    const response = await axios.get<ApiResponse<MonthlyAgeData>>(
+      `${API_BASE_URL}/api/v1/campaigns/monthly-age-data`
+    );
     return response.data.data;
   } catch (error) {
     console.error('Failed to fetch monthly age group data', error);
@@ -406,17 +388,14 @@ export const fetchMonthlyAgeData = async (): Promise<MonthlyAgeData | Error> => 
 };
 
 /**
- * Fetches monthly data aggregated by country for charting purposes.
- * Returns revenue and ad spend metrics per month per country.
- * @returns Promise resolving to monthly country data or error
+ * Fetches monthly data by country
+ * @returns Revenue and ad spend per month per country
  */
 export const fetchMonthlyCountryData = async (): Promise<MonthlyCountryData | Error> => {
   try {
-    const response = await axios.get<{
-      data: MonthlyCountryData;
-      status: number;
-      success: boolean;
-    }>(`${API_BASE_URL}/api/v1/campaigns/monthly-country-data`);
+    const response = await axios.get<ApiResponse<MonthlyCountryData>>(
+      `${API_BASE_URL}/api/v1/campaigns/monthly-country-data`
+    );
     return response.data.data;
   } catch (error) {
     console.error('Failed to fetch monthly country data', error);
@@ -425,16 +404,14 @@ export const fetchMonthlyCountryData = async (): Promise<MonthlyCountryData | Er
 };
 
 /**
- * Fetches the latest 12 months of aggregated data with date, revenue and ad spend.
- * @returns Promise resolving to latest twelve months data or error
+ * Fetches data for the latest 12 months
+ * @returns Date, revenue and ad spend for the last 12 months
  */
 export const fetchLatestTwelveMonths = async (): Promise<LatestTwelveMonthsData | Error> => {
   try {
-    const response = await axios.get<{
-      data: LatestTwelveMonthsData;
-      status: number;
-      success: boolean;
-    }>(`${API_BASE_URL}/api/v1/campaigns/latest-twelve-months`);
+    const response = await axios.get<ApiResponse<LatestTwelveMonthsData>>(
+      `${API_BASE_URL}/api/v1/campaigns/latest-twelve-months`
+    );
     return response.data.data;
   } catch (error) {
     console.error('Failed to fetch latest twelve months data', error);
@@ -443,14 +420,12 @@ export const fetchLatestTwelveMonths = async (): Promise<LatestTwelveMonthsData 
 };
 
 /**
- * Prophet Pipeline API Section
+ * Prophet Pipeline API
  */
 
 /**
- * Triggers the Prophet prediction pipeline to run in the background.
- * The pipeline will fetch data from campaign_performance collection,
- * run predictions, and store results in prophet_predictions collection.
- * @returns Promise resolving to status message or error
+ * Triggers the Prophet prediction pipeline
+ * @returns Pipeline status message
  */
 export const triggerProphetPipeline = async (): Promise<ProphetPipelineResponse | Error> => {
   try {
@@ -465,8 +440,8 @@ export const triggerProphetPipeline = async (): Promise<ProphetPipelineResponse 
 };
 
 /**
- * Checks the current status of the Prophet prediction pipeline.
- * @returns Promise resolving to pipeline status or error
+ * Checks the Prophet prediction pipeline status
+ * @returns Current pipeline status
  */
 export const checkProphetPipelineStatus = async (): Promise<ProphetPipelineResponse | Error> => {
   try {
