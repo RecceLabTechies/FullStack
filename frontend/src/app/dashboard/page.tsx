@@ -239,177 +239,184 @@ export default function DashboardPage() {
         <MetricsRevenueCard />
         <MetricsROICard />
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Filter Campaigns</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-5 gap-2">
-              {/* Date Range Filter */}
-              <FormField
-                control={form.control}
-                name="dateRange"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Date Range</FormLabel>
-                    <FormControl>
-                      <DatePickerWithRange
-                        onRangeChange={field.onChange}
-                        minDate={moment.unix(filterOptions.date_range.min_date).toDate()}
-                        maxDate={moment.unix(filterOptions.date_range.max_date).toDate()}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
-              {/* Age Groups Filter */}
-              <FormField
-                control={form.control}
-                name="ageGroups"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Age Groups</FormLabel>
-                    <FormControl>
-                      <MultiSelect
-                        options={filterOptions.categorical.age_groups.map((group) => ({
-                          label: group,
-                          value: group,
-                        }))}
-                        onValueChange={field.onChange}
-                        placeholder="Select age groups"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+      <div className="flex gap-4">
+        {/* Revenue & Ad Spend Chart */}
+        <Card className="w-full">
+          <CardHeader>
+            <CardTitle>Revenue & Ad Spend Overview</CardTitle>
+            <CardDescription>
+              Monthly comparison of revenue generated versus advertising expenditure
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {monthlyDataError ? (
+              <div className="flex h-[400px] w-full items-center justify-center text-muted-foreground">
+                {monthlyDataError.message}
+              </div>
+            ) : isLoadingMonthlyData ? (
+              <div className="flex h-[400px] w-full items-center justify-center text-muted-foreground">
+                Loading...
+              </div>
+            ) : chartData.length === 0 ? (
+              <div className="flex h-[400px] w-full items-center justify-center text-muted-foreground">
+                No data available for the selected filters
+              </div>
+            ) : (
+              <div className="h-[400px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={chartData}
+                    margin={{
+                      top: 5,
+                      right: 30,
+                      left: 20,
+                      bottom: 5,
+                    }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="revenue"
+                      stroke="#8884d8"
+                      activeDot={{ r: 8 }}
+                      name="Revenue"
+                    />
+                    <Line type="monotone" dataKey="ad_spend" stroke="#82ca9d" name="Ad Spend" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-              {/* Channels Filter */}
-              <FormField
-                control={form.control}
-                name="channels"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Channels</FormLabel>
-                    <FormControl>
-                      <MultiSelect
-                        options={filterOptions.categorical.channels.map((channel) => ({
-                          label: channel,
-                          value: channel,
-                        }))}
-                        onValueChange={field.onChange}
-                        placeholder="Select channels"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+        <Card className="w-1/4">
+          <CardHeader>
+            <CardDescription>
+              Filter Revenue & Ad Spend Chart by date range, age groups, channels, countries, and
+              campaign IDs
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-2">
+                {/* Date Range Filter */}
+                <FormField
+                  control={form.control}
+                  name="dateRange"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date Range</FormLabel>
+                      <FormControl>
+                        <DatePickerWithRange
+                          onRangeChange={field.onChange}
+                          minDate={moment.unix(filterOptions.date_range.min_date).toDate()}
+                          maxDate={moment.unix(filterOptions.date_range.max_date).toDate()}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              {/* Countries Filter */}
-              <FormField
-                control={form.control}
-                name="countries"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Countries</FormLabel>
-                    <FormControl>
-                      <MultiSelect
-                        options={filterOptions.categorical.countries.map((country) => ({
-                          label: country,
-                          value: country,
-                        }))}
-                        onValueChange={field.onChange}
-                        placeholder="Select countries"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                {/* Age Groups Filter */}
+                <FormField
+                  control={form.control}
+                  name="ageGroups"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Age Groups</FormLabel>
+                      <FormControl>
+                        <MultiSelect
+                          options={filterOptions.categorical.age_groups.map((group) => ({
+                            label: group,
+                            value: group,
+                          }))}
+                          onValueChange={field.onChange}
+                          placeholder="Select age groups"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              {/* Campaign IDs Filter */}
-              <FormField
-                control={form.control}
-                name="campaignIds"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Campaigns</FormLabel>
-                    <FormControl>
-                      <MultiSelect
-                        options={filterOptions.categorical.campaign_ids.map((id) => ({
-                          label: id,
-                          value: id,
-                        }))}
-                        onValueChange={field.onChange}
-                        placeholder="Select campaigns"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="submit">Apply Filters</Button>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
+                {/* Channels Filter */}
+                <FormField
+                  control={form.control}
+                  name="channels"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Channels</FormLabel>
+                      <FormControl>
+                        <MultiSelect
+                          options={filterOptions.categorical.channels.map((channel) => ({
+                            label: channel,
+                            value: channel,
+                          }))}
+                          onValueChange={field.onChange}
+                          placeholder="Select channels"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-      {/* Revenue & Ad Spend Chart */}
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle>Revenue & Ad Spend Overview</CardTitle>
-          <CardDescription>
-            Monthly comparison of revenue generated versus advertising expenditure
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {monthlyDataError ? (
-            <div className="flex h-[400px] w-full items-center justify-center text-muted-foreground">
-              {monthlyDataError.message}
-            </div>
-          ) : isLoadingMonthlyData ? (
-            <div className="flex h-[400px] w-full items-center justify-center text-muted-foreground">
-              Loading...
-            </div>
-          ) : chartData.length === 0 ? (
-            <div className="flex h-[400px] w-full items-center justify-center text-muted-foreground">
-              No data available for the selected filters
-            </div>
-          ) : (
-            <div className="h-[400px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                  data={chartData}
-                  margin={{
-                    top: 5,
-                    right: 30,
-                    left: 20,
-                    bottom: 5,
-                  }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="revenue"
-                    stroke="#8884d8"
-                    activeDot={{ r: 8 }}
-                    name="Revenue"
-                  />
-                  <Line type="monotone" dataKey="ad_spend" stroke="#82ca9d" name="Ad Spend" />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                {/* Countries Filter */}
+                <FormField
+                  control={form.control}
+                  name="countries"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Countries</FormLabel>
+                      <FormControl>
+                        <MultiSelect
+                          options={filterOptions.categorical.countries.map((country) => ({
+                            label: country,
+                            value: country,
+                          }))}
+                          onValueChange={field.onChange}
+                          placeholder="Select countries"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Campaign IDs Filter */}
+                <FormField
+                  control={form.control}
+                  name="campaignIds"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Campaigns</FormLabel>
+                      <FormControl>
+                        <MultiSelect
+                          options={filterOptions.categorical.campaign_ids.map((id) => ({
+                            label: id,
+                            value: id,
+                          }))}
+                          onValueChange={field.onChange}
+                          placeholder="Select campaigns"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit">Apply Filters</Button>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         <ChannelContributionChart />
         <CostMetricsHeatmap />
