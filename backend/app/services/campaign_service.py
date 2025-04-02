@@ -776,3 +776,336 @@ def get_latest_month_revenue() -> Dict:
     except Exception as e:
         logger.error(f"Error calculating revenue: {e}")
         return {"revenue": 0, "month": None, "year": None, "error": str(e)}
+
+
+def get_monthly_age_data() -> Dict:
+    """
+    Get monthly data aggregated by age group for charting purposes.
+    Returns revenue and ad spend metrics per month per age group.
+
+    Returns:
+        Dict: Dictionary containing:
+            - months: List of months as timestamps
+            - age_groups: List of available age groups
+            - revenue: Dictionary with age group keys and monthly revenue arrays
+            - ad_spend: Dictionary with age group keys and monthly ad spend arrays
+    """
+    try:
+        # Get all distinct age groups
+        age_groups = CampaignModel.get_distinct("age_group")
+
+        # Aggregate the data by month and age group
+        pipeline = [
+            # Group by month and age group, calculating sums
+            {
+                "$group": {
+                    "_id": {
+                        # Extract year and month to group by month
+                        "year": {"$year": {"$toDate": {"$multiply": ["$date", 1000]}}},
+                        "month": {
+                            "$month": {"$toDate": {"$multiply": ["$date", 1000]}}
+                        },
+                        "age_group": "$age_group",
+                    },
+                    "revenue": {"$sum": "$revenue"},
+                    "ad_spend": {"$sum": "$ad_spend"},
+                    # Get the first date in each month (for display purposes)
+                    "date": {"$first": "$date"},
+                }
+            },
+            # Sort by date and age group
+            {"$sort": {"_id.year": 1, "_id.month": 1, "_id.age_group": 1}},
+        ]
+
+        results = CampaignModel.aggregate(pipeline)
+
+        # Transform the data to be suitable for Recharts
+        months = []
+        revenue_by_age = {age_group: [] for age_group in age_groups}
+        ad_spend_by_age = {age_group: [] for age_group in age_groups}
+
+        # Group by month first
+        month_data = {}
+        for item in results:
+            date_key = (item["_id"]["year"], item["_id"]["month"])
+            age_group = item["_id"]["age_group"]
+
+            if date_key not in month_data:
+                month_data[date_key] = {"date": item["date"], "age_groups": {}}
+
+            month_data[date_key]["age_groups"][age_group] = {
+                "revenue": item["revenue"],
+                "ad_spend": item["ad_spend"],
+            }
+
+        # Sort months and fill in the data
+        sorted_months = sorted(month_data.keys())
+        for month_key in sorted_months:
+            month_timestamp = month_data[month_key]["date"]
+            months.append(month_timestamp)
+
+            # For each age group, get its data for this month
+            for age_group in age_groups:
+                if age_group in month_data[month_key]["age_groups"]:
+                    age_data = month_data[month_key]["age_groups"][age_group]
+                    revenue_by_age[age_group].append(age_data["revenue"])
+                    ad_spend_by_age[age_group].append(age_data["ad_spend"])
+                else:
+                    # Age group has no data for this month, add 0
+                    revenue_by_age[age_group].append(0)
+                    ad_spend_by_age[age_group].append(0)
+
+        return {
+            "months": months,
+            "age_groups": age_groups,
+            "revenue": revenue_by_age,
+            "ad_spend": ad_spend_by_age,
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting monthly age group data: {e}")
+        raise
+
+
+def get_monthly_channel_data() -> Dict:
+    """
+    Get monthly data aggregated by channel for charting purposes.
+    Returns revenue and ad spend metrics per month per channel.
+
+    Returns:
+        Dict: Dictionary containing:
+            - months: List of months as timestamps
+            - channels: List of available channels
+            - revenue: Dictionary with channel keys and monthly revenue arrays
+            - ad_spend: Dictionary with channel keys and monthly ad spend arrays
+    """
+    try:
+        # Get all distinct channels
+        channels = CampaignModel.get_distinct("channel")
+
+        # Aggregate the data by month and channel
+        pipeline = [
+            # Group by month and channel, calculating sums
+            {
+                "$group": {
+                    "_id": {
+                        # Extract year and month to group by month
+                        "year": {"$year": {"$toDate": {"$multiply": ["$date", 1000]}}},
+                        "month": {
+                            "$month": {"$toDate": {"$multiply": ["$date", 1000]}}
+                        },
+                        "channel": "$channel",
+                    },
+                    "revenue": {"$sum": "$revenue"},
+                    "ad_spend": {"$sum": "$ad_spend"},
+                    # Get the first date in each month (for display purposes)
+                    "date": {"$first": "$date"},
+                }
+            },
+            # Sort by date and channel
+            {"$sort": {"_id.year": 1, "_id.month": 1, "_id.channel": 1}},
+        ]
+
+        results = CampaignModel.aggregate(pipeline)
+
+        # Transform the data to be suitable for Recharts
+        months = []
+        revenue_by_channel = {channel: [] for channel in channels}
+        ad_spend_by_channel = {channel: [] for channel in channels}
+
+        # Group by month first
+        month_data = {}
+        for item in results:
+            date_key = (item["_id"]["year"], item["_id"]["month"])
+            channel = item["_id"]["channel"]
+
+            if date_key not in month_data:
+                month_data[date_key] = {"date": item["date"], "channels": {}}
+
+            month_data[date_key]["channels"][channel] = {
+                "revenue": item["revenue"],
+                "ad_spend": item["ad_spend"],
+            }
+
+        # Sort months and fill in the data
+        sorted_months = sorted(month_data.keys())
+        for month_key in sorted_months:
+            month_timestamp = month_data[month_key]["date"]
+            months.append(month_timestamp)
+
+            # For each channel, get its data for this month
+            for channel in channels:
+                if channel in month_data[month_key]["channels"]:
+                    channel_data = month_data[month_key]["channels"][channel]
+                    revenue_by_channel[channel].append(channel_data["revenue"])
+                    ad_spend_by_channel[channel].append(channel_data["ad_spend"])
+                else:
+                    # Channel has no data for this month, add 0
+                    revenue_by_channel[channel].append(0)
+                    ad_spend_by_channel[channel].append(0)
+
+        return {
+            "months": months,
+            "channels": channels,
+            "revenue": revenue_by_channel,
+            "ad_spend": ad_spend_by_channel,
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting monthly channel data: {e}")
+        raise
+
+
+def get_monthly_country_data() -> Dict:
+    """
+    Get monthly data aggregated by country for charting purposes.
+    Returns revenue and ad spend metrics per month per country.
+
+    Returns:
+        Dict: Dictionary containing:
+            - months: List of months as timestamps
+            - countries: List of available countries
+            - revenue: Dictionary with country keys and monthly revenue arrays
+            - ad_spend: Dictionary with country keys and monthly ad spend arrays
+    """
+    try:
+        # Get all distinct countries
+        countries = CampaignModel.get_distinct("country")
+
+        # Aggregate the data by month and country
+        pipeline = [
+            # Group by month and country, calculating sums
+            {
+                "$group": {
+                    "_id": {
+                        # Extract year and month to group by month
+                        "year": {"$year": {"$toDate": {"$multiply": ["$date", 1000]}}},
+                        "month": {
+                            "$month": {"$toDate": {"$multiply": ["$date", 1000]}}
+                        },
+                        "country": "$country",
+                    },
+                    "revenue": {"$sum": "$revenue"},
+                    "ad_spend": {"$sum": "$ad_spend"},
+                    # Get the first date in each month (for display purposes)
+                    "date": {"$first": "$date"},
+                }
+            },
+            # Sort by date and country
+            {"$sort": {"_id.year": 1, "_id.month": 1, "_id.country": 1}},
+        ]
+
+        results = CampaignModel.aggregate(pipeline)
+
+        # Transform the data to be suitable for Recharts
+        months = []
+        revenue_by_country = {country: [] for country in countries}
+        ad_spend_by_country = {country: [] for country in countries}
+
+        # Group by month first
+        month_data = {}
+        for item in results:
+            date_key = (item["_id"]["year"], item["_id"]["month"])
+            country = item["_id"]["country"]
+
+            if date_key not in month_data:
+                month_data[date_key] = {"date": item["date"], "countries": {}}
+
+            month_data[date_key]["countries"][country] = {
+                "revenue": item["revenue"],
+                "ad_spend": item["ad_spend"],
+            }
+
+        # Sort months and fill in the data
+        sorted_months = sorted(month_data.keys())
+        for month_key in sorted_months:
+            month_timestamp = month_data[month_key]["date"]
+            months.append(month_timestamp)
+
+            # For each country, get its data for this month
+            for country in countries:
+                if country in month_data[month_key]["countries"]:
+                    country_data = month_data[month_key]["countries"][country]
+                    revenue_by_country[country].append(country_data["revenue"])
+                    ad_spend_by_country[country].append(country_data["ad_spend"])
+                else:
+                    # Country has no data for this month, add 0
+                    revenue_by_country[country].append(0)
+                    ad_spend_by_country[country].append(0)
+
+        return {
+            "months": months,
+            "countries": countries,
+            "revenue": revenue_by_country,
+            "ad_spend": ad_spend_by_country,
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting monthly country data: {e}")
+        raise
+
+
+def get_latest_twelve_months_data() -> Dict:
+    """
+    Get the latest 12 months of aggregated data, including only date, revenue and ad spend.
+
+    Returns:
+        Dict: Dictionary containing:
+            - items: List of dictionaries with date, revenue, and ad_spend for each month
+    """
+    try:
+        # Aggregate the data by month
+        pipeline = [
+            # Group by month, calculating sums
+            {
+                "$group": {
+                    "_id": {
+                        # Extract year and month to group by month
+                        "year": {"$year": {"$toDate": {"$multiply": ["$date", 1000]}}},
+                        "month": {
+                            "$month": {"$toDate": {"$multiply": ["$date", 1000]}}
+                        },
+                    },
+                    "revenue": {"$sum": "$revenue"},
+                    "ad_spend": {"$sum": "$ad_spend"},
+                    "new_accounts": {"$sum": "$new_accounts"},
+                    # Get the first date in each month (for display purposes)
+                    "date": {"$first": "$date"},
+                }
+            },
+            # Sort by date descending to get latest months first
+            {"$sort": {"_id.year": -1, "_id.month": -1}},
+            # Limit to 12 months
+            {"$limit": 12},
+            # Project to final format
+            {
+                "$project": {
+                    "_id": 0,
+                    "date": "$date",
+                    "revenue": "$revenue",
+                    "ad_spend": "$ad_spend",
+                    "new_accounts": "$new_accounts",
+                }
+            },
+            # Sort by date ascending for consistent display
+            {"$sort": {"date": 1}},
+        ]
+
+        results = CampaignModel.aggregate(pipeline)
+
+        # Convert to list and round numbers
+        items = [
+            {
+                "date": item["date"],
+                "revenue": round(item["revenue"], 3),
+                "ad_spend": round(item["ad_spend"], 3),
+                "new_accounts": round(item["new_accounts"]),
+            }
+            for item in results
+        ]
+
+        return {"items": items}
+
+    except Exception as e:
+        logger.error(f"Error getting latest twelve months data: {e}")
+        raise

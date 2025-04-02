@@ -13,7 +13,14 @@ import {
   type FilterResponse,
   type LatestMonthRevenue,
   type LatestMonthROI,
+  type LatestTwelveMonthsData,
+  type MonthlyAgeData,
+  type MonthlyChannelData,
+  type MonthlyCountryData,
   type MonthlyPerformanceData,
+  type ProphetPipelineResponse,
+  type ProphetPredictionData,
+  type ProphetPredictionResponse,
   type UserData,
 } from '@/types/types';
 import axios from 'axios';
@@ -328,5 +335,147 @@ export const fetchLatestMonthRevenue = async (): Promise<LatestMonthRevenue | Er
   } catch (error) {
     console.error('Failed to fetch latest month revenue', error);
     return new Error('Failed to fetch latest month revenue');
+  }
+};
+
+/**
+ * Fetches prophet prediction data, optionally filtered by date range.
+ * @param fromDate Optional start date as Unix timestamp
+ * @param toDate Optional end date as Unix timestamp
+ * @returns Promise resolving to prophet prediction data or error
+ */
+export const fetchProphetPredictions = async (
+  fromDate?: number,
+  toDate?: number
+): Promise<ProphetPredictionData[] | Error> => {
+  try {
+    const params = new URLSearchParams();
+    if (fromDate) params.append('from_date', fromDate.toString());
+    if (toDate) params.append('to_date', toDate.toString());
+
+    const response = await axios.get<ProphetPredictionResponse>(
+      `${API_BASE_URL}/api/v1/prophet-predictions?${params.toString()}`
+    );
+
+    if (response.data.success && response.data.data?.data) {
+      return response.data.data.data;
+    }
+    throw new Error('Invalid response format from prophet predictions API');
+  } catch (error) {
+    console.error('Failed to fetch prophet predictions', error);
+    return new Error('Failed to fetch prophet predictions');
+  }
+};
+
+/**
+ * Fetches monthly data aggregated by channel for charting purposes.
+ * Returns revenue and ad spend metrics per month per channel.
+ * @returns Promise resolving to monthly channel data or error
+ */
+export const fetchMonthlyChannelData = async (): Promise<MonthlyChannelData | Error> => {
+  try {
+    const response = await axios.get<{
+      data: MonthlyChannelData;
+      status: number;
+      success: boolean;
+    }>(`${API_BASE_URL}/api/v1/campaigns/monthly-channel-data`);
+    return response.data.data;
+  } catch (error) {
+    console.error('Failed to fetch monthly channel data', error);
+    return new Error('Failed to fetch monthly channel data');
+  }
+};
+
+/**
+ * Fetches monthly data aggregated by age group for charting purposes.
+ * Returns revenue and ad spend metrics per month per age group.
+ * @returns Promise resolving to monthly age group data or error
+ */
+export const fetchMonthlyAgeData = async (): Promise<MonthlyAgeData | Error> => {
+  try {
+    const response = await axios.get<{
+      data: MonthlyAgeData;
+      status: number;
+      success: boolean;
+    }>(`${API_BASE_URL}/api/v1/campaigns/monthly-age-data`);
+    return response.data.data;
+  } catch (error) {
+    console.error('Failed to fetch monthly age group data', error);
+    return new Error('Failed to fetch monthly age group data');
+  }
+};
+
+/**
+ * Fetches monthly data aggregated by country for charting purposes.
+ * Returns revenue and ad spend metrics per month per country.
+ * @returns Promise resolving to monthly country data or error
+ */
+export const fetchMonthlyCountryData = async (): Promise<MonthlyCountryData | Error> => {
+  try {
+    const response = await axios.get<{
+      data: MonthlyCountryData;
+      status: number;
+      success: boolean;
+    }>(`${API_BASE_URL}/api/v1/campaigns/monthly-country-data`);
+    return response.data.data;
+  } catch (error) {
+    console.error('Failed to fetch monthly country data', error);
+    return new Error('Failed to fetch monthly country data');
+  }
+};
+
+/**
+ * Fetches the latest 12 months of aggregated data with date, revenue and ad spend.
+ * @returns Promise resolving to latest twelve months data or error
+ */
+export const fetchLatestTwelveMonths = async (): Promise<LatestTwelveMonthsData | Error> => {
+  try {
+    const response = await axios.get<{
+      data: LatestTwelveMonthsData;
+      status: number;
+      success: boolean;
+    }>(`${API_BASE_URL}/api/v1/campaigns/latest-twelve-months`);
+    return response.data.data;
+  } catch (error) {
+    console.error('Failed to fetch latest twelve months data', error);
+    return new Error('Failed to fetch latest twelve months data');
+  }
+};
+
+/**
+ * Prophet Pipeline API Section
+ */
+
+/**
+ * Triggers the Prophet prediction pipeline to run in the background.
+ * The pipeline will fetch data from campaign_performance collection,
+ * run predictions, and store results in prophet_predictions collection.
+ * @returns Promise resolving to status message or error
+ */
+export const triggerProphetPipeline = async (): Promise<ProphetPipelineResponse | Error> => {
+  try {
+    const response = await axios.post<ProphetPipelineResponse>(
+      `${API_BASE_URL}/api/v1/prophet-pipeline/trigger`
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Failed to trigger Prophet pipeline', error);
+    return new Error('Failed to trigger Prophet pipeline');
+  }
+};
+
+/**
+ * Checks the current status of the Prophet prediction pipeline.
+ * @returns Promise resolving to pipeline status or error
+ */
+export const checkProphetPipelineStatus = async (): Promise<ProphetPipelineResponse | Error> => {
+  try {
+    const response = await axios.get<ProphetPipelineResponse>(
+      `${API_BASE_URL}/api/v1/prophet-pipeline/status`
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Failed to check Prophet pipeline status', error);
+    return new Error('Failed to check Prophet pipeline status');
   }
 };

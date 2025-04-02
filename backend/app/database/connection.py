@@ -47,3 +47,7 @@ def get_users_collection():
 
 def get_campaign_performance_collection():
     return Database.get_collection("campaign_performance")
+
+
+def get_prophet_prediction_collection():
+    return Database.get_collection("prophet_predictions")

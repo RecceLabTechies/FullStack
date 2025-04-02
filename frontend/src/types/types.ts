@@ -96,6 +96,15 @@ export interface MonthlyPerformanceData {
   filters: CampaignFilters;
 }
 
+export interface LatestTwelveMonthsData {
+  items: {
+    date: number;
+    revenue: number;
+    ad_spend: number;
+    new_accounts: number;
+  }[];
+}
+
 // Channel contribution data interfaces
 interface ChannelMetricValues {
   metric: string;
@@ -153,4 +162,52 @@ export interface LatestMonthRevenue {
   month: number;
   year: number;
   error: string | null;
+}
+
+export interface ProphetPredictionData {
+  date: number;
+  revenue: number;
+  ad_spend: number;
+  new_accounts: number;
+}
+
+export interface ProphetPredictionResponse {
+  data: {
+    count: number;
+    data: ProphetPredictionData[];
+  };
+  status: number;
+  success: boolean;
+}
+
+export interface MonthlyChannelData {
+  months: number[];
+  channels: string[];
+  revenue: Record<string, number[]>;
+  ad_spend: Record<string, number[]>;
+}
+
+export interface MonthlyAgeData {
+  months: number[];
+  age_groups: string[];
+  revenue: Record<string, number[]>;
+  ad_spend: Record<string, number[]>;
+}
+
+/**
+ * Monthly data aggregated by country for charting purposes.
+ */
+export interface MonthlyCountryData {
+  months: number[]; // Array of Unix timestamps
+  countries: string[]; // Array of country names
+  revenue: Record<string, number[]>; // Map of country to revenue values per month
+  ad_spend: Record<string, number[]>; // Map of country to ad spend values per month
+}
+
+/**
+ * Response type for Prophet pipeline trigger and status endpoints
+ */
+export interface ProphetPipelineResponse {
+  status: 'started' | 'in_progress' | 'success' | 'error' | 'idle';
+  message: string;
 }

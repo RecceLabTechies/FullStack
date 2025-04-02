@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import { DollarSign } from 'lucide-react';
+import { CircleDollarSign } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -31,7 +31,7 @@ export function MetricsRevenueCard() {
       <CardContent className="pt-6">
         <div className="flex items-center gap-4">
           <div className="rounded-full bg-secondary p-3">
-            <DollarSign className="h-6 w-6" />
+            <CircleDollarSign className="h-6 w-6" />
           </div>
         </div>
         <div className="mt-4">

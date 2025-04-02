@@ -11,7 +11,13 @@ import {
   type FilterResponse,
   type LatestMonthRevenue,
   type LatestMonthROI,
+  type LatestTwelveMonthsData,
+  type MonthlyAgeData,
+  type MonthlyChannelData,
+  type MonthlyCountryData,
   type MonthlyPerformanceData,
+  type ProphetPipelineResponse,
+  type ProphetPredictionData,
   type UserData,
 } from '@/types/types';
 
@@ -398,4 +404,179 @@ export const useLatestMonthRevenue = () => {
   }, []);
 
   return { ...state, fetchLatestMonthRevenue };
+};
+
+/**
+ * Hook to fetch prophet prediction data.
+ * Returns data optionally filtered by date range.
+ */
+export const useProphetPredictions = () => {
+  const [state, setState] = useState<HookState<ProphetPredictionData[]>>({
+    data: null,
+    isLoading: false,
+    error: null,
+  });
+
+  const fetchPredictions = useCallback(async (fromDate?: number, toDate?: number) => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.fetchProphetPredictions(fromDate, toDate);
+
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
+    }
+  }, []);
+
+  return { ...state, fetchPredictions };
+};
+
+/**
+ * Hook to fetch monthly data aggregated by channel for charting purposes.
+ * Returns revenue and ad spend metrics per month per channel.
+ */
+export const useMonthlyChannelData = () => {
+  const [state, setState] = useState<HookState<MonthlyChannelData>>({
+    data: null,
+    isLoading: false,
+    error: null,
+  });
+
+  const fetchMonthlyChannelData = useCallback(async () => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.fetchMonthlyChannelData();
+
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
+    }
+  }, []);
+
+  return { ...state, fetchMonthlyChannelData };
+};
+
+/**
+ * Hook to fetch monthly data aggregated by age group for charting purposes.
+ * Returns revenue and ad spend metrics per month per age group.
+ */
+export const useMonthlyAgeData = () => {
+  const [state, setState] = useState<HookState<MonthlyAgeData>>({
+    data: null,
+    isLoading: false,
+    error: null,
+  });
+
+  const fetchMonthlyAgeData = useCallback(async () => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.fetchMonthlyAgeData();
+
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
+    }
+  }, []);
+
+  return { ...state, fetchMonthlyAgeData };
+};
+
+/**
+ * Hook to fetch monthly data aggregated by country for charting purposes.
+ * Returns revenue and ad spend metrics per month per country.
+ */
+export const useMonthlyCountryData = () => {
+  const [state, setState] = useState<HookState<MonthlyCountryData>>({
+    data: null,
+    isLoading: false,
+    error: null,
+  });
+
+  const fetchMonthlyCountryData = useCallback(async () => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.fetchMonthlyCountryData();
+
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
+    }
+  }, []);
+
+  return { ...state, fetchMonthlyCountryData };
+};
+
+/**
+ * Hook to fetch the latest 12 months of aggregated data.
+ * Returns date, revenue and ad spend for each month.
+ */
+export const useLatestTwelveMonths = () => {
+  const [state, setState] = useState<HookState<LatestTwelveMonthsData>>({
+    data: null,
+    isLoading: false,
+    error: null,
+  });
+
+  const fetchLatestTwelveMonths = useCallback(async () => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.fetchLatestTwelveMonths();
+
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
+    }
+  }, []);
+
+  return { ...state, fetchLatestTwelveMonths };
+};
+
+/**
+ * Hook to trigger the Prophet prediction pipeline.
+ * Returns a function to start the prediction process and status information.
+ */
+export const useProphetPipelineTrigger = () => {
+  const [state, setState] = useState<HookState<ProphetPipelineResponse>>({
+    data: null,
+    isLoading: false,
+    error: null,
+  });
+
+  const triggerPipeline = useCallback(async () => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.triggerProphetPipeline();
+
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
+    }
+  }, []);
+
+  return { ...state, triggerPipeline };
+};
+
+/**
+ * Hook to check the status of the Prophet prediction pipeline.
+ * Returns a function to check the current status and status information.
+ */
+export const useProphetPipelineStatus = () => {
+  const [state, setState] = useState<HookState<ProphetPipelineResponse>>({
+    data: null,
+    isLoading: false,
+    error: null,
+  });
+
+  const checkStatus = useCallback(async () => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.checkProphetPipelineStatus();
+
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
+    }
+  }, []);
+
+  return { ...state, checkStatus };
 };

@@ -17,6 +17,10 @@ from app.services.campaign_service import (
     get_cost_metrics_heatmap,
     get_latest_month_roi,
     get_latest_month_revenue,
+    get_monthly_age_data,
+    get_monthly_channel_data,
+    get_monthly_country_data,
+    get_latest_twelve_months_data,
 )
 from app.utils.data_processing import (
     find_matching_collection,
@@ -24,6 +28,8 @@ from app.utils.data_processing import (
     process_csv_data,
 )
 from app.data_types import CampaignData
+import threading
+from app.services.prophet_service import run_prophet_prediction, get_prediction_status
 
 # Create blueprint
 data_bp = Blueprint("data_routes", __name__)
@@ -552,6 +558,126 @@ def get_latest_month_revenue_route():
     return format_response(data)
 
 
+@data_bp.route("/api/v1/prophet-predictions", methods=["GET"])
+@handle_exceptions
+def get_prophet_predictions():
+    """
+    Retrieve prophet prediction data, optionally filtered by date range.
+    """
+    try:
+        # Get date range filters if provided
+        from_date = request.args.get("from_date", type=float)
+        to_date = request.args.get("to_date", type=float)
+
+        # Import here to avoid circular imports
+        from app.models.prophet_prediction import ProphetPredictionModel
+
+        # Retrieve data based on filters
+        if from_date and to_date:
+            logger.info(f"Retrieving prophet predictions from {from_date} to {to_date}")
+            predictions = ProphetPredictionModel.get_date_range(from_date, to_date)
+        else:
+            logger.info("Retrieving all prophet predictions")
+            predictions = ProphetPredictionModel.get_all()
+
+        # Return the data
+        return format_response({"data": predictions, "count": len(predictions)})
+
+    except Exception as e:
+        logger.error(f"Error retrieving prophet predictions: {e}")
+        return error_response(500, f"Internal server error: {str(e)}", "server_error")
+
+
+@data_bp.route("/api/v1/campaigns/monthly-channel-data", methods=["GET"])
+@handle_exceptions
+def get_monthly_channel_data_route():
+    """
+    Get monthly data aggregated by channel for charting purposes.
+    Returns revenue and ad spend metrics per month per channel.
+
+    Returns:
+        JSON object containing:
+        - months: List of months as timestamps
+        - channels: List of available channels
+        - revenue: Dictionary with channel keys and monthly revenue arrays
+        - ad_spend: Dictionary with channel keys and monthly ad spend arrays
+    """
+    try:
+
+        data = get_monthly_channel_data()
+        return format_response(data)
+
+    except Exception as e:
+        logger.error(f"Error getting monthly channel data: {e}")
+        return error_response(500, f"Internal server error: {str(e)}", "server_error")
+
+
+@data_bp.route("/api/v1/campaigns/monthly-age-data", methods=["GET"])
+@handle_exceptions
+def get_monthly_age_data_route():
+    """
+    Get monthly data aggregated by age group for charting purposes.
+    Returns revenue and ad spend metrics per month per age group.
+
+    Returns:
+        JSON object containing:
+        - months: List of months as timestamps
+        - age_groups: List of available age groups
+        - revenue: Dictionary with age group keys and monthly revenue arrays
+        - ad_spend: Dictionary with age group keys and monthly ad spend arrays
+    """
+    try:
+
+        data = get_monthly_age_data()
+        return format_response(data)
+
+    except Exception as e:
+        logger.error(f"Error getting monthly age group data: {e}")
+        return error_response(500, f"Internal server error: {str(e)}", "server_error")
+
+
+@data_bp.route("/api/v1/campaigns/monthly-country-data", methods=["GET"])
+@handle_exceptions
+def get_monthly_country_data_route():
+    """
+    Get monthly data aggregated by country for charting purposes.
+    Returns revenue and ad spend metrics per month per country.
+
+    Returns:
+        JSON object containing:
+        - months: List of months as timestamps
+        - countries: List of available countries
+        - revenue: Dictionary with country keys and monthly revenue arrays
+        - ad_spend: Dictionary with country keys and monthly ad spend arrays
+    """
+    try:
+        data = get_monthly_country_data()
+        return format_response(data)
+
+    except Exception as e:
+        logger.error(f"Error getting monthly country data: {e}")
+        return error_response(500, f"Internal server error: {str(e)}", "server_error")
+
+
+@data_bp.route("/api/v1/campaigns/latest-twelve-months", methods=["GET"])
+@handle_exceptions
+def get_latest_twelve_months_route():
+    """
+    Get the latest 12 months of aggregated data, including only date, revenue and ad spend.
+
+    Returns:
+        JSON object containing:
+        - items: List of dictionaries with date, revenue, and ad_spend for each month
+    """
+    try:
+        data = get_latest_twelve_months_data()
+        return format_response(data)
+
+    except Exception as e:
+        logger.error(f"Error getting latest twelve months data: {e}")
+        return error_response(500, f"Internal server error: {str(e)}", "server_error")
+
+
 # ----------------------------------------------------------------
 # CSV import endpoints
 # ----------------------------------------------------------------
@@ -585,12 +711,14 @@ def handle_csv_import():
         # Process the CSV file
         try:
             # Process CSV data
-            records, is_campaign_data, default_collection_name = process_csv_data(file)
+            records, is_structured_data, default_collection_name = process_csv_data(
+                file
+            )
 
             # Find matching collection for data
             matching_collection, collection_name, found_match = (
                 find_matching_collection(
-                    records, is_campaign_data, default_collection_name
+                    records, is_structured_data, default_collection_name
                 )
             )
 
@@ -632,3 +760,72 @@ def handle_csv_import():
     except Exception as e:
         logger.error(f"Error uploading CSV: {e}")
         return format_response({"error": str(e)}, 500)
+
+
+@data_bp.route("/api/v1/prophet-pipeline/trigger", methods=["POST"])
+def trigger_prophet_pipeline():
+    """
+    Trigger the prophet prediction pipeline.
+    This endpoint starts a long-running background task that will:
+    1. Fetch data from campaign_performance collection
+    2. Process it and run the Prophet model
+    3. Delete existing data in prophet_predictions collection
+    4. Insert new prediction data
+
+    The task runs asynchronously, so this endpoint returns immediately.
+
+    Returns:
+        JSON: Status of the operation
+    """
+    try:
+        logger.info("Received request to trigger Prophet pipeline")
+
+        # Start prediction in a background thread
+        def run_prediction_thread():
+            run_prophet_prediction()
+
+        thread = threading.Thread(target=run_prediction_thread)
+        thread.daemon = True  # Thread will exit when main thread exits
+        thread.start()
+
+        return (
+            jsonify(
+                {
+                    "status": "started",
+                    "message": "Prophet prediction pipeline started in background",
+                }
+            ),
+            202,
+        )  # 202 Accepted
+    except Exception as e:
+        logger.error(f"Error triggering Prophet pipeline: {e}")
+        return (
+            jsonify(
+                {"status": "error", "message": f"Failed to start prediction: {str(e)}"}
+            ),
+            500,
+        )
+
+
+@data_bp.route("/api/v1/prophet-pipeline/status", methods=["GET"])
+def check_prophet_pipeline_status():
+    """
+    Check the status of the Prophet prediction pipeline.
+
+    Returns:
+        JSON: Current status of the prediction pipeline
+    """
+    try:
+        status = get_prediction_status()
+        return jsonify(status), 200
+    except Exception as e:
+        logger.error(f"Error checking prediction status: {e}")
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "message": f"Failed to check prediction status: {str(e)}",
+                }
+            ),
+            500,
+        )

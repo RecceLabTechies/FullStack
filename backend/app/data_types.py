@@ -153,3 +153,20 @@ class UserData(CsvDataModel):
         "report_generation_access": DataTypeConverter.to_bool,
         "user_management_access": DataTypeConverter.to_bool,
     }
+
+
+@dataclass
+class ProphetPredictionData(CsvDataModel):
+    """Data model for prophet prediction data matching the prophet_prediction_data.csv structure."""
+
+    date: int
+    revenue: float
+    ad_spend: float
+    new_accounts: float
+
+    field_converters: ClassVar[Dict[str, Callable]] = {
+        "date": DataTypeConverter.to_timestamp_int,
+        "revenue": DataTypeConverter.to_float,
+        "ad_spend": DataTypeConverter.to_float,
+        "new_accounts": DataTypeConverter.to_float,
+    }
