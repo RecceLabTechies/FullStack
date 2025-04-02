@@ -154,3 +154,10 @@ export interface LatestMonthRevenue {
   year: number;
   error: string | null;
 }
+
+export interface ProphetPredictionData {
+  date: number;
+  revenue: number;
+  ad_spend: number;
+  new_accounts: number;
+}

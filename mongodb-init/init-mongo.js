@@ -83,3 +83,33 @@ if (!campaignCollectionExists) {
     "Campaign performance collection already exists. Skipping initialization."
   );
 }
+
+// Check if the prophet_predictions collection exists
+const prophetPredictionsExists = collections.includes("prophet_predictions");
+
+// If the prophet_predictions collection doesn't exist, create it and set up schema
+if (!prophetPredictionsExists) {
+  print("Prophet predictions collection does not exist. Creating it...");
+
+  // Create a validator for the collection to enforce schema
+  db.createCollection("prophet_predictions", {
+    validator: {
+      $jsonSchema: {
+        bsonType: "object",
+        required: ["date", "revenue", "ad_spend", "new_accounts"],
+        properties: {
+          date: { bsonType: "int" },
+          revenue: { bsonType: "double" },
+          ad_spend: { bsonType: "double" },
+          new_accounts: { bsonType: "double" },
+        },
+      },
+    },
+  });
+
+  print("Prophet predictions collection created with schema validation.");
+} else {
+  print(
+    "Prophet predictions collection already exists. Skipping initialization."
+  );
+}

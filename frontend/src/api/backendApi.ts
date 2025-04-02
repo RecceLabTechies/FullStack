@@ -14,6 +14,7 @@ import {
   type LatestMonthRevenue,
   type LatestMonthROI,
   type MonthlyPerformanceData,
+  type ProphetPredictionData,
   type UserData,
 } from '@/types/types';
 import axios from 'axios';
@@ -328,5 +329,31 @@ export const fetchLatestMonthRevenue = async (): Promise<LatestMonthRevenue | Er
   } catch (error) {
     console.error('Failed to fetch latest month revenue', error);
     return new Error('Failed to fetch latest month revenue');
+  }
+};
+
+/**
+ * Fetches prophet prediction data, optionally filtered by date range.
+ * @param fromDate Optional start date as Unix timestamp
+ * @param toDate Optional end date as Unix timestamp
+ * @returns Promise resolving to prophet prediction data or error
+ */
+export const fetchProphetPredictions = async (
+  fromDate?: number,
+  toDate?: number
+): Promise<ProphetPredictionData[] | Error> => {
+  try {
+    const params = new URLSearchParams();
+    if (fromDate) params.append('from_date', fromDate.toString());
+    if (toDate) params.append('to_date', toDate.toString());
+
+    const response = await axios.get<{
+      data: ProphetPredictionData[];
+      count: number;
+    }>(`${API_BASE_URL}/api/v1/prophet-predictions?${params.toString()}`);
+    return response.data.data;
+  } catch (error) {
+    console.error('Failed to fetch prophet predictions', error);
+    return new Error('Failed to fetch prophet predictions');
   }
 };

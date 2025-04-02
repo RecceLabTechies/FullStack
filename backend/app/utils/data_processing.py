@@ -4,8 +4,11 @@ import logging
 from io import StringIO
 from bson import json_util
 from werkzeug.utils import secure_filename
-from app.data_types import CampaignData
-from app.database.schema import matches_campaign_schema
+from app.data_types import CampaignData, ProphetPredictionData
+from app.database.schema import (
+    matches_campaign_schema,
+    matches_prophet_prediction_schema,
+)
 from app.database.connection import Database
 
 logger = logging.getLogger(__name__)
@@ -37,15 +40,20 @@ def process_csv_data(file):
 
     # Check if this matches known data models
     is_campaign_data = matches_campaign_schema(csv_field_names)
+    is_prophet_data = matches_prophet_prediction_schema(csv_field_names)
 
     if is_campaign_data:
         logger.info("CSV matches CampaignData schema")
         records = process_campaign_data(records)
         default_collection_name = "campaign_performance"
+    elif is_prophet_data:
+        logger.info("CSV matches ProphetPredictionData schema")
+        records = process_prophet_prediction_data(records)
+        default_collection_name = "prophet_predictions"
     else:
         default_collection_name = secure_filename(file.filename).replace(".csv", "")
 
-    return records, is_campaign_data, default_collection_name
+    return records, is_campaign_data or is_prophet_data, default_collection_name
 
 
 def process_campaign_data(records):
@@ -91,13 +99,50 @@ def process_campaign_data(records):
     return valid_records
 
 
-def find_matching_collection(records, is_campaign_data, default_collection_name):
+def process_prophet_prediction_data(records):
+    """
+    Process prophet prediction data records with type conversions using ProphetPredictionData model
+
+    Args:
+        records: List of prophet prediction data records
+
+    Returns:
+        list: Processed records
+    """
+    valid_records = []
+    original_count = len(records)
+
+    for record in records:
+        try:
+            # Use ProphetPredictionData class for validation and type conversion
+            prediction_obj = ProphetPredictionData(**record)
+            # Convert object to dict for MongoDB insertion
+            processed_record = {
+                "date": prediction_obj.date,
+                "revenue": prediction_obj.revenue,
+                "ad_spend": prediction_obj.ad_spend,
+                "new_accounts": prediction_obj.new_accounts,
+            }
+            valid_records.append(processed_record)
+        except Exception as e:
+            logger.warning(f"Error processing prophet prediction record: {e}")
+            continue
+
+    if len(valid_records) < original_count:
+        logger.warning(
+            f"Filtered out {original_count - len(valid_records)} invalid records"
+        )
+
+    return valid_records
+
+
+def find_matching_collection(records, is_structured_data, default_collection_name):
     """
     Find a collection that matches the schema of the records
 
     Args:
         records: List of data records
-        is_campaign_data: Whether this is campaign data
+        is_structured_data: Whether this is campaign or prophet prediction data
         default_collection_name: Default collection name to use
 
     Returns:
@@ -111,17 +156,20 @@ def find_matching_collection(records, is_campaign_data, default_collection_name)
     # Get all collections in the database
     collections = Database.list_collections()
 
-    for coll_name in collections:
-        # Skip matching if this is campaign data - we always use campaign_performance
-        if is_campaign_data and coll_name == "campaign_performance":
-            matching_collection = Database.get_collection(coll_name)
-            collection_name = coll_name
-            found_match = True
-            logger.info("Using existing campaign_performance collection")
-            break
+    # First check known collections based on default_collection_name
+    if is_structured_data and default_collection_name in [
+        "campaign_performance",
+        "prophet_predictions",
+    ]:
+        matching_collection = Database.get_collection(default_collection_name)
+        collection_name = default_collection_name
+        found_match = True
+        logger.info(f"Using existing {default_collection_name} collection")
+        return matching_collection, collection_name, found_match
 
-        # For non-campaign data, check schema match with existing collections
-        if not is_campaign_data:
+    # For non-structured data, check schema match with existing collections
+    if not is_structured_data:
+        for coll_name in collections:
             # Get a sample document to check schema
             sample_doc = Database.get_collection(coll_name).find_one({}, {"_id": 0})
 
@@ -139,14 +187,8 @@ def find_matching_collection(records, is_campaign_data, default_collection_name)
 
     # If no matching collection found, create a new one
     if not found_match:
-        # For CampaignData, use "campaign_performance" as the collection name
-        if is_campaign_data:
-            collection_name = "campaign_performance"
-        else:
-            collection_name = default_collection_name
-
-        matching_collection = Database.get_collection(collection_name)
-        logger.info(f"Creating new collection: {collection_name}")
+        matching_collection = Database.get_collection(default_collection_name)
+        logger.info(f"Creating new collection: {default_collection_name}")
 
     return matching_collection, collection_name, found_match
 

@@ -12,6 +12,7 @@ import {
   type LatestMonthRevenue,
   type LatestMonthROI,
   type MonthlyPerformanceData,
+  type ProphetPredictionData,
   type UserData,
 } from '@/types/types';
 
@@ -398,4 +399,29 @@ export const useLatestMonthRevenue = () => {
   }, []);
 
   return { ...state, fetchLatestMonthRevenue };
+};
+
+/**
+ * Hook to fetch prophet prediction data.
+ * Returns data optionally filtered by date range.
+ */
+export const useProphetPredictions = () => {
+  const [state, setState] = useState<HookState<ProphetPredictionData[]>>({
+    data: null,
+    isLoading: false,
+    error: null,
+  });
+
+  const fetchPredictions = useCallback(async (fromDate?: number, toDate?: number) => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.fetchProphetPredictions(fromDate, toDate);
+
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
+    }
+  }, []);
+
+  return { ...state, fetchPredictions };
 };

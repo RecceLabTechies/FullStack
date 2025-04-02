@@ -585,12 +585,14 @@ def handle_csv_import():
         # Process the CSV file
         try:
             # Process CSV data
-            records, is_campaign_data, default_collection_name = process_csv_data(file)
+            records, is_structured_data, default_collection_name = process_csv_data(
+                file
+            )
 
             # Find matching collection for data
             matching_collection, collection_name, found_match = (
                 find_matching_collection(
-                    records, is_campaign_data, default_collection_name
+                    records, is_structured_data, default_collection_name
                 )
             )
 
@@ -632,3 +634,33 @@ def handle_csv_import():
     except Exception as e:
         logger.error(f"Error uploading CSV: {e}")
         return format_response({"error": str(e)}, 500)
+
+
+@data_bp.route("/api/v1/prophet-predictions", methods=["GET"])
+@handle_exceptions
+def get_prophet_predictions():
+    """
+    Retrieve prophet prediction data, optionally filtered by date range.
+    """
+    try:
+        # Get date range filters if provided
+        from_date = request.args.get("from_date", type=float)
+        to_date = request.args.get("to_date", type=float)
+
+        # Import here to avoid circular imports
+        from app.models.prophet_prediction import ProphetPredictionModel
+
+        # Retrieve data based on filters
+        if from_date and to_date:
+            logger.info(f"Retrieving prophet predictions from {from_date} to {to_date}")
+            predictions = ProphetPredictionModel.get_date_range(from_date, to_date)
+        else:
+            logger.info("Retrieving all prophet predictions")
+            predictions = ProphetPredictionModel.get_all()
+
+        # Return the data
+        return format_response({"data": predictions, "count": len(predictions)})
+
+    except Exception as e:
+        logger.error(f"Error retrieving prophet predictions: {e}")
+        return error_response(500, f"Internal server error: {str(e)}", "server_error")
