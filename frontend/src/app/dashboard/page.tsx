@@ -7,6 +7,7 @@ import { MetricsPredictedRevenueCard } from '@/components/card-metrics-predicted
 import { MetricsPredictedROICard } from '@/components/card-metrics-predicted-roi';
 import { MetricsRevenueCard } from '@/components/card-metrics-revenue';
 import { MetricsROICard } from '@/components/card-metrics-roi';
+import { CardMLTrigger } from '@/components/card-ml-trigger';
 import ChannelContributionChart from '@/components/chart-channel-contribution';
 import { CostMetricsHeatmap } from '@/components/chart-cost-metrics-heatmap';
 import { RevenueAdSpendChart } from '@/components/chart-filter-revenue-adspend';
@@ -21,11 +22,12 @@ export default function DashboardPage() {
     <ProphetPredictionsProvider>
       <div className="flex flex-col container gap-4 mx-auto pb-4">
         {/* Summary Cards */}
-        <section className="grid grid-cols-4 gap-4">
+        <section className="grid grid-cols-5 gap-4">
           <MetricsRevenueCard />
           <MetricsROICard />
           <MetricsPredictedRevenueCard />
           <MetricsPredictedROICard />
+          <CardMLTrigger />
         </section>
 
         {/* ML Predictions Chart */}

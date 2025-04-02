@@ -18,6 +18,7 @@ import {
   type MonthlyChannelData,
   type MonthlyCountryData,
   type MonthlyPerformanceData,
+  type ProphetPipelineResponse,
   type ProphetPredictionData,
   type ProphetPredictionResponse,
   type UserData,
@@ -438,5 +439,43 @@ export const fetchLatestTwelveMonths = async (): Promise<LatestTwelveMonthsData 
   } catch (error) {
     console.error('Failed to fetch latest twelve months data', error);
     return new Error('Failed to fetch latest twelve months data');
+  }
+};
+
+/**
+ * Prophet Pipeline API Section
+ */
+
+/**
+ * Triggers the Prophet prediction pipeline to run in the background.
+ * The pipeline will fetch data from campaign_performance collection,
+ * run predictions, and store results in prophet_predictions collection.
+ * @returns Promise resolving to status message or error
+ */
+export const triggerProphetPipeline = async (): Promise<ProphetPipelineResponse | Error> => {
+  try {
+    const response = await axios.post<ProphetPipelineResponse>(
+      `${API_BASE_URL}/api/v1/prophet-pipeline/trigger`
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Failed to trigger Prophet pipeline', error);
+    return new Error('Failed to trigger Prophet pipeline');
+  }
+};
+
+/**
+ * Checks the current status of the Prophet prediction pipeline.
+ * @returns Promise resolving to pipeline status or error
+ */
+export const checkProphetPipelineStatus = async (): Promise<ProphetPipelineResponse | Error> => {
+  try {
+    const response = await axios.get<ProphetPipelineResponse>(
+      `${API_BASE_URL}/api/v1/prophet-pipeline/status`
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Failed to check Prophet pipeline status', error);
+    return new Error('Failed to check Prophet pipeline status');
   }
 };

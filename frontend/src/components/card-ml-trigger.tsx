@@ -1,0 +1,109 @@
+import { useEffect } from 'react';
+
+import { PlayCircle } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
+import { useProphetPipelineStatus, useProphetPipelineTrigger } from '@/hooks/use-backend-api';
+
+export function CardMLTrigger() {
+  const {
+    data: statusData,
+    error: statusError,
+    isLoading: isStatusLoading,
+    checkStatus,
+  } = useProphetPipelineStatus();
+  const {
+    error: triggerError,
+    isLoading: isTriggerLoading,
+    triggerPipeline,
+  } = useProphetPipelineTrigger();
+
+  // Function to handle pipeline trigger
+  const handleTriggerPipeline = async () => {
+    await triggerPipeline();
+    // Immediately check status after triggering
+    await checkStatus();
+  };
+
+  // Effect for polling status when needed
+  useEffect(() => {
+    // Check status immediately on mount
+    void checkStatus();
+
+    // Set up polling if status is in_progress or started
+    if (statusData?.status === 'in_progress' || statusData?.status === 'started') {
+      const intervalId = setInterval(() => {
+        void checkStatus();
+      }, 5000); // Poll every 5 seconds
+
+      // Cleanup interval on unmount or when polling should stop
+      return () => clearInterval(intervalId);
+    }
+  }, [checkStatus, statusData?.status]); // Only depend on the status value
+
+  // Determine status display
+  const getStatusDisplay = () => {
+    if (isStatusLoading) {
+      return <p className="text-muted-foreground">Checking status...</p>;
+    }
+
+    if (statusError) {
+      return <p className="text-destructive">Error checking status</p>;
+    }
+
+    if (!statusData) {
+      return <p className="text-muted-foreground">No status available</p>;
+    }
+
+    switch (statusData.status) {
+      case 'in_progress':
+        return <p className="text-blue-500">Prediction in progress...</p>;
+      case 'started':
+        return <p className="text-blue-500">Starting prediction...</p>;
+      case 'success':
+        return <p className="text-green-500">Prediction completed</p>;
+      case 'error':
+        return <p className="text-destructive">Error: {statusData.message}</p>;
+      case 'idle':
+        return <p className="text-muted-foreground">Ready to start prediction</p>;
+      default:
+        return <p className="text-muted-foreground">Unknown status</p>;
+    }
+  };
+
+  return (
+    <Card>
+      <CardContent className="pt-6 flex flex-col gap-6">
+        <div className="flex items-center gap-4">
+          <div className="rounded-full bg-secondary p-3">
+            <PlayCircle className="h-6 w-6" />
+          </div>
+          <CardTitle>Prophet ML</CardTitle>
+        </div>
+        <div className="flex flex-col gap-2 ">
+          <div className="text-sm text-muted-foreground mt-1">{getStatusDisplay()}</div>
+          <Button
+            onClick={handleTriggerPipeline}
+            disabled={
+              isTriggerLoading ||
+              isStatusLoading ||
+              statusData?.status === 'in_progress' ||
+              statusData?.status === 'started'
+            }
+          >
+            <PlayCircle className="mr-2 h-4 w-4" />
+            Run Prediction
+          </Button>
+
+          {triggerError && (
+            <div className="text-sm text-destructive">
+              Error triggering pipeline: {triggerError.message}
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

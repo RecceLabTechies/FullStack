@@ -28,6 +28,8 @@ from app.utils.data_processing import (
     process_csv_data,
 )
 from app.data_types import CampaignData
+import threading
+from app.services.prophet_service import run_prophet_prediction, get_prediction_status
 
 # Create blueprint
 data_bp = Blueprint("data_routes", __name__)
@@ -758,3 +760,72 @@ def handle_csv_import():
     except Exception as e:
         logger.error(f"Error uploading CSV: {e}")
         return format_response({"error": str(e)}, 500)
+
+
+@data_bp.route("/api/v1/prophet-pipeline/trigger", methods=["POST"])
+def trigger_prophet_pipeline():
+    """
+    Trigger the prophet prediction pipeline.
+    This endpoint starts a long-running background task that will:
+    1. Fetch data from campaign_performance collection
+    2. Process it and run the Prophet model
+    3. Delete existing data in prophet_predictions collection
+    4. Insert new prediction data
+
+    The task runs asynchronously, so this endpoint returns immediately.
+
+    Returns:
+        JSON: Status of the operation
+    """
+    try:
+        logger.info("Received request to trigger Prophet pipeline")
+
+        # Start prediction in a background thread
+        def run_prediction_thread():
+            run_prophet_prediction()
+
+        thread = threading.Thread(target=run_prediction_thread)
+        thread.daemon = True  # Thread will exit when main thread exits
+        thread.start()
+
+        return (
+            jsonify(
+                {
+                    "status": "started",
+                    "message": "Prophet prediction pipeline started in background",
+                }
+            ),
+            202,
+        )  # 202 Accepted
+    except Exception as e:
+        logger.error(f"Error triggering Prophet pipeline: {e}")
+        return (
+            jsonify(
+                {"status": "error", "message": f"Failed to start prediction: {str(e)}"}
+            ),
+            500,
+        )
+
+
+@data_bp.route("/api/v1/prophet-pipeline/status", methods=["GET"])
+def check_prophet_pipeline_status():
+    """
+    Check the status of the Prophet prediction pipeline.
+
+    Returns:
+        JSON: Current status of the prediction pipeline
+    """
+    try:
+        status = get_prediction_status()
+        return jsonify(status), 200
+    except Exception as e:
+        logger.error(f"Error checking prediction status: {e}")
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "message": f"Failed to check prediction status: {str(e)}",
+                }
+            ),
+            500,
+        )

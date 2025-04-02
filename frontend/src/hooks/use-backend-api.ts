@@ -16,6 +16,7 @@ import {
   type MonthlyChannelData,
   type MonthlyCountryData,
   type MonthlyPerformanceData,
+  type ProphetPipelineResponse,
   type ProphetPredictionData,
   type UserData,
 } from '@/types/types';
@@ -528,4 +529,54 @@ export const useLatestTwelveMonths = () => {
   }, []);
 
   return { ...state, fetchLatestTwelveMonths };
+};
+
+/**
+ * Hook to trigger the Prophet prediction pipeline.
+ * Returns a function to start the prediction process and status information.
+ */
+export const useProphetPipelineTrigger = () => {
+  const [state, setState] = useState<HookState<ProphetPipelineResponse>>({
+    data: null,
+    isLoading: false,
+    error: null,
+  });
+
+  const triggerPipeline = useCallback(async () => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.triggerProphetPipeline();
+
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
+    }
+  }, []);
+
+  return { ...state, triggerPipeline };
+};
+
+/**
+ * Hook to check the status of the Prophet prediction pipeline.
+ * Returns a function to check the current status and status information.
+ */
+export const useProphetPipelineStatus = () => {
+  const [state, setState] = useState<HookState<ProphetPipelineResponse>>({
+    data: null,
+    isLoading: false,
+    error: null,
+  });
+
+  const checkStatus = useCallback(async () => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.checkProphetPipelineStatus();
+
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
+    }
+  }, []);
+
+  return { ...state, checkStatus };
 };

@@ -203,3 +203,11 @@ export interface MonthlyCountryData {
   revenue: Record<string, number[]>; // Map of country to revenue values per month
   ad_spend: Record<string, number[]>; // Map of country to ad spend values per month
 }
+
+/**
+ * Response type for Prophet pipeline trigger and status endpoints
+ */
+export interface ProphetPipelineResponse {
+  status: 'started' | 'in_progress' | 'success' | 'error' | 'idle';
+  message: string;
+}
