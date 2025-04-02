@@ -1043,3 +1043,69 @@ def get_monthly_country_data() -> Dict:
     except Exception as e:
         logger.error(f"Error getting monthly country data: {e}")
         raise
+
+
+def get_latest_twelve_months_data() -> Dict:
+    """
+    Get the latest 12 months of aggregated data, including only date, revenue and ad spend.
+
+    Returns:
+        Dict: Dictionary containing:
+            - items: List of dictionaries with date, revenue, and ad_spend for each month
+    """
+    try:
+        # Aggregate the data by month
+        pipeline = [
+            # Group by month, calculating sums
+            {
+                "$group": {
+                    "_id": {
+                        # Extract year and month to group by month
+                        "year": {"$year": {"$toDate": {"$multiply": ["$date", 1000]}}},
+                        "month": {
+                            "$month": {"$toDate": {"$multiply": ["$date", 1000]}}
+                        },
+                    },
+                    "revenue": {"$sum": "$revenue"},
+                    "ad_spend": {"$sum": "$ad_spend"},
+                    "new_accounts": {"$sum": "$new_accounts"},
+                    # Get the first date in each month (for display purposes)
+                    "date": {"$first": "$date"},
+                }
+            },
+            # Sort by date descending to get latest months first
+            {"$sort": {"_id.year": -1, "_id.month": -1}},
+            # Limit to 12 months
+            {"$limit": 12},
+            # Project to final format
+            {
+                "$project": {
+                    "_id": 0,
+                    "date": "$date",
+                    "revenue": "$revenue",
+                    "ad_spend": "$ad_spend",
+                    "new_accounts": "$new_accounts",
+                }
+            },
+            # Sort by date ascending for consistent display
+            {"$sort": {"date": 1}},
+        ]
+
+        results = CampaignModel.aggregate(pipeline)
+
+        # Convert to list and round numbers
+        items = [
+            {
+                "date": item["date"],
+                "revenue": round(item["revenue"], 3),
+                "ad_spend": round(item["ad_spend"], 3),
+                "new_accounts": round(item["new_accounts"]),
+            }
+            for item in results
+        ]
+
+        return {"items": items}
+
+    except Exception as e:
+        logger.error(f"Error getting latest twelve months data: {e}")
+        raise

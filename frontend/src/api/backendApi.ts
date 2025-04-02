@@ -13,11 +13,13 @@ import {
   type FilterResponse,
   type LatestMonthRevenue,
   type LatestMonthROI,
+  type LatestTwelveMonthsData,
   type MonthlyAgeData,
   type MonthlyChannelData,
   type MonthlyCountryData,
   type MonthlyPerformanceData,
   type ProphetPredictionData,
+  type ProphetPredictionResponse,
   type UserData,
 } from '@/types/types';
 import axios from 'axios';
@@ -350,11 +352,14 @@ export const fetchProphetPredictions = async (
     if (fromDate) params.append('from_date', fromDate.toString());
     if (toDate) params.append('to_date', toDate.toString());
 
-    const response = await axios.get<{
-      data: ProphetPredictionData[];
-      count: number;
-    }>(`${API_BASE_URL}/api/v1/prophet-predictions?${params.toString()}`);
-    return response.data.data;
+    const response = await axios.get<ProphetPredictionResponse>(
+      `${API_BASE_URL}/api/v1/prophet-predictions?${params.toString()}`
+    );
+
+    if (response.data.success && response.data.data?.data) {
+      return response.data.data.data;
+    }
+    throw new Error('Invalid response format from prophet predictions API');
   } catch (error) {
     console.error('Failed to fetch prophet predictions', error);
     return new Error('Failed to fetch prophet predictions');
@@ -415,5 +420,23 @@ export const fetchMonthlyCountryData = async (): Promise<MonthlyCountryData | Er
   } catch (error) {
     console.error('Failed to fetch monthly country data', error);
     return new Error('Failed to fetch monthly country data');
+  }
+};
+
+/**
+ * Fetches the latest 12 months of aggregated data with date, revenue and ad spend.
+ * @returns Promise resolving to latest twelve months data or error
+ */
+export const fetchLatestTwelveMonths = async (): Promise<LatestTwelveMonthsData | Error> => {
+  try {
+    const response = await axios.get<{
+      data: LatestTwelveMonthsData;
+      status: number;
+      success: boolean;
+    }>(`${API_BASE_URL}/api/v1/campaigns/latest-twelve-months`);
+    return response.data.data;
+  } catch (error) {
+    console.error('Failed to fetch latest twelve months data', error);
+    return new Error('Failed to fetch latest twelve months data');
   }
 };

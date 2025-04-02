@@ -96,6 +96,15 @@ export interface MonthlyPerformanceData {
   filters: CampaignFilters;
 }
 
+export interface LatestTwelveMonthsData {
+  items: {
+    date: number;
+    revenue: number;
+    ad_spend: number;
+    new_accounts: number;
+  }[];
+}
+
 // Channel contribution data interfaces
 interface ChannelMetricValues {
   metric: string;
@@ -160,6 +169,15 @@ export interface ProphetPredictionData {
   revenue: number;
   ad_spend: number;
   new_accounts: number;
+}
+
+export interface ProphetPredictionResponse {
+  data: {
+    count: number;
+    data: ProphetPredictionData[];
+  };
+  status: number;
+  success: boolean;
 }
 
 export interface MonthlyChannelData {

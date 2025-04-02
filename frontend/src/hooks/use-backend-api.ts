@@ -11,6 +11,7 @@ import {
   type FilterResponse,
   type LatestMonthRevenue,
   type LatestMonthROI,
+  type LatestTwelveMonthsData,
   type MonthlyAgeData,
   type MonthlyChannelData,
   type MonthlyCountryData,
@@ -502,4 +503,29 @@ export const useMonthlyCountryData = () => {
   }, []);
 
   return { ...state, fetchMonthlyCountryData };
+};
+
+/**
+ * Hook to fetch the latest 12 months of aggregated data.
+ * Returns date, revenue and ad spend for each month.
+ */
+export const useLatestTwelveMonths = () => {
+  const [state, setState] = useState<HookState<LatestTwelveMonthsData>>({
+    data: null,
+    isLoading: false,
+    error: null,
+  });
+
+  const fetchLatestTwelveMonths = useCallback(async () => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.fetchLatestTwelveMonths();
+
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({ data: result, isLoading: false, error: null });
+    }
+  }, []);
+
+  return { ...state, fetchLatestTwelveMonths };
 };

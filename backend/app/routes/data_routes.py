@@ -20,6 +20,7 @@ from app.services.campaign_service import (
     get_monthly_age_data,
     get_monthly_channel_data,
     get_monthly_country_data,
+    get_latest_twelve_months_data,
 )
 from app.utils.data_processing import (
     find_matching_collection,
@@ -653,6 +654,25 @@ def get_monthly_country_data_route():
 
     except Exception as e:
         logger.error(f"Error getting monthly country data: {e}")
+        return error_response(500, f"Internal server error: {str(e)}", "server_error")
+
+
+@data_bp.route("/api/v1/campaigns/latest-twelve-months", methods=["GET"])
+@handle_exceptions
+def get_latest_twelve_months_route():
+    """
+    Get the latest 12 months of aggregated data, including only date, revenue and ad spend.
+
+    Returns:
+        JSON object containing:
+        - items: List of dictionaries with date, revenue, and ad_spend for each month
+    """
+    try:
+        data = get_latest_twelve_months_data()
+        return format_response(data)
+
+    except Exception as e:
+        logger.error(f"Error getting latest twelve months data: {e}")
         return error_response(500, f"Internal server error: {str(e)}", "server_error")
 
 
