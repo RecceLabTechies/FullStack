@@ -1,6 +1,8 @@
 import logging
+
 from pymongo import MongoClient
-from config import MONGO_URI, DB_NAME
+
+from config import DB_NAME, MONGO_URI
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +16,6 @@ class Database:
 
     @classmethod
     def initialize(cls):
-        """Initialize MongoDB connection and reference collections"""
         try:
             # Connect to MongoDB
             cls.client = MongoClient(MONGO_URI)
@@ -30,7 +31,6 @@ class Database:
 
     @classmethod
     def get_collection(cls, collection_name):
-        """Get a reference to a specific collection"""
         if collection_name in RESTRICTED_COLLECTIONS:
             logger.warning(
                 f"Access to restricted collection '{collection_name}' was denied"
@@ -43,7 +43,6 @@ class Database:
 
     @classmethod
     def list_collections(cls):
-        """List all collections in the database except restricted ones"""
         if cls.db is None:
             cls.initialize()
         all_collections = cls.db.list_collection_names()
@@ -51,16 +50,6 @@ class Database:
 
     @classmethod
     def analyze_collections(cls):
-        """
-        Analyze all accessible collections and their fields with statistics.
-
-        Returns:
-            dict: A dictionary where:
-                - Keys are collection names
-                - Values are dictionaries where:
-                    - Keys are field names
-                    - Values are dictionaries with field statistics
-        """
         if cls.db is None:
             cls.initialize()
 
@@ -89,7 +78,6 @@ class Database:
                 if field_name == "_id":
                     continue
 
-                # Determine field type and calculate statistics
                 sample_values = [
                     doc.get(field_name) for doc in sample if field_name in doc
                 ]

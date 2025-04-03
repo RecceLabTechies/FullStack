@@ -1,35 +1,30 @@
 import logging
+import threading
 from functools import wraps
+
 from flask import Blueprint, jsonify, make_response, request
-from marshmallow import (
-    Schema,
-    fields,
-    ValidationError,
-    validate,
-    EXCLUDE,
-    validates,
-)
+from marshmallow import EXCLUDE, Schema, ValidationError, fields, validate, validates
+
+from app.data_types import CampaignData
 from app.services.campaign_service import (
     filter_campaigns,
     get_campaign_filter_options,
-    get_monthly_aggregated_data,
     get_channel_contribution_data,
     get_cost_metrics_heatmap,
-    get_latest_month_roi,
     get_latest_month_revenue,
+    get_latest_month_roi,
+    get_latest_twelve_months_data,
     get_monthly_age_data,
+    get_monthly_aggregated_data,
     get_monthly_channel_data,
     get_monthly_country_data,
-    get_latest_twelve_months_data,
 )
+from app.services.prophet_service import get_prediction_status, run_prophet_prediction
 from app.utils.data_processing import (
     find_matching_collection,
     get_db_structure,
     process_csv_data,
 )
-from app.data_types import CampaignData
-import threading
-from app.services.prophet_service import run_prophet_prediction, get_prediction_status
 
 # Create blueprint
 data_bp = Blueprint("data_routes", __name__)
@@ -603,7 +598,6 @@ def get_monthly_channel_data_route():
         - ad_spend: Dictionary with channel keys and monthly ad spend arrays
     """
     try:
-
         data = get_monthly_channel_data()
         return format_response(data)
 
@@ -627,7 +621,6 @@ def get_monthly_age_data_route():
         - ad_spend: Dictionary with age group keys and monthly ad spend arrays
     """
     try:
-
         data = get_monthly_age_data()
         return format_response(data)
 

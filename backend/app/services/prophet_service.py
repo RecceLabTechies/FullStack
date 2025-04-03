@@ -1,13 +1,11 @@
 import logging
 import threading
+
 import pandas as pd
 from prophet import Prophet
-from app.database.connection import (
-    get_campaign_performance_collection,
-    get_prophet_prediction_collection,
-)
+
+from app.database.connection import get_campaign_performance_collection
 from app.models.prophet_prediction import ProphetPredictionModel
-from datetime import datetime
 
 logger = logging.getLogger(__name__)
 

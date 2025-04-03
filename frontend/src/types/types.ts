@@ -429,3 +429,63 @@ export interface ProphetPipelineResponse {
   /** Status message */
   message: string;
 }
+
+/**
+ * LLM API Types
+ */
+
+/**
+ * Request object for LLM query API
+ */
+export interface QueryRequest {
+  /** The natural language query string */
+  query: string;
+}
+
+/**
+ * Response types for different query classifications
+ */
+export type QueryResultType = 'chart' | 'description' | 'report' | 'error' | 'unknown';
+
+/**
+ * Response types for truncated pipeline results
+ */
+
+export type TruncatedResultType = 'chart' | 'description';
+
+/**
+ * Report results returned from the API
+ */
+export interface ReportResults {
+  /** Array of string pairs/tuples */
+  results: [TruncatedResultType, string][];
+}
+
+/**
+ * Response from the LLM query API
+ */
+export interface QueryResponse {
+  /** The query output with type and result */
+  output: {
+    /** Type of result returned */
+    type: QueryResultType;
+    /** The actual result data, varies based on type */
+    result: string | ReportResults;
+  };
+  /** The original query that was sent */
+  original_query: string;
+}
+
+/**
+ * Response from the LLM API health check
+ */
+export interface HealthResponse {
+  /** Status message */
+  status: 'ok' | 'error';
+  /** Detailed message about the health status */
+  message: string;
+  /** Whether the API is healthy */
+  healthy: boolean;
+  /** Number of available collections (only if healthy) */
+  collections_count?: number;
+}

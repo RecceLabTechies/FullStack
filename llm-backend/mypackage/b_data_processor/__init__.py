@@ -5,16 +5,21 @@ This module provides functionality for processing and selecting JSON data based 
 including filtering, sorting, and data analysis capabilities.
 """
 
-from mypackage.b_data_processor.json_processor import (
-    process_json_query,
+from mypackage.b_data_processor.collection_processor import (
+    process_collection_query,
 )
-from mypackage.b_data_processor.json_selector import (
+from mypackage.b_data_processor.collection_selector import (
+    CollectionAnalysisResult,
     CollectionNotFoundError,
+    select_collection_for_query,
 )
 
 __all__ = [
-    # Exceptions
+    "FilterCondition",
+    "SortCondition",
+    "FilterInfo",
     "CollectionNotFoundError",
-    # Main functions
-    "process_json_query",
+    "CollectionAnalysisResult",
+    "process_collection_query",
+    "select_collection_for_query",
 ]

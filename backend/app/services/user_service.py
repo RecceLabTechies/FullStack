@@ -1,4 +1,5 @@
 import logging
+
 from app.data_types import UserData
 from app.models.user import UserModel
 

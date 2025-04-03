@@ -1,22 +1,18 @@
 #!/usr/bin/env python
-import json
 import logging
-import os
 from enum import Enum
 from typing import Dict, List
 
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel
 
-from mypackage.utils.llm_config import get_groq_llm, ANALYSIS_QUERIES_MODEL
 from mypackage.utils.database import Database, is_collection_accessible
+from mypackage.utils.llm_config import ANALYSIS_QUERIES_MODEL, get_groq_llm
 
-# Configure logger
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.propagate = False
 
-# Add handler if not already added
 if not logger.handlers:
     handler = logging.StreamHandler()
     formatter = logging.Formatter(
@@ -44,19 +40,11 @@ class QueryList(BaseModel):
 
 
 def _analyze_collections() -> Dict[str, Dict[str, Dict]]:
-    """
-    Get schema information from MongoDB collections.
-
-    Returns:
-        Dictionary mapping collection names to their field information
-    """
     logger.info("Analyzing MongoDB collections")
     try:
-        # Initialize database connection if not already initialized
         if Database.db is None:
             Database.initialize()
 
-        # Get collection analysis
         collection_info = Database.analyze_collections()
         logger.info(f"Successfully analyzed {len(collection_info)} collections")
         return collection_info
@@ -66,15 +54,6 @@ def _analyze_collections() -> Dict[str, Dict[str, Dict]]:
 
 
 def _format_collections_for_prompt(collections_info: Dict[str, Dict[str, Dict]]) -> str:
-    """
-    Format MongoDB collection information for inclusion in an LLM prompt.
-
-    Args:
-        collections_info: Dictionary mapping collection names to their field information
-
-    Returns:
-        Formatted string representation of the collections
-    """
     logger.debug(f"Formatting {len(collections_info)} collections for prompt")
     formatted_str = ""
     for collection_name, fields in collections_info.items():
@@ -143,16 +122,6 @@ prompt = ChatPromptTemplate.from_template(template)
 
 
 def _parse_llm_response(response) -> QueryList:
-    """
-    Parse the LLM's response into a structured QueryList.
-
-    Args:
-        response: Response from the LLM (can be string or AIMessage)
-
-    Returns:
-        QueryList object containing parsed analytical queries
-    """
-    # Extract content from AIMessage if needed
     if hasattr(response, "content"):
         response_text = response.content
     else:
@@ -160,10 +129,8 @@ def _parse_llm_response(response) -> QueryList:
 
     logger.debug(f"Parsing Groq LLM response of length {len(response_text)}")
 
-    # Clean up the response - remove any extra whitespace and empty lines
     lines = [line.strip() for line in response_text.strip().split("\n") if line.strip()]
 
-    # Remove any introductory text lines that don't match our format
     lines = [
         line
         for line in lines
@@ -179,7 +146,6 @@ def _parse_llm_response(response) -> QueryList:
             if not query_text:
                 continue
 
-            # Parse query to extract type and collection name using | as separator
             parts = query_text.split("|")
             if len(parts) != 2:
                 logger.warning(f"Query missing | separator: {query_text}")
@@ -188,14 +154,12 @@ def _parse_llm_response(response) -> QueryList:
             query_content = parts[0].strip()
             collection_name = parts[1].strip()
 
-            # Verify collection exists and is accessible
             if not is_collection_accessible(collection_name):
                 logger.warning(
                     f"Skipping query for inaccessible collection: {collection_name}"
                 )
                 continue
 
-            # Determine query type
             if query_content.lower().startswith("generate a chart"):
                 query_type = QueryType.CHART
             elif query_content.lower().startswith("generate a description"):
@@ -210,7 +174,6 @@ def _parse_llm_response(response) -> QueryList:
                 collection_name=collection_name,
             )
 
-            # Ensure uniqueness
             query_key = (query_item.query, query_item.collection_name)
             if query_key not in seen_queries:
                 queries.append(query_item)
@@ -227,25 +190,12 @@ def _parse_llm_response(response) -> QueryList:
 
 
 def generate_analysis_queries(user_query: str) -> QueryList:
-    """
-    Generate a list of analytical queries based on a user query.
-
-    Args:
-        user_query: The original user query
-
-    Returns:
-        QueryList object containing generated analytical queries
-
-    Raises:
-        ValueError: If query is empty or no collections are available
-    """
     logger.info(f"Generating analysis queries for user query: '{user_query}'")
     if not user_query.strip():
         logger.error("Empty user query")
         raise ValueError("User query cannot be empty")
 
     try:
-        # Get collection information from MongoDB
         collections_info = _analyze_collections()
         if not collections_info:
             logger.error("No accessible collections available in the database")
@@ -268,7 +218,6 @@ def generate_analysis_queries(user_query: str) -> QueryList:
 
 
 if __name__ == "__main__":
-    # Initialize database connection
     if not Database.initialize():
         logger.error("Failed to initialize database connection")
         exit(1)

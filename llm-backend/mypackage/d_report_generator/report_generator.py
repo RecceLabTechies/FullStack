@@ -1,22 +1,20 @@
 #!/usr/bin/env python
 import logging
-from typing import List, Union
+from typing import List, Protocol, Union
 
 from pydantic import BaseModel
 
-from mypackage.c_regular_generator.chart_data_generator import ChartDataType
 from mypackage.d_report_generator import truncated_pipeline
 from mypackage.d_report_generator.generate_analysis_queries import (
     QueryList,
     generate_analysis_queries,
 )
 
-# Configure logger
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.propagate = False
 
-# Add handler if not already added
+
 if not logger.handlers:
     handler = logging.StreamHandler()
     formatter = logging.Formatter(
@@ -27,28 +25,24 @@ if not logger.handlers:
 
 
 class ReportResults(BaseModel):
-    results: List[Union[str, str]]
+    results: List[Union[str, List[str]]]
+
+
+class LLMResponse(Protocol):
+    content: str
 
 
 def report_generator(user_query: str) -> ReportResults:
-    """
-    Generate a report based on the user's query by processing it through the analysis pipeline.
-
-    Args:
-        user_query: The natural language query from the user requesting specific analysis
-
-    Returns:
-        ReportResults object containing a list of results, which can be either strings
-        or ChartDataType objects
-    """
     logger.info(f"Starting report generation for query: {user_query}")
     queryList: QueryList = generate_analysis_queries(user_query)
     logger.debug(f"Generated {len(queryList.queries)} analysis queries using Groq")
 
-    results: List[Union[str]] = []
+    results: List[Union[str, List[str]]] = []
     for queryItem in queryList.queries:
         logger.debug(f"Processing query: {queryItem}")
-        result: Union[str] = truncated_pipeline.run_truncated_pipeline(queryItem)
+        result: Union[str, List[str]] = truncated_pipeline.run_truncated_pipeline(
+            queryItem
+        )
         results.append(result)
         logger.debug("Query processed successfully")
 

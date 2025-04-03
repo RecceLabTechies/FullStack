@@ -2,7 +2,8 @@
 Database schema definitions for MongoDB collections
 """
 
-from typing import Set, Dict, Any, List, Optional, Union
+from typing import Set
+
 from typing_extensions import TypedDict
 
 
@@ -19,7 +20,6 @@ class CampaignData(TypedDict):
     revenue: float
 
 
-# Campaign performance fields definition
 CAMPAIGN_FIELDS: Set[str] = {
     "date",
     "campaign_id",
@@ -35,5 +35,4 @@ CAMPAIGN_FIELDS: Set[str] = {
 
 
 def matches_campaign_schema(field_names: Set[str]) -> bool:
-    """Check if a set of field names matches the campaign schema"""
     return field_names == CAMPAIGN_FIELDS

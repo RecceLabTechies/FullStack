@@ -20,13 +20,11 @@ from mypackage.d_report_generator.truncated_pipeline import (
 )
 
 __all__ = [
-    # Types
     "QueryItem",
     "QueryList",
     "QueryType",
     "ReportResults",
-    # Main functions
-    "report_generator",
     "generate_analysis_queries",
+    "report_generator",
     "run_truncated_pipeline",
 ]

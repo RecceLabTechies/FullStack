@@ -1,19 +1,18 @@
 #!/usr/bin/env python
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Protocol, Tuple, TypeAlias, TypedDict
 
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel
 
-from mypackage.utils.llm_config import get_groq_llm, JSON_SELECTOR_MODEL
 from mypackage.utils.database import Database
+from mypackage.utils.llm_config import COLLECTION_SELECTOR_MODEL, get_groq_llm
 
-# Configure logger
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.propagate = False
 
-# Add handler if not already added
+
 if not logger.handlers:
     handler = logging.StreamHandler()
     formatter = logging.Formatter(
@@ -23,16 +22,10 @@ if not logger.handlers:
     logger.addHandler(handler)
 
 
-DEFAULT_MODEL_NAME = JSON_SELECTOR_MODEL
+DEFAULT_MODEL_NAME = COLLECTION_SELECTOR_MODEL
 
 
 class CollectionNotFoundError(Exception):
-    """Exception raised when a requested collection cannot be found or processed.
-
-    This exception provides detailed information about the search attempt,
-    including the query, database searched, and reason for failure.
-    """
-
     def __init__(
         self,
         message: str,
@@ -45,6 +38,15 @@ class CollectionNotFoundError(Exception):
         logger.error(f"CollectionNotFoundError: {message} for query '{query}'")
 
 
+class CollectionInfo(TypedDict):
+    type: str
+    count: int
+    fields: List[str]
+    field_types: Dict[str, str]
+    sample_values: Dict[str, List[str]]
+    unique_values: Dict[str, List[str]]
+
+
 class CollectionAnalysisResult(BaseModel):
     collection_name: Optional[str] = None
     query: str
@@ -53,6 +55,75 @@ class CollectionAnalysisResult(BaseModel):
     matching_values: Optional[Dict[str, List[str]]] = None
     error: Optional[str] = None
     alternative_collections: Optional[List[Dict[str, Any]]] = None
+
+
+class HeaderMatch(TypedDict):
+    score: int
+    fields: List[str]
+    reason: str
+
+
+class ValueMatch(TypedDict):
+    score: int
+    values: Dict[str, List[str]]
+    fields: List[str]
+    reason: str
+
+
+class MatchDetails(TypedDict):
+    score: float
+    fields: List[str]
+    values: Dict[str, List[str]]
+    reason: str
+    header_score: float
+    value_score: float
+
+
+class AlternativeMatch(TypedDict):
+    collection: str
+    score: float
+    fields: List[str]
+    reason: str
+
+
+class LLMResponse(Protocol):
+    content: str
+
+
+ValueMatchDict = Dict[str, List[str]]
+CollectionValueMatches = Dict[str, ValueMatchDict]
+
+
+HeaderMatches: TypeAlias = Dict[str, HeaderMatch]
+ValueMatches: TypeAlias = Dict[str, ValueMatch]
+
+
+class FieldProcessor:
+    @staticmethod
+    def process_numerical(stats: Dict) -> Tuple[List[str], List[str]]:
+        min_val = stats.get("min", "")
+        max_val = stats.get("max", "")
+        return [str(min_val), str(max_val)], [str(min_val), str(max_val)]
+
+    @staticmethod
+    def process_datetime(stats: Dict) -> Tuple[List[str], List[str]]:
+        min_val = stats.get("min", "")
+        max_val = stats.get("max", "")
+        return [str(min_val), str(max_val)], [str(min_val), str(max_val)]
+
+    @staticmethod
+    def process_categorical(stats: Dict) -> Tuple[List[str], List[str]]:
+        unique_list = stats.get("unique_values", [])
+        clean_list = [v for v in unique_list if v != "..."]
+        samples = clean_list[:5] if len(clean_list) > 5 else clean_list
+        return samples, clean_list
+
+    @classmethod
+    def process_field(cls, field_type: str, stats: Dict) -> Tuple[List[str], List[str]]:
+        processor = getattr(cls, f"process_{field_type}", None)
+        if processor:
+            return processor(stats)
+        return [], []
 
 
 def _extract_key_terms(query: str) -> List[str]:
@@ -89,7 +160,7 @@ def _extract_key_terms(query: str) -> List[str]:
     return key_terms
 
 
-def _extract_collection_info() -> Dict[str, Dict[str, Any]]:
+def _extract_collection_info() -> Dict[str, CollectionInfo]:
     """
     Extract schema and sample value information from MongoDB collections using Database.analyze_collections().
 
@@ -99,22 +170,14 @@ def _extract_collection_info() -> Dict[str, Dict[str, Any]]:
     logger.info("Extracting collection info from MongoDB using analyze_collections")
     collection_info = {}
 
-    # Initialize the database connection if not already done
-    if not Database.initialize():
-        logger.error("Failed to connect to MongoDB")
-        return collection_info
-
-    # Use the analyze_collections method to get collection metadata
     collections_analysis = Database.analyze_collections()
     if not collections_analysis:
         logger.warning("No collections or metadata returned from analyze_collections")
         return collection_info
 
     for collection_name, fields_data in collections_analysis.items():
-        # Create collection info structure expected by the rest of the code
         col_info = {}
 
-        # Skip empty collections
         if not fields_data:
             logger.debug(f"Collection {collection_name} has no fields or is empty")
             col_info["type"] = "unknown"
@@ -126,58 +189,26 @@ def _extract_collection_info() -> Dict[str, Dict[str, Any]]:
             collection_info[collection_name] = col_info
             continue
 
-        # Set collection type and assume a non-zero count since we have fields
         col_info["type"] = "list"
-        col_info["count"] = (
-            100  # Assume a default count, not critical for selection logic
-        )
+        col_info["count"] = 100
 
-        # Extract field information from analyze_collections result
         field_list = list(fields_data.keys())
         field_types = {}
         sample_values = {}
         unique_values = {}
 
         for field_name, field_info in fields_data.items():
-            # Skip _id field
             if field_name == "_id":
                 continue
 
             field_type = field_info.get("type", "unknown")
             field_types[field_name] = field_type
 
-            # Extract sample and unique values based on the field type
-            if field_type == "numerical":
-                stats = field_info.get("stats", {})
-                min_val = stats.get("min", "")
-                max_val = stats.get("max", "")
-                # Store min and max as sample values
-                sample_values[field_name] = [str(min_val), str(max_val)]
-                unique_values[field_name] = [str(min_val), str(max_val)]
+            stats = field_info.get("stats", {})
+            sample_values[field_name], unique_values[field_name] = (
+                FieldProcessor.process_field(field_type, stats)
+            )
 
-            elif field_type == "datetime":
-                stats = field_info.get("stats", {})
-                min_val = stats.get("min", "")
-                max_val = stats.get("max", "")
-                # Store min and max dates as sample values
-                sample_values[field_name] = [str(min_val), str(max_val)]
-                unique_values[field_name] = [str(min_val), str(max_val)]
-
-            elif field_type == "categorical":
-                stats = field_info.get("stats", {})
-                unique_list = stats.get("unique_values", [])
-                # Store unique values, removing the "..." if present
-                clean_list = [v for v in unique_list if v != "..."]
-                sample_values[field_name] = (
-                    clean_list[:5] if len(clean_list) > 5 else clean_list
-                )
-                unique_values[field_name] = clean_list
-            else:
-                # Handle unknown field types
-                sample_values[field_name] = []
-                unique_values[field_name] = []
-
-        # Store the extracted information
         col_info["fields"] = field_list
         col_info["field_types"] = field_types
         col_info["sample_values"] = sample_values
@@ -192,53 +223,9 @@ def _extract_collection_info() -> Dict[str, Dict[str, Any]]:
     return collection_info
 
 
-def _search_for_values(
-    collection_info: dict, search_terms: List[str]
-) -> Dict[str, Dict[str, List[str]]]:
-    """
-    Search for values in collections that match the provided search terms.
-
-    Args:
-        collection_info: Dictionary of collection information
-        search_terms: List of terms to search for
-
-    Returns:
-        Dictionary mapping collection names to matching fields and their values
-    """
-    logger.debug(f"Searching for values matching terms: {search_terms}")
-    results = {}
-    search_terms_lower = [term.lower() for term in search_terms]
-
-    for collection_name, info in collection_info.items():
-        matching_fields = {}
-        if "unique_values" not in info:
-            logger.warning(f"No unique values found in collection: {collection_name}")
-            continue
-
-        for field, unique_values in info["unique_values"].items():
-            values_lower = [val.lower() for val in unique_values]
-            matches = []
-            for term in search_terms_lower:
-                for i, val in enumerate(values_lower):
-                    if term in val:
-                        matches.append(unique_values[i])
-
-            if matches:
-                matching_fields[field] = matches
-                logger.debug(
-                    f"Collection {collection_name}, field '{field}' has {len(matches)} matches"
-                )
-
-        if matching_fields:
-            results[collection_name] = matching_fields
-
-    logger.info(f"Found value matches in {len(results)} collections")
-    return results
-
-
 def _match_headers_to_query(
-    collection_info: dict, query: str
-) -> Tuple[Dict[str, Dict[str, Any]], Optional[str], List[str]]:
+    collection_info: Dict[str, CollectionInfo], query: str
+) -> Tuple[Dict[str, HeaderMatch], Optional[str], List[str]]:
     """
     Match collection field names to a query to find the most relevant collection.
 
@@ -297,50 +284,62 @@ def _match_headers_to_query(
 
 
 def _match_values_to_query(
-    collection_info: dict, query: str
-) -> Tuple[Dict[str, Dict[str, Any]], Optional[str], Dict[str, List[str]]]:
+    collection_info: Dict[str, CollectionInfo], query: str
+) -> Tuple[Dict[str, ValueMatch], Optional[str], Dict[str, List[str]]]:
     """
-    Match collection values to a query to find the most relevant collection.
-
-    Args:
-        collection_info: Dictionary of collection information
-        query: User query string
-
-    Returns:
-        Tuple containing (all matches with scores, best match collection name, best match values)
+    Match collection values to a query and score matches in a single flow.
+    Returns tuple containing (all matches with scores, best collection, best values)
     """
     logger.info(f"Matching values to query: '{query}'")
     key_terms = _extract_key_terms(query)
-    value_matches = _search_for_values(collection_info, key_terms)
+    search_terms_lower = [term.lower() for term in key_terms]
+
+    all_matches = {}
     best_match = None
     best_match_values = {}
     best_match_score = 0
-    all_matches = {}
 
-    for collection_name, field_matches in value_matches.items():
-        match_score = sum(len(values) for values in field_matches.values())
+    # Single pass through collections and fields
+    for collection_name, info in collection_info.items():
+        if "unique_values" not in info:
+            logger.warning(f"No unique values in collection: {collection_name}")
+            continue
+
+        field_matches = {}
         field_reasons = []
-        for field, values in field_matches.items():
-            field_reasons.append(f"'{field}' contains values: {', '.join(values[:3])}")
 
-        reason = f"Values in fields match query terms: {'; '.join(field_reasons)}"
-        all_matches[collection_name] = {
-            "score": match_score,
-            "values": field_matches,
-            "fields": list(field_matches.keys()),
-            "reason": reason,
-        }
-        logger.debug(
-            f"Collection {collection_name} value match with score {match_score}"
-        )
+        # Process each field's unique values
+        for field, values in info["unique_values"].items():
+            matches = [
+                val
+                for val in values
+                if any(term in val.lower() for term in search_terms_lower)
+            ]
 
-        if match_score > best_match_score:
-            best_match = collection_name
-            best_match_values = field_matches
-            best_match_score = match_score
+            if matches:
+                field_matches[field] = matches
+                field_reasons.append(f"'{field}' contains: {', '.join(matches[:3])}")
+
+        if field_matches:
+            # Calculate match score and build result in same step
+            match_score = sum(len(v) for v in field_matches.values())
+            reason = f"Values match query terms: {'; '.join(field_reasons)}"
+
+            all_matches[collection_name] = ValueMatch(
+                score=match_score,
+                values=field_matches,
+                fields=list(field_matches.keys()),
+                reason=reason,
+            )
+
+            # Track best match
+            if match_score > best_match_score:
+                best_match = collection_name
+                best_match_values = field_matches
+                best_match_score = match_score
 
     if best_match:
-        logger.info(f"Best value match: {best_match} with score {best_match_score}")
+        logger.info(f"Best value match: {best_match} (score: {best_match_score})")
     else:
         logger.info("No value matches found")
 
@@ -348,18 +347,9 @@ def _match_values_to_query(
 
 
 def _compare_matches(
-    header_matches: Dict[str, Dict[str, Any]], value_matches: Dict[str, Dict[str, Any]]
-) -> Tuple[Optional[str], Dict[str, Any], List[Dict[str, Any]]]:
-    """
-    Compare and combine header and value matches to determine the best overall match.
-
-    Args:
-        header_matches: Dictionary of collections matching by field names
-        value_matches: Dictionary of collections matching by values
-
-    Returns:
-        Tuple containing (best match collection name, best match details, alternative matches)
-    """
+    header_matches: HeaderMatches,
+    value_matches: ValueMatches,
+) -> Tuple[Optional[str], MatchDetails, List[AlternativeMatch]]:
     logger.info("Comparing field name and value matches")
     all_collections = set(list(header_matches.keys()) + list(value_matches.keys()))
     combined_scores = {}
@@ -429,7 +419,9 @@ def _compare_matches(
     return best_match, best_match_details, alternative_matches
 
 
-def _format_collection_info_for_prompt(collection_info: dict) -> str:
+def _format_collection_info_for_prompt(
+    collection_info: Dict[str, CollectionInfo],
+) -> str:
     """
     Format collection information for use in an LLM prompt.
 
@@ -488,24 +480,11 @@ def _format_collection_info_for_prompt(collection_info: dict) -> str:
 
 def _resolve_ambiguous_matches(
     query: str,
-    collection_info: dict,
+    collection_info: Dict[str, CollectionInfo],
     best_match: str,
-    best_match_details: Dict[str, Any],
-    alternative_matches: List[Dict[str, Any]],
+    best_match_details: MatchDetails,
+    alternative_matches: List[AlternativeMatch],
 ) -> Tuple[str, str, List[str]]:
-    """
-    Resolve ambiguous matches between multiple collections using an LLM.
-
-    Args:
-        query: User query string
-        collection_info: Dictionary of collection information
-        best_match: Current best match collection name
-        best_match_details: Details about the best match
-        alternative_matches: List of alternative matching collections
-
-    Returns:
-        Tuple containing (selected collection name, reason for selection, matching fields)
-    """
     logger.info(f"Resolving ambiguous matches for query: '{query}'")
     logger.debug(f"Best match: {best_match}, alternatives: {len(alternative_matches)}")
 
@@ -558,7 +537,6 @@ Important: The collection name MUST be exactly as shown in the available collect
         reason = best_match_details["reason"]
         matching_fields = best_match_details["fields"]
 
-        # Extract content from AIMessage if needed
         if hasattr(response, "content"):
             response_text = response.content
         else:
@@ -589,19 +567,10 @@ Important: The collection name MUST be exactly as shown in the available collect
 
 
 def _select_collection_with_llm(
-    collection_info: dict, query: str, value_matches: Dict[str, Dict[str, List[str]]]
+    collection_info: Dict[str, CollectionInfo],
+    query: str,
+    value_matches: Dict[str, ValueMatch],
 ) -> CollectionAnalysisResult:
-    """
-    Select the most appropriate MongoDB collection for a query using an LLM.
-
-    Args:
-        collection_info: Dictionary of collection information
-        query: User query string
-        value_matches: Dictionary of value matches by collection
-
-    Returns:
-        CollectionAnalysisResult with the selected collection and matching information
-    """
     logger.info(f"Selecting collection with Groq LLM for query: '{query}'")
     result = CollectionAnalysisResult(query=query)
     formatted_info = _format_collection_info_for_prompt(collection_info)
@@ -609,10 +578,12 @@ def _select_collection_with_llm(
     value_match_info = ""
     if value_matches:
         value_match_info = "\nValue matches found:\n"
-        for collection_name, field_matches in value_matches.items():
+        for collection_name, match in value_matches.items():
             value_match_info += f"Collection: {collection_name}\n"
-            for field, matches in field_matches.items():
-                value_match_info += f"  Field '{field}' contains values matching query terms: {', '.join(matches)}\n"
+            for field, matches in match["values"].items():
+                value_match_info += (
+                    f"  Field '{field}' contains matches: {', '.join(matches)}\n"
+                )
 
     prompt = ChatPromptTemplate.from_template(
         """Given the following MongoDB collections and their contents, determine the most appropriate collection for the query.
@@ -650,7 +621,6 @@ def _select_collection_with_llm(
         )
         logger.debug(f"Groq LLM response: {response}")
 
-        # Extract content from AIMessage if needed
         if hasattr(response, "content"):
             response_text = response.content
         else:
@@ -705,21 +675,8 @@ def _select_collection_with_llm(
 
 
 def select_collection_for_query(query: str) -> str:
-    """
-    Select the most appropriate MongoDB collection for a user query.
-
-    Args:
-        query: User query string
-
-    Returns:
-        Name of the most appropriate MongoDB collection
-
-    Raises:
-        CollectionNotFoundError: If no appropriate collection can be found
-    """
     logger.info(f"Selecting collection for query: '{query}'")
 
-    # Initialize Database connection if not already done
     if not Database.initialize():
         error_msg = "Failed to connect to MongoDB"
         logger.error(error_msg)
@@ -743,7 +700,6 @@ def select_collection_for_query(query: str) -> str:
         collection_info, query
     )
 
-    value_matches = _search_for_values(collection_info, _extract_key_terms(query))
     value_match_dict, best_match_by_value, best_match_values = _match_values_to_query(
         collection_info, query
     )
@@ -770,7 +726,9 @@ def select_collection_for_query(query: str) -> str:
 
     if not best_match:
         logger.info("No matching collections found, asking Groq LLM to help")
-        llm_result = _select_collection_with_llm(collection_info, query, value_matches)
+        llm_result = _select_collection_with_llm(
+            collection_info, query, value_match_dict
+        )
         if llm_result.collection_name:
             logger.info(f"Groq LLM selected collection: {llm_result.collection_name}")
             return llm_result.collection_name
@@ -785,7 +743,6 @@ def select_collection_for_query(query: str) -> str:
 
 
 if __name__ == "__main__":
-    # Set up console logging for script execution
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(
         logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")

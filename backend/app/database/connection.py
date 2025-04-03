@@ -1,6 +1,8 @@
 import logging
+
 from pymongo import MongoClient
-from app.config import MONGO_URI, DB_NAME
+
+from app.config import DB_NAME, MONGO_URI
 
 logger = logging.getLogger(__name__)
 

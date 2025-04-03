@@ -1,5 +1,6 @@
-import os
 import logging
+import os
+
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 
@@ -16,9 +17,10 @@ if not GROQ_API_KEY:
 # Model configurations
 CLASSIFIER_MODEL = "llama3-8b-8192"
 VALIDATOR_MODEL = "mixtral-8x7b-32768"
-JSON_SELECTOR_MODEL = "llama3-8b-8192"
-JSON_PROCESSOR_MODEL = "llama3-8b-8192"
-DESCRIPTION_GENERATOR_MODEL = "llama3-8b-8192"
+COLLECTION_SELECTOR_MODEL = "llama3-8b-8192"
+COLLECTION_PROCESSOR_MODEL = "qwen-2.5-coder-32b"
+DESCRIPTION_GENERATOR_SELECTOR_MODEL = "llama3-8b-8192"
+DESCRIPTION_GENERATOR_MODEL = "deepseek-r1-distill-llama-70b"
 ANALYSIS_QUERIES_MODEL = "llama3-8b-8192"
 CHART_DATA_MODEL = "llama3-8b-8192"
 

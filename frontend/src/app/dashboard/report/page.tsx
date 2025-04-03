@@ -1,516 +1,134 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 
-import {
-  analyzeData,
-  isChartResponse,
-  isDescriptionResponse,
-  isErrorResponse,
-  isReportResponse,
-} from '@/api/llmApi';
-import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
-import { Check, Download, Edit2, GripVertical, Loader2, Trash2, X } from 'lucide-react';
-import { toast } from 'sonner';
+import { type ReportResults, type TruncatedResultType } from '@/types/types';
 
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 
-interface Message {
-  id: string;
-  content: string;
-  sender: 'user' | 'assistant';
-  timestamp: Date;
-}
+import { useLLMQuery } from '@/hooks/use-llm-api';
 
-interface ReportSection {
-  title: string;
-  content: string | JSX.Element;
-  type: 'text' | 'chart';
-  rawContent?: string;
-}
+// Get Minio endpoint from environment variable or use default
+const MINIO_ENDPOINT = 'localhost:9000';
+const MINIO_BUCKET = 'temp-charts';
 
-interface Report {
-  title: string;
-  sections: ReportSection[];
-}
-
-const REPORT_TEMPLATES = [
-  {
-    title: 'Chart Generation',
-    suggestions: ['Generate a chart for spendings over time'],
-  },
-  {
-    title: 'Description Generation',
-    suggestions: ['Generate a description on spendings'],
-  },
-  // {
-  //   title: "Report Generation",
-  //   suggestions: ["Generate a report"],
-  // },
-];
-
-export default function ReportGenerationPage() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      content:
-        "Hello! I'm your report building assistant. What kind of report would you like to create?",
-      sender: 'assistant',
-      timestamp: new Date(),
-    },
-  ]);
-  const [inputMessage, setInputMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [report, setReport] = useState<Report>({
-    title: 'New Report',
-    sections: [],
-  });
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [editedTitle, setEditedTitle] = useState(report.title);
-  const [editingSectionIndex, setEditingSectionIndex] = useState<number | null>(null);
-  const [editedSectionContent, setEditedSectionContent] = useState('');
-
-  const handleDragEnd = useCallback(
-    (result: DropResult) => {
-      if (!result.destination) return;
-
-      const items = Array.from(report.sections);
-      const [reorderedItem] = items.splice(result.source.index, 1) as [ReportSection];
-      items.splice(result.destination.index, 0, reorderedItem);
-      setReport((prev) => ({ ...prev, sections: items }));
-    },
-    [report.sections]
-  );
-
-  const exportReport = async (format: 'pdf' | 'docx' | 'html') => {
-    try {
-      // Placeholder for actual export logic
-      toast.success(`Report exported as ${format.toUpperCase()}`, {
-        description: `Your report has been successfully exported in ${format.toUpperCase()} format.`,
-        action: {
-          label: 'Download',
-          onClick: () => console.log(`Downloading ${format} report...`),
-        },
-      });
-    } catch (error) {
-      toast.error('Failed to export report', {
-        description: error instanceof Error ? error.message : 'An unknown error occurred',
-      });
-    }
-  };
-
-  const handleTitleEdit = () => {
-    if (isEditingTitle) {
-      setReport((prev) => ({ ...prev, title: editedTitle }));
-    }
-    setIsEditingTitle(!isEditingTitle);
-  };
-
-  const generateReportContent = async (userMessage: string) => {
-    const response = await analyzeData(userMessage);
-
-    if (isErrorResponse(response)) {
-      throw new Error(response.output.error);
-    }
-
-    let newSection: ReportSection;
-
-    // Handle chart output type
-    if (isChartResponse(response)) {
-      const chartData = response.output.chart!;
-
-      newSection = {
-        title: 'Chart Analysis',
-        content: (
-          <div className="mt-4 h-[400px] w-full">
-            <img src={chartData} alt="Chart" />
-          </div>
-        ),
-        type: 'chart',
-      };
-    }
-    // Handle report output type
-    else if (isReportResponse(response)) {
-      const reportResults = response.output.report?.report;
-
-      if (reportResults && reportResults.results.length > 0) {
-        // Process report sections - can contain multiple results
-        const sections: ReportSection[] = [];
-
-        for (const result of reportResults.results) {
-          if (result.description) {
-            // Text description
-            sections.push({
-              title: 'Analysis Report',
-              content: result.description,
-              type: 'text',
-              rawContent: result.description,
-            });
-          } else if (result.chart) {
-            // Chart visualization
-            const chartData =
-              typeof result.chart === 'string' ? result.chart : JSON.stringify(result.chart);
-
-            sections.push({
-              title: 'Chart Report',
-              content: (
-                <div className="mt-4 h-[400px] w-full">
-                  <img src={chartData} alt="Chart" />
-                </div>
-              ),
-              type: 'chart',
-            });
-          }
-        }
-
-        // Add all generated sections to the report
-        setReport((prev) => ({
-          ...prev,
-          sections: [...prev.sections, ...sections],
-        }));
-
-        // Return response without creating newSection, as we already added the sections
-        return response;
-      } else {
-        throw new Error('Report has no results');
-      }
-    }
-    // Handle description output (text descriptions)
-    else if (isDescriptionResponse(response)) {
-      newSection = {
-        title: 'Analysis',
-        content: response.output.description!,
-        type: 'text',
-        rawContent: response.output.description!,
-      };
-    } else {
-      throw new Error('Unexpected response format');
-    }
-
-    // Add the single new section to the report (for chart or description)
-    setReport((prev) => ({
-      ...prev,
-      sections: [...prev.sections, newSection],
-    }));
-
-    return response;
-  };
+export default function ReportPage() {
+  const [query, setQuery] = useState('');
+  const { executeQuery, data, loading, error } = useLLMQuery();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputMessage.trim() || isLoading) return;
-
-    setIsLoading(true);
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content: inputMessage,
-      sender: 'user',
-      timestamp: new Date(),
-    };
+    if (!query.trim()) return;
 
     try {
-      await generateReportContent(inputMessage);
-
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content:
-          "I've updated the report based on your input. What else would you like to analyze?",
-        sender: 'assistant',
-        timestamp: new Date(),
-      };
-
-      setMessages((prev) => [...prev, userMessage, assistantMessage]);
-    } catch (error) {
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content:
-          error instanceof Error
-            ? `Error: ${error.message}`
-            : 'Sorry, I encountered an error while generating the report. Please try again.',
-        sender: 'assistant',
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, userMessage, errorMessage]);
-    } finally {
-      setIsLoading(false);
-      setInputMessage('');
+      await executeQuery(query);
+    } catch (err) {
+      console.error('Failed to execute query:', err);
     }
   };
 
-  const handleDeleteSection = (indexToDelete: number) => {
-    setReport((prev) => ({
-      ...prev,
-      sections: prev.sections.filter((_, index) => index !== indexToDelete),
-    }));
-    toast.success('Section deleted');
+  // Function to convert relative image paths to full URLs
+  const getImageUrl = (imagePath: string): string => {
+    // If it's already a full URL, return as is
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+
+    // If it's a path from Minio API
+    if (imagePath.startsWith('/api/minio/')) {
+      // Extract the filename from the path
+      const parts = imagePath.split('/');
+      const filename = parts[parts.length - 1];
+
+      // Construct direct Minio URL
+      return `http://${MINIO_ENDPOINT}/${MINIO_BUCKET}/${filename}`;
+    }
+
+    // If it's just a filename
+    if (!imagePath.startsWith('/')) {
+      return `http://${MINIO_ENDPOINT}/${MINIO_BUCKET}/${imagePath}`;
+    }
+
+    // If it's another path format, return as is
+    return imagePath;
   };
 
-  const handleSectionEdit = (index: number) => {
-    const section = report.sections[index];
-    if (section && section.type === 'text') {
-      setEditingSectionIndex(index);
-      setEditedSectionContent(section.rawContent ?? '');
+  const renderResultItem = (type: TruncatedResultType, content: string, index: number) => {
+    switch (type) {
+      case 'chart':
+        return (
+          <div key={index}>
+            <h3>Chart {index + 1}</h3>
+            <img src={getImageUrl(content)} alt={`Chart ${index + 1}`} />
+          </div>
+        );
+      case 'description':
+        return (
+          <div key={index}>
+            <h3>Description {index + 1}</h3>
+            <p>{content}</p>
+          </div>
+        );
+      default:
+        return <p key={index}>{content}</p>;
     }
   };
 
-  const handleSectionEditSave = (index: number) => {
-    if (editingSectionIndex === null) return;
+  const renderResult = () => {
+    if (!data?.output.result) return null;
 
-    const section = report.sections[index];
-    if (!section) return;
+    if (data.output.type === 'report') {
+      const reportResults = data.output.result as ReportResults;
 
-    setReport((prev) => ({
-      ...prev,
-      sections: prev.sections.map((s, i) => {
-        if (i === index) {
-          return {
-            ...s,
-            content: editedSectionContent,
-            rawContent: editedSectionContent,
-          };
-        }
-        return s;
-      }),
-    }));
+      if (!reportResults.results.length) {
+        return <p>No results available</p>;
+      }
 
-    // Reset editing state
-    setEditingSectionIndex(null);
-    setEditedSectionContent('');
+      return (
+        <div>
+          {reportResults.results.map(([type, content], index) =>
+            renderResultItem(type, content, index)
+          )}
+        </div>
+      );
+    } else if (data.output.type === 'chart') {
+      // Single chart result
+      return <img src={getImageUrl(data.output.result as string)} alt="Chart result" />;
+    } else if (data.output.type === 'description') {
+      // Single description result
+      return <p>{data.output.result as string}</p>;
+    }
 
-    toast.success('Section updated successfully');
-  };
-
-  const handleSectionEditCancel = () => {
-    setEditingSectionIndex(null);
-    setEditedSectionContent('');
+    // For unknown types or error results, just display as JSON
+    return <p>{JSON.stringify(data.output.result, null, 2)}</p>;
   };
 
   return (
-    <main className="container mx-auto flex h-full gap-3 overflow-clip p-4">
-      <aside className="flex h-full w-1/3 min-w-[26rem] max-w-[52rem] flex-col justify-between rounded-lg border bg-card p-4 shadow-sm">
-        <header className="mb-4">
-          <h1 className="text-xl font-semibold">Chat Assistant</h1>
-          <p className="text-sm text-muted-foreground">
-            Ask questions or request analysis to build your report
-          </p>
+    <>
+      <form onSubmit={handleSubmit}>
+        <Input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Enter your query here..."
+          disabled={loading}
+        />
+        <Button type="submit" disabled={loading || !query.trim()}>
+          {loading ? 'Processing...' : 'Submit Query'}
+        </Button>
+      </form>
 
-          {/* Template Suggestions */}
-          <section className="mt-4">
-            <h2 className="mb-2 text-sm font-medium">Suggested Templates</h2>
-            <div className="space-y-2">
-              {REPORT_TEMPLATES.map((template) => (
-                <article key={template.title} className="rounded-md border p-2">
-                  <h3 className="text-sm font-medium">{template.title}</h3>
-                  <div className="mt-1 space-y-1">
-                    {template.suggestions.map((suggestion) => (
-                      <button
-                        key={suggestion}
-                        onClick={() => setInputMessage(suggestion)}
-                        className="w-full text-left text-xs text-muted-foreground hover:text-foreground"
-                      >
-                        {suggestion}
-                      </button>
-                    ))}
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
-        </header>
+      {error && <div>Error: {error.message}</div>}
 
-        {/* Chat History */}
-        <ScrollArea className="flex-1 px-2">
-          <section className="space-y-4">
-            {messages.map((message) => (
-              <article
-                key={message.id}
-                className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                    message.sender === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'
-                  }`}
-                >
-                  <p className="text-sm">{message.content}</p>
-                </div>
-              </article>
-            ))}
-          </section>
-        </ScrollArea>
+      {loading && <div>Processing your query...</div>}
 
-        {/* Input Form */}
-        <form onSubmit={handleSubmit} className="mt-4 flex space-x-2">
-          <Input
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            placeholder="Ask a question or request analysis..."
-            disabled={isLoading}
-            className="flex-1"
-          />
-          <Button type="submit" disabled={isLoading}>
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Processing
-              </>
-            ) : (
-              'Send'
-            )}
-          </Button>
-        </form>
-      </aside>
-
-      <section className="flex-1 rounded-lg border bg-card p-4 shadow-sm">
-        <header className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {isEditingTitle ? (
-              <div className="flex items-center gap-2">
-                <Input
-                  value={editedTitle}
-                  onChange={(e) => setEditedTitle(e.target.value)}
-                  className="h-8 w-[200px]"
-                />
-                <Button size="icon" variant="ghost" onClick={handleTitleEdit} className="h-8 w-8">
-                  <Check className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => {
-                    setIsEditingTitle(false);
-                    setEditedTitle(report.title);
-                  }}
-                  className="h-8 w-8"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ) : (
-              <>
-                <h2 className="text-2xl font-bold">{report.title}</h2>
-                <Button size="icon" variant="ghost" onClick={handleTitleEdit} className="h-8 w-8">
-                  <Edit2 className="h-4 w-4" />
-                </Button>
-              </>
-            )}
-          </div>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline">
-                <Download className="mr-2 h-4 w-4" />
-                Export Report
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => exportReport('pdf')}>Export as PDF</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => exportReport('docx')}>
-                Export as DOCX
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => exportReport('html')}>
-                Export as HTML
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </header>
-
-        <Separator className="mb-4 mt-2" />
-
-        <ScrollArea className="h-[calc(100vh-12rem)]">
-          <article className="max-w-none">
-            {report.sections.length === 0 ? (
-              <div className="flex h-40 items-center justify-center text-muted-foreground">
-                <p>Your report content will appear here as you chat with the assistant.</p>
-              </div>
-            ) : (
-              <DragDropContext onDragEnd={handleDragEnd}>
-                <Droppable droppableId="report-sections">
-                  {(provided) => (
-                    <section
-                      {...provided.droppableProps}
-                      ref={provided.innerRef}
-                      className="space-y-6"
-                    >
-                      {report.sections.map((section, index) => (
-                        <Draggable
-                          key={index.toString()}
-                          draggableId={index.toString()}
-                          index={index}
-                        >
-                          {(provided) => (
-                            <article
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              className="group relative rounded-lg border bg-background p-4"
-                            >
-                              <div className="absolute right-2 top-2 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                                <div {...provided.dragHandleProps} className="cursor-grab">
-                                  <div className="flex h-6 w-6 items-center justify-center rounded-sm bg-accent">
-                                    <GripVertical className="h-4 w-4 text-muted-foreground" />
-                                  </div>
-                                </div>
-                                {section.type === 'text' && (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleSectionEdit(index)}
-                                    className="h-6 w-6"
-                                  >
-                                    <Edit2 className="h-4 w-4" />
-                                  </Button>
-                                )}
-                                <Button
-                                  variant="destructive"
-                                  size="icon"
-                                  onClick={() => handleDeleteSection(index)}
-                                  className="h-6 w-6"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                              {editingSectionIndex === index ? (
-                                <div className="flex flex-col gap-4">
-                                  <textarea
-                                    value={editedSectionContent}
-                                    onChange={(e) => setEditedSectionContent(e.target.value)}
-                                    className="min-h-[200px] w-full rounded-md border bg-background px-3 py-2 text-sm"
-                                    placeholder="Edit section content..."
-                                  />
-                                  <div className="flex justify-end gap-2">
-                                    <Button variant="outline" onClick={handleSectionEditCancel}>
-                                      Cancel
-                                    </Button>
-                                    <Button onClick={() => handleSectionEditSave(index)}>
-                                      Save Changes
-                                    </Button>
-                                  </div>
-                                </div>
-                              ) : (
-                                section.content
-                              )}
-                            </article>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-                    </section>
-                  )}
-                </Droppable>
-              </DragDropContext>
-            )}
-          </article>
-        </ScrollArea>
-      </section>
-    </main>
+      {data && (
+        <>
+          <h2>Results</h2>
+          <div>{renderResult()}</div>
+        </>
+      )}
+    </>
   );
 }

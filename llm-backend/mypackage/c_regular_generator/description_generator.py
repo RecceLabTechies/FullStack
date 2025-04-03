@@ -1,19 +1,23 @@
 #!/usr/bin/env python
 import logging
-from typing import Any, Dict, List, cast
+import re
+from typing import Any, Dict, List, Literal, Optional, Union
 
+import numpy as np
 import pandas as pd
 from langchain_core.prompts import ChatPromptTemplate
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, field_validator
 
-from mypackage.utils.llm_config import get_groq_llm, DESCRIPTION_GENERATOR_MODEL
+from mypackage.utils.llm_config import (
+    DESCRIPTION_GENERATOR_MODEL,
+    DESCRIPTION_GENERATOR_SELECTOR_MODEL,
+    get_groq_llm,
+)
 
-# Configure logger
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.propagate = False
 
-# Add handler if not already added
 if not logger.handlers:
     handler = logging.StreamHandler()
     formatter = logging.Formatter(
@@ -22,624 +26,435 @@ if not logger.handlers:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-# Global variable for LLM model name
-DEFAULT_MODEL_NAME = DESCRIPTION_GENERATOR_MODEL
+
+class ColumnMetadata(BaseModel):
+    name: str
+    dtype: str
+    unique_values: Optional[List[str]] = None
+    sample_values: List[Union[str, int, float]]
+    stats: Dict[str, Any]
 
 
-def _extract_key_terms(query: str) -> List[str]:
-    """
-    Extract key terms from a query by removing stop words and short words.
+class AnalysisRequest(BaseModel):
+    selected_columns: List[str]
+    analysis_type: Literal["trend", "distribution", "correlation", "outliers"]
+    parameters: Dict[str, Union[str, float]]
 
-    Args:
-        query: User query string
-
-    Returns:
-        List of key terms extracted from the query
-    """
-    words = query.lower().split()
-    stop_words = {
-        "a",
-        "an",
-        "the",
-        "in",
-        "on",
-        "at",
-        "for",
-        "to",
-        "of",
-        "and",
-        "or",
-        "is",
-        "are",
-        "was",
-        "were",
-        "describe",
-        "explain",
-        "tell",
-        "me",
-        "about",
-        "summary",
-        "summarize",
-        "details",
-        "detail",
-        "information",
-    }
-    return [word for word in words if word not in stop_words and len(word) > 2]
-
-
-def _analyze_dataframe(df: pd.DataFrame) -> Dict[str, Any]:
-    """
-    Analyze a DataFrame to extract key statistics and information.
-
-    Args:
-        df: Input DataFrame to analyze
-
-    Returns:
-        Dictionary containing analysis results including row/column counts and data types
-    """
-    logger.info(
-        f"Analyzing DataFrame with {len(df)} rows and {len(df.columns)} columns"
-    )
-    result = {
-        "row_count": len(df),
-        "column_count": len(df.columns),
-        "column_names": list(df.columns),
-        "column_types": {},
-        "missing_values": {},
-        "numeric_columns": [],
-        "categorical_columns": [],
-        "datetime_columns": [],
-    }
-
-    for column in df.columns:
-        dtype = str(df[column].dtype)
-        result["column_types"][column] = dtype
-        missing = df[column].isna().sum()
-        result["missing_values"][column] = missing
-
-        if pd.api.types.is_numeric_dtype(df[column]):
-            result["numeric_columns"].append(column)
-        elif pd.api.types.is_datetime64_any_dtype(df[column]):
-            result["datetime_columns"].append(column)
-        else:
-            unique_count = df[column].nunique()
-            if unique_count < len(df) * 0.5:
-                result["categorical_columns"].append(column)
-
-    logger.debug(
-        f"Found {len(result['numeric_columns'])} numeric, {len(result['categorical_columns'])} categorical, and {len(result['datetime_columns'])} datetime columns"
-    )
-    return result
-
-
-def _get_column_stats(df: pd.DataFrame, column: str) -> Dict[str, Any]:
-    """
-    Calculate detailed statistics for a specific DataFrame column.
-
-    Args:
-        df: Input DataFrame
-        column: Name of the column to analyze
-
-    Returns:
-        Dictionary containing column statistics appropriate for the column's data type
-    """
-    logger.debug(f"Calculating statistics for column: '{column}'")
-    # Using Dict[str, Any] to allow different value types
-    stats: Dict[str, Any] = {"name": column, "dtype": str(df[column].dtype)}
-
-    if pd.api.types.is_numeric_dtype(df[column]):
-        stats["type"] = "numeric"
-        stats["min"] = float(df[column].min())
-        stats["max"] = float(df[column].max())
-        stats["mean"] = float(df[column].mean())
-        stats["median"] = float(df[column].median())
-        stats["std"] = float(df[column].std())
-        stats["unique_count"] = int(df[column].nunique())
-        stats["missing_count"] = int(df[column].isna().sum())
-
-        # Check for skewness - cast to float to ensure type compatibility
-        stats["skewness"] = float(cast(float, df[column].skew()))
-
-        # Detect potential outliers using IQR
-        q1 = float(df[column].quantile(0.25))
-        q3 = float(df[column].quantile(0.75))
-        iqr = q3 - q1
-        outlier_low = q1 - 1.5 * iqr
-        outlier_high = q3 + 1.5 * iqr
-        potential_outliers = df[
-            (df[column] < outlier_low) | (df[column] > outlier_high)
-        ][column]
-        stats["has_outliers"] = len(potential_outliers) > 0
-        stats["outlier_count"] = len(potential_outliers)
-        logger.debug(
-            f"Numeric column '{column}' has {stats['outlier_count']} potential outliers"
-        )
-
-    elif pd.api.types.is_datetime64_any_dtype(df[column]):
-        stats["type"] = "datetime"
-        stats["min"] = df[column].min().strftime("%Y-%m-%d %H:%M:%S")
-        stats["max"] = df[column].max().strftime("%Y-%m-%d %H:%M:%S")
-        stats["unique_count"] = int(df[column].nunique())
-        stats["missing_count"] = int(df[column].isna().sum())
-        logger.debug(
-            f"Datetime column '{column}' range: {stats['min']} to {stats['max']}"
-        )
-
-    else:
-        unique_values = df[column].nunique()
-        stats["unique_count"] = int(unique_values)
-        stats["missing_count"] = int(df[column].isna().sum())
-
-        if unique_values < 20:
-            # For categorical with few unique values
-            stats["type"] = "categorical"
-            value_counts = df[column].value_counts(normalize=True)
-            stats["categories"] = {
-                str(k): {"count": int(v * len(df)), "percentage": float(v)}
-                for k, v in value_counts.items()
-                if k is not None
-            }
-            logger.debug(
-                f"Categorical column '{column}' has {unique_values} unique values"
-            )
-        else:
-            # For text or high-cardinality categorical
-            stats["type"] = "text"
-            stats["avg_length"] = float(df[column].astype(str).str.len().mean())
-            logger.debug(f"Text column '{column}' has {unique_values} unique values")
-
-    return stats
-
-
-def _match_columns_to_query(df: pd.DataFrame, query: str) -> Dict[str, Dict[str, Any]]:
-    """
-    Match DataFrame columns to a query based on keyword matching.
-
-    Args:
-        df: Input DataFrame
-        query: User query string
-
-    Returns:
-        Dictionary mapping column names to match information including score and reasons
-    """
-    logger.info(f"Matching columns to query: '{query}'")
-    query_terms = _extract_key_terms(query)
-    matches = {}
-
-    for column in df.columns:
-        column_lower = column.lower()
-        match_score = 0
-        match_terms = []
-
-        # Check for direct column name matches
-        for term in query_terms:
-            if term == column_lower:
-                match_score += 3
-                match_terms.append(term)
-            elif term in column_lower or column_lower in term:
-                match_score += 2
-                match_terms.append(term)
-
-        # Add columns that might be relevant even without direct match
-        if pd.api.types.is_numeric_dtype(df[column]) and any(
-            term in query
-            for term in ["statistic", "number", "amount", "count", "total"]
-        ):
-            match_score += 1
-            match_terms.append("numeric relevance")
-
-        if match_score > 0:
-            logger.debug(
-                f"Column '{column}' matched with score {match_score}: {match_terms}"
-            )
-            matches[column] = {
-                "score": match_score,
-                "matching_terms": match_terms,
-                "stats": _get_column_stats(df, column),
-            }
-
-    logger.info(f"Found {len(matches)} matching columns")
-    return matches
-
-
-def _allow_direct_column_selection(df: pd.DataFrame, query: str) -> List[str]:
-    """
-    Attempt to directly extract column names mentioned in the query.
-
-    Args:
-        df: Input DataFrame
-        query: User query string
-
-    Returns:
-        List of column names found in the query
-    """
-    query_lower = query.lower()
-    columns_found = []
-
-    # Check for exact matches first
-    for column in df.columns:
-        if column.lower() in query_lower:
-            columns_found.append(column)
-
-    # Check for partial matches if no exact matches found
-    if not columns_found:
-        for column in df.columns:
-            column_words = column.lower().split()
-            for word in column_words:
-                if len(word) > 3 and word in query_lower:
-                    columns_found.append(column)
-                    break
-
-    return columns_found
-
-
-def _select_columns_for_analysis(query: str, df: pd.DataFrame) -> List[str]:
-    """
-    Select the most relevant columns for analysis based on the query.
-
-    Args:
-        query: User query string
-        df: Input DataFrame
-
-    Returns:
-        List of column names selected for analysis
-    """
-    logger.info(f"Selecting columns for analysis based on query: '{query}'")
-    # Try direct column selection first
-    direct_columns = _allow_direct_column_selection(df, query)
-    if direct_columns:
-        logger.info(f"Using direct column selection: {direct_columns}")
-        return direct_columns
-
-    # If direct selection fails, use matching algorithm
-    column_matches = _match_columns_to_query(df, query)
-    if not column_matches:
-        logger.warning("No specific columns matched the query, using default selection")
-        df_analysis = _analyze_dataframe(df)
-
-        # If no specific columns match, return a sensible default selection
-        if df_analysis["numeric_columns"]:
-            selected = df_analysis["numeric_columns"][
-                :5
-            ]  # Return top 5 numeric columns
-            logger.info(f"Selected default numeric columns: {selected}")
-            return selected
-        else:
-            selected = list(df.columns[:5])  # Return first 5 columns as fallback
-            logger.info(f"Selected first 5 columns as fallback: {selected}")
-            return selected
-
-    # Sort columns by match score
-    sorted_matches = sorted(
-        column_matches.items(), key=lambda x: x[1]["score"], reverse=True
-    )
-
-    # Take top 5 matching columns or all if less than 5
-    selected_columns = [col for col, _ in sorted_matches[:5]]
-    logger.info(f"Selected top matching columns: {selected_columns}")
-    return selected_columns
-
-
-class ColumnSelection(BaseModel):
-    columns: List[str] = Field(
-        ..., description="List of column names to include in the analysis"
-    )
-
-    @field_validator("columns")
+    @field_validator("analysis_type")
     @classmethod
-    def validate_columns(cls, columns):
-        """
-        Validate that the column list is not empty and contains valid strings.
-
-        Args:
-            columns: List of column names to validate
-
-        Returns:
-            Validated list of column names
-
-        Raises:
-            ValueError: If validation fails
-        """
-        if not columns:
-            raise ValueError("Must include at least one column")
-        if not all(isinstance(col, str) for col in columns):
-            raise ValueError("All column names must be strings")
-        return columns
+    def validate_analysis_type(cls, v):
+        valid_types = {"trend", "distribution", "correlation", "outliers"}
+        if v.lower() not in valid_types:
+            raise ValueError(f"Analysis type must be one of: {', '.join(valid_types)}")
+        return v.lower()
 
 
-def _select_columns_with_llm(query: str, df: pd.DataFrame, sorted_columns) -> List[str]:
-    """
-    Use an LLM to select the most appropriate columns for analysis in ambiguous cases.
+def _detect_outliers(series: pd.Series) -> Dict[str, Union[bool, int, float]]:
+    """Detect outliers using IQR method with pandas/numpy"""
+    logger.debug(f"Detecting outliers for series with {len(series)} entries")
 
-    Args:
-        query: User query string
-        df: Input DataFrame
-        sorted_columns: Columns sorted by match score
+    if len(series) < 4 or not pd.api.types.is_numeric_dtype(series):
+        logger.debug("Series too short or non-numeric, skipping outlier detection")
+        return {
+            "has_outliers": False,
+            "outlier_count": 0,
+            "lower_bound": 0.0,
+            "upper_bound": 0.0,
+        }
 
-    Returns:
-        List of column names selected by the LLM
-    """
-    logger.info("Using Groq LLM to resolve column selection ambiguity")
-    prompt = ChatPromptTemplate.from_template(
-        """I need to select the most relevant columns from a DataFrame to answer a user's query.
+    q1 = np.percentile(series, 25)
+    q3 = np.percentile(series, 75)
+    iqr = q3 - q1
 
-User Query: {query}
+    lower_bound = q1 - (1.5 * iqr)
+    upper_bound = q3 + (1.5 * iqr)
 
-Available columns in the DataFrame:
-{available_columns}
+    outliers = series[(series < lower_bound) | (series > upper_bound)]
+    logger.debug(f"Found {len(outliers)} outliers")
+    return {
+        "has_outliers": len(outliers) > 0,
+        "outlier_count": len(outliers),
+        "lower_bound": float(lower_bound),
+        "upper_bound": float(upper_bound),
+    }
 
-My goal is to select columns that are most relevant to the query. The columns should help address the specific aspects the user is asking about.
 
-Based on the user query, select between 1 and 5 columns that would be most helpful for generating a description or analysis that answers the query.
+def extract_column_metadata(df: pd.DataFrame) -> List[ColumnMetadata]:
+    """Enhanced metadata extraction with statistical insights"""
+    logger.info(f"Extracting metadata for DataFrame with {len(df.columns)} columns")
+    metadata = []
 
-Respond with ONLY a comma-separated list of column names, exactly as they appear in the available columns list."""
-    )
+    for col in df.columns:
+        logger.debug(f"Processing column: {col}")
+        series = df[col].dropna()
+        stats = {}
 
-    model = get_groq_llm(DEFAULT_MODEL_NAME)
+        # Convert datetime values to strings for sample_values
+        sample_values = series.head(5)
+        if pd.api.types.is_datetime64_any_dtype(series):
+            sample_values = sample_values.dt.strftime("%Y-%m-%d").tolist()
+            logger.debug(f"Converted datetime values for column {col}")
+        else:
+            sample_values = sample_values.tolist()
 
-    column_dict = {col: df[col].dtype for col in df.columns}
-    formatted_columns = "\n".join(
-        [f"- {col} ({dtype})" for col, dtype in column_dict.items()]
-    )
+        if pd.api.types.is_numeric_dtype(series):
+            logger.debug(f"Computing numeric statistics for {col}")
+            stats.update(
+                {
+                    "min": float(series.min()),
+                    "max": float(series.max()),
+                    "mean": float(series.mean()),
+                    "std": float(series.std()),
+                    "outliers": _detect_outliers(series),
+                }
+            )
+        elif pd.api.types.is_datetime64_any_dtype(series):
+            logger.debug(f"Computing datetime statistics for {col}")
+            stats.update(
+                {
+                    "start": series.min().strftime("%Y-%m-%d"),
+                    "end": series.max().strftime("%Y-%m-%d"),
+                    "unique_days": series.nunique(),
+                }
+            )
+        elif pd.api.types.is_categorical_dtype(series) or series.nunique() < 20:
+            logger.debug(f"Computing categorical statistics for {col}")
+            stats.update(
+                {
+                    "top_values": series.value_counts(normalize=True).head(3).to_dict(),
+                    "unique_count": series.nunique(),
+                }
+            )
 
-    try:
-        logger.debug("Invoking Groq LLM for column selection")
-        response = model.invoke(
-            prompt.format(
-                query=query,
-                available_columns=formatted_columns,
+        metadata.append(
+            ColumnMetadata(
+                name=col,
+                dtype=str(series.dtype),
+                unique_values=series.unique().tolist()
+                if series.nunique() < 20
+                else None,
+                sample_values=sample_values,
+                stats=stats,
             )
         )
-        logger.debug(f"Groq LLM response: {response}")
 
-        # Extract content from AIMessage if needed
-        if hasattr(response, "content"):
-            response_text = response.content
-        else:
-            response_text = str(response)
+    logger.info(f"Completed metadata extraction for {len(metadata)} columns")
+    return metadata
 
-        # Parse response
-        selected_columns = [col.strip() for col in response_text.split(",")]
 
-        # Validate columns exist in DataFrame
-        valid_columns = [col for col in selected_columns if col in df.columns]
+def enhance_query_with_metadata(query: str, metadata: List[ColumnMetadata]) -> str:
+    """Enhance query with statistical highlights"""
+    logger.info("Enhancing query with metadata")
+    logger.debug(f"Original query: {query}")
 
-        if not valid_columns:
-            logger.warning(
-                "Groq LLM returned no valid columns, using fallback selection"
+    enhancements = []
+    for col in metadata:
+        if col.stats:
+            highlights = []
+            if "min" in col.stats and "max" in col.stats:
+                highlights.append(f"range {col.stats['min']}-{col.stats['max']}")
+            if "top_values" in col.stats:
+                highlights.append(
+                    "common values: "
+                    + ", ".join(
+                        f"{k} ({v:.1%})" for k, v in col.stats["top_values"].items()
+                    )
+                )
+            if highlights:
+                enhancements.append(f"{col.name}: {', '.join(highlights)}")
+
+    enhanced_query = f"{query}\n\nData Features:\n- " + "\n- ".join(enhancements)
+    logger.debug(f"Enhanced query: {enhanced_query}")
+    return enhanced_query
+
+
+def get_llm_analysis_plan(
+    query: str, metadata: List[ColumnMetadata]
+) -> AnalysisRequest:
+    """Get analysis parameters from LLM with structured output"""
+    logger.info("Getting analysis plan from LLM")
+    logger.debug(f"Input query: {query}")
+
+    prompt_template = ChatPromptTemplate.from_template(
+        """Analyze this data request and select analysis parameters:
+
+Query: {query}
+
+Available Columns:
+{columns}
+
+Respond STRICTLY in this format:
+selected_columns: [comma-separated column names]
+analysis_type: [trend/distribution/correlation/outliers]
+parameters: [key:value pairs separated by commas]
+
+Examples:
+selected_columns: sales, date
+analysis_type: trend
+parameters: time_column:date, measure:sales
+
+selected_columns: price, category
+analysis_type: distribution
+parameters: group_by:category, metric:price"""
+    )
+
+    columns_str = "\n".join(
+        [
+            f"- {col.name} ({col.dtype}) "
+            + " ".join(
+                [
+                    f"{k}={v}"
+                    for k, v in col.stats.items()
+                    if k in ["min", "max", "unique_count"]
+                ]
             )
-            # If no valid columns selected, use top matched columns
-            valid_columns = [col for col, _ in sorted_columns[:5]]
+            for col in metadata
+        ]
+    )
 
-        logger.info(f"Groq LLM selected columns: {valid_columns}")
-        return valid_columns
+    model = get_groq_llm(DESCRIPTION_GENERATOR_SELECTOR_MODEL)
+    chain = prompt_template | model
 
-    except Exception as e:
-        logger.error(f"Error in Groq LLM column selection: {str(e)}", exc_info=True)
-        # Fallback to sorted columns from matching algorithm
-        fallback_columns = [col for col, _ in sorted_columns[:5]]
-        logger.info(f"Using fallback columns after Groq LLM error: {fallback_columns}")
-        return fallback_columns
+    logger.debug("Sending request to LLM")
+    response = chain.invoke({"query": query, "columns": columns_str})
+    logger.debug(f"Received response from LLM: {response.content}")
+
+    analysis_request = _parse_llm_response(response.content)
+    logger.info(f"Generated analysis plan of type: {analysis_request.analysis_type}")
+    return analysis_request
 
 
-def _interpret_correlation(value: float) -> str:
-    """
-    Interpret a correlation coefficient with a descriptive label.
+def _parse_llm_response(response: str) -> AnalysisRequest:
+    """Parse LLM response into structured format"""
+    logger.debug("Parsing LLM response")
+    logger.debug(f"Raw response: {response}")
 
-    Args:
-        value: Correlation coefficient value (-1 to 1)
+    parsed = {"selected_columns": [], "analysis_type": "", "parameters": {}}
+    for line in response.strip().split("\n"):
+        if line.startswith("selected_columns:"):
+            parsed["selected_columns"] = [
+                x.strip() for x in line.split(":")[1].split(",")
+            ]
+        elif line.startswith("analysis_type:"):
+            parsed["analysis_type"] = line.split(":")[1].strip()
+        elif line.startswith("parameters:"):
+            params = line.split(":")[1].strip()
+            parsed["parameters"] = dict(
+                item.split(":") for item in params.split(",") if ":" in item
+            )
 
-    Returns:
-        String describing the correlation strength and direction
-    """
-    abs_value = abs(value)
-    direction = "positive" if value > 0 else "negative"
+    logger.debug(f"Parsed response: {parsed}")
+    return AnalysisRequest(**parsed)
 
-    if abs_value < 0.1:
-        strength = "negligible"
-    elif abs_value < 0.3:
-        strength = "weak"
-    elif abs_value < 0.5:
-        strength = "moderate"
-    elif abs_value < 0.7:
-        strength = "strong"
+
+def _calculate_insights(df: pd.DataFrame, request: AnalysisRequest) -> Dict:
+    """Perform calculations based on analysis plan"""
+    logger.info("Calculating insights based on analysis plan")
+    logger.debug(f"Analysis request: {request}")
+
+    insights = {"summary_stats": {}, "relationships": {}}
+
+    # Column-level statistics
+    for col in request.selected_columns:
+        if col in df.columns:
+            logger.debug(f"Computing statistics for column: {col}")
+            series = df[col].dropna()
+            insights["summary_stats"][col] = {
+                "mean": series.mean() if series.dtype.kind in "iufc" else None,
+                "unique_count": series.nunique(),
+                "trend": _calculate_trend(series) if series.dtype.kind in "M" else None,
+            }
+
+    # Cross-column analysis
+    if len(request.selected_columns) >= 2:
+        logger.debug("Computing cross-column relationships")
+        insights["relationships"] = {
+            "correlation": _calculate_correlation(df, request.selected_columns),
+            # "cross_tabs": _calculate_crosstabs(df, request.selected_columns),
+        }
+
+    # Time-based analysis
+    if "time_column" in request.parameters:
+        time_col = request.parameters["time_column"]
+        if time_col in df.columns:
+            logger.debug(f"Performing time-based analysis using column: {time_col}")
+            insights["time_analysis"] = _analyze_time_series(df, time_col, request)
+
+    logger.info("Completed insights calculation")
+    return insights
+
+
+def _calculate_trend(series: pd.Series) -> Dict:
+    """Calculate linear trend for time series data"""
+    if len(series) < 2:
+        return {}
+
+    # Convert datetime to numeric format
+    if pd.api.types.is_datetime64_any_dtype(series):
+        x = series.astype("int64").values.astype(float)
     else:
-        strength = "very strong"
+        x = np.arange(len(series))
 
-    return f"{strength} {direction}"
+    y = x if pd.api.types.is_datetime64_any_dtype(series) else series.values
+    slope, intercept = np.polyfit(x, y, 1)
+
+    return {
+        "slope_per_observation": float(slope),
+        "percent_change": float((slope * len(series)) / y[0]) if y[0] != 0 else 0,
+    }
+
+
+def _calculate_correlation(df: pd.DataFrame, columns: List[str]) -> Dict:
+    """Calculate top 5 strongest correlations between numeric columns"""
+    numeric_cols = [col for col in columns if pd.api.types.is_numeric_dtype(df[col])]
+
+    if len(numeric_cols) < 2:
+        return {}
+
+    corr_matrix = df[numeric_cols].corr().abs()
+    np.fill_diagonal(corr_matrix.values, 0)  # Ignore self-correlations
+
+    # Get top 5 correlation pairs
+    correlations = corr_matrix.stack().sort_values(ascending=False).head(5).to_dict()
+
+    return {
+        "top_correlations": [
+            f"{pair[0]} & {pair[1]} ({strength:.2f})"
+            for pair, strength in correlations.items()
+        ]
+    }
+
+
+def _calculate_crosstabs(df: pd.DataFrame, columns: List[str]) -> Dict:
+    """Calculate categorical relationships"""
+    if len(columns) >= 2 and all(col in df.columns for col in columns):
+        return pd.crosstab(df[columns[0]], df[columns[1]]).to_dict()
+    return {}
+
+
+def _analyze_time_series(
+    df: pd.DataFrame, time_col: str, request: AnalysisRequest
+) -> Dict:
+    """Analyze time-based patterns"""
+    df = df.set_index(time_col).sort_index()
+    analysis = {}
+
+    if "measure" in request.parameters:
+        measure_col = request.parameters["measure"]
+        if measure_col in df.columns:
+            analysis["rolling_stats"] = {
+                "7_day_mean": df[measure_col].rolling("7D").mean().dropna().to_dict(),
+                "30_day_max": df[measure_col].rolling("30D").max().dropna().to_dict(),
+            }
+
+    return analysis
 
 
 def generate_description(df: pd.DataFrame, query: str) -> str:
-    """
-    Generate a descriptive analysis of a DataFrame based on a user query.
+    """Full analysis pipeline"""
+    logger.info(f"Starting description generation for query: {query}")
+    logger.debug(f"Input DataFrame shape: {df.shape}")
 
-    Args:
-        df: Input DataFrame to analyze
-        query: User query string describing the analysis needed
+    # 1. Extract metadata
+    metadata = extract_column_metadata(df)
+    logger.info(f"Extracted metadata for {len(metadata)} columns")
 
-    Returns:
-        String containing the descriptive analysis
-    """
-    logger.info(f"Generating description for query: '{query}'")
-    # Overall DataFrame analysis
-    df_analysis = _analyze_dataframe(df)
+    # 2. Enhance query
+    enhanced_query = enhance_query_with_metadata(query, metadata)
+    logger.info("Enhanced query with metadata")
 
-    # Select relevant columns
-    try:
-        # Match columns with highest scores to the query
-        column_matches = _match_columns_to_query(df, query)
-        sorted_matches = sorted(
-            column_matches.items(), key=lambda x: x[1]["score"], reverse=True
+    # 3. Get LLM analysis plan
+    analysis_plan = get_llm_analysis_plan(enhanced_query, metadata)
+    logger.info(f"Generated analysis plan of type: {analysis_plan.analysis_type}")
+
+    # 4. Validate selection
+    valid_columns = [col for col in analysis_plan.selected_columns if col in df.columns]
+    if not valid_columns:
+        logger.warning(
+            "No valid columns found in analysis plan, using first two columns"
         )
+        valid_columns = [col.name for col in metadata[:2]]
 
-        if (
-            len(sorted_matches) >= 2
-            and sorted_matches[0][1]["score"] == sorted_matches[1][1]["score"]
-        ):
-            logger.info("Multiple columns with same score, using Groq LLM selection")
-            selected_columns = _select_columns_with_llm(query, df, sorted_matches)
-        else:
-            selected_columns = _select_columns_for_analysis(query, df)
+    # 5. Calculate insights
+    insights = _calculate_insights(df, analysis_plan)
+    logger.info("Calculated insights")
 
-        if not selected_columns:
-            logger.warning("No columns selected, using default selection")
-            # If no columns selected, use a sensible default
-            if df_analysis["numeric_columns"]:
-                selected_columns = df_analysis["numeric_columns"][:3]
-            else:
-                selected_columns = list(df.columns[:3])
-
-    except Exception as e:
-        logger.error(f"Error selecting columns: {str(e)}", exc_info=True)
-        # Fallback to basic column selection
-        if df_analysis["numeric_columns"]:
-            selected_columns = df_analysis["numeric_columns"][:3]
-        else:
-            selected_columns = list(df.columns[:3])
-        logger.info(f"Using fallback column selection: {selected_columns}")
-
-    # Calculate detailed stats for selected columns
-    logger.info(f"Analyzing selected columns: {selected_columns}")
-    column_stats = {}
-    for column in selected_columns:
-        column_stats[column] = _get_column_stats(df, column)
-
-    # Calculate correlations between numeric columns
-    correlations = {}
-    numeric_cols = [
-        col for col in selected_columns if col in df_analysis["numeric_columns"]
-    ]
-
-    if len(numeric_cols) > 1:
-        logger.info(
-            f"Calculating correlations between {len(numeric_cols)} numeric columns"
-        )
-        corr_matrix = df[numeric_cols].corr()
-        for i, col1 in enumerate(numeric_cols):
-            for j, col2 in enumerate(numeric_cols):
-                if i < j:  # Only include each pair once
-                    corr_value = corr_matrix.loc[col1, col2]
-                    if not pd.isna(corr_value):
-                        # Cast correlation value to float for type safety
-                        float_corr_value = float(cast(float, corr_value))
-                        correlations[f"{col1} vs {col2}"] = {
-                            "value": float_corr_value,
-                            "interpretation": _interpret_correlation(float_corr_value),
-                        }
-        logger.debug(f"Found {len(correlations)} valid correlations")
-
-    # Format the query context
-    query_context = {
-        "query": query,
-        "selected_columns": selected_columns,
-        "dataframe_info": {
-            "rows": df_analysis["row_count"],
-            "columns": df_analysis["column_count"],
-            "column_types": df_analysis["column_types"],
-        },
-        "column_statistics": column_stats,
-        "correlations": correlations,
-    }
-
-    # Generate description with LLM
+    # 6. Generate final description
+    logger.info("Generating final description using LLM")
     prompt = ChatPromptTemplate.from_template(
-        """
-        I'm analyzing a DataFrame based on this query: "{query}"
-        
-        DataFrame Information:
-        - Total rows: {rows}
-        - Total columns: {columns}
-        
-        Selected columns for this analysis:
-        {column_details}
-        
-        Correlation Information:
-        {correlation_info}
-        
-        Based on the above information, provide a concise, factual description that directly answers the query.
-        Focus on quantitative insights, notable patterns, and key statistics that address what the user is asking about.
-        Use simple language and avoid unnecessary technical jargon.
-        
-        Include relevant statistics like means, ranges, correlations, distributions, or trends when they help answer the query.
-        Do not include meta-commentary about the analysis process itself.
-        """
+        """As a marketing data analyst, create a concise report section based on these insights. Structure your response for executive readability:
+
+**Client Query**: {query}
+
+**Analysis Context**:
+- Focus Metrics: {columns}
+- Analysis Method: ...
+- Time Frame: ...
+
+**Key Marketing Insights**:
+1. Performance Highlights (Lead with numbers):
+   - Include: CTR, Conversion Rates, CAC, ROI where applicable
+2. Audience Trends:
+   - Segment by: ...
+3. Notable Patterns:
+   - ...
+   - ...
+   - ...
+
+**Recommendations** (Max 3 actionable items):
+- Budget reallocation suggestions
+- Optimization opportunities
+- A/B testing ideas
+
+**Visualization Suggestions**:
+- 1-2 chart types that best represent these insights
+- Brief rationale for each choice
+
+Formatting Rules:
+→ Use bold section headers
+→ Prepend marketing KPIs with ▸ symbols
+→ Keep paragraphs under 50 words
+→ Compare to previous period if data allows
+→ Highlight statistical significance (p < 0.05) where applicable
+
+Example of good response:
+"Email campaigns showed 225% higher conversion vs social ads (p=0.03).  
+▸ CAC decreased 15% MoM to $4.50  
+Recommend testing subject line variants in top-performing segments..."
+
+Insights Data:
+{insights}"""
     )
 
-    # Format column details
-    column_details = []
-    for col, stats in column_stats.items():
-        if stats["type"] == "numeric":
-            column_details.append(
-                f"- {col}: numeric column with range {stats['min']} to {stats['max']}, "
-                f"mean: {stats['mean']:.2f}, median: {stats['median']:.2f}"
-            )
-            if stats.get("has_outliers"):
-                column_details.append(
-                    f"  Contains {stats['outlier_count']} potential outliers"
-                )
+    model = get_groq_llm(DESCRIPTION_GENERATOR_MODEL)
 
-        elif stats["type"] == "categorical" and "categories" in stats:
-            top_cats = sorted(
-                stats["categories"].items(), key=lambda x: x[1]["count"], reverse=True
-            )[:3]
-            cats_text = ", ".join(
-                f"{cat} ({info['percentage']:.1%})" for cat, info in top_cats
-            )
-            column_details.append(
-                f"- {col}: categorical column with {stats['unique_count']} unique values. "
-                f"Top categories: {cats_text}"
-            )
-
-        elif stats["type"] == "datetime":
-            column_details.append(
-                f"- {col}: datetime column ranging from {stats['min']} to {stats['max']}"
-            )
-
-        else:
-            column_details.append(
-                f"- {col}: text column with {stats['unique_count']} unique values"
-            )
-
-    # Format correlation information
-    correlation_info = []
-    for pair, corr in correlations.items():
-        correlation_info.append(
-            f"- {pair}: {corr['interpretation']} correlation ({corr['value']:.2f})"
+    response = model.invoke(
+        prompt.format(
+            query=query,
+            columns=", ".join(valid_columns),
+            analysis_type=analysis_plan.analysis_type,
+            parameters=str(analysis_plan.parameters),
+            insights=str(insights),
         )
+    )
 
-    if not correlation_info:
-        correlation_info = ["No relevant correlations to report"]
+    logger.info("Description generation completed")
 
-    model = get_groq_llm(DEFAULT_MODEL_NAME)
+    cleaned_content = re.sub(
+        r"\s*<think>.*?</think>\s*",
+        "",
+        response.content,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    cleaned_content = re.sub(
+        r"\s*</?gpt[^>]*>\s*", "", cleaned_content, flags=re.IGNORECASE
+    )
 
-    try:
-        logger.info("Invoking Groq LLM to generate description")
-        description = model.invoke(
-            prompt.format(
-                query=query,
-                rows=query_context["dataframe_info"]["rows"],
-                columns=query_context["dataframe_info"]["columns"],
-                column_details="\n".join(column_details),
-                correlation_info="\n".join(correlation_info),
-            )
-        )
-
-        # Extract content from AIMessage if needed
-        if hasattr(description, "content"):
-            description_text = description.content
-        else:
-            description_text = str(description)
-
-        logger.info(f"Generated description of {len(description_text)} characters")
-        return description_text.strip()
-    except Exception as e:
-        error_msg = f"Error generating description: {str(e)}"
-        logger.error(error_msg, exc_info=True)
-        return error_msg
+    logger.info("Description generation completed")
+    return cleaned_content
 
 
 if __name__ == "__main__":
-    # Set up console logging for script execution
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(
         logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -648,7 +463,6 @@ if __name__ == "__main__":
     root_logger.setLevel(logging.INFO)
     root_logger.addHandler(console_handler)
 
-    # Simple test to demonstrate functionality
     import numpy as np
 
     test_data = {
@@ -658,7 +472,7 @@ if __name__ == "__main__":
         "category": np.random.choice(["A", "B", "C"], 100),
     }
     test_df = pd.DataFrame(test_data)
-    test_query = "Describe the sales trends over time"
+    test_query = "Describe the sales trends over customers"
 
     logger.info(f"Testing with query: '{test_query}'")
     try:

@@ -4,119 +4,77 @@
  */
 import { useState } from 'react';
 
-import {
-  type AnalysisResponse,
-  analyzeData,
-  isChartResponse,
-  isDescriptionResponse,
-  isErrorResponse,
-  isReportResponse,
-} from '@/api/llmApi';
+import { checkHealth, sendQuery } from '@/api/llmApi';
+import { type HealthResponse, type QueryResponse } from '@/types/types';
 
 /**
- * State interface for LLM analysis hook
+ * Hook for sending queries to the LLM API
  */
-interface LlmAnalysisState {
-  /** The analysis response data */
-  data: AnalysisResponse | null;
-  /** Loading state indicator */
-  loading: boolean;
-  /** Error object if analysis failed */
-  error: Error | null;
-  /** Whether the response contains chart data */
-  isChart: boolean;
-  /** Whether the response contains a description */
-  isDescription: boolean;
-  /** Whether the response contains a report */
-  isReport: boolean;
-  /** Whether the response contains an error */
-  isError: boolean;
-}
+export const useLLMQuery = () => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  const [data, setData] = useState<QueryResponse | null>(null);
 
-/**
- * Initial state for the LLM analysis hook
- */
-const initialState: LlmAnalysisState = {
-  data: null,
-  loading: false,
-  error: null,
-  isChart: false,
-  isDescription: false,
-  isReport: false,
-  isError: false,
-};
-
-/**
- * Hook for performing LLM analysis on queries
- *
- * Provides functionality to:
- * - Send natural language queries for analysis
- * - Track loading and error states
- * - Determine response type (chart, description, report, or error)
- *
- * @example
- * ```tsx
- * function AnalysisComponent() {
- *   const { analyze, loading, data, isChart, error } = useLlmAnalysis();
- *
- *   const handleAnalysis = async () => {
- *     await analyze("Show me revenue trends for last month");
- *   };
- *
- *   if (loading) return <Loading />;
- *   if (error) return <Error message={error.message} />;
- *   if (isChart && data) return <Chart data={data.output.chart} />;
- *
- *   return <div>No analysis yet</div>;
- * }
- * ```
- *
- * @returns Object containing analysis state and analyze function
- */
-export const useLlmAnalysis = () => {
-  const [state, setState] = useState<LlmAnalysisState>(initialState);
-
-  /**
-   * Performs LLM analysis on the provided query
-   *
-   * @param query - Natural language query to analyze
-   * @returns Analysis response or null if error occurred
-   */
-  const analyze = async (query: string): Promise<AnalysisResponse | null> => {
-    // Reset state before new analysis
-    setState({
-      ...initialState,
-      loading: true,
-    });
-
+  const executeQuery = async (query: string) => {
     try {
-      const data = await analyzeData(query);
-
-      // Update state with response and type indicators
-      setState({
-        data,
-        loading: false,
-        error: null,
-        isChart: isChartResponse(data),
-        isDescription: isDescriptionResponse(data),
-        isReport: isReportResponse(data),
-        isError: isErrorResponse(data),
-      });
-
-      return data;
-    } catch (error) {
-      // Handle errors and update state
-      setState({
-        ...initialState,
-        error: error instanceof Error ? error : new Error('Unknown error occurred'),
-        isError: true,
-      });
-      return null;
+      setLoading(true);
+      setError(null);
+      const response = await sendQuery(query);
+      setData(response);
+      return response;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('An unknown error occurred');
+      setError(error);
+      throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
   return {
-    ...state,
-    analyze,
+    executeQuery,
+    data,
+    loading,
+    error,
+    reset: () => {
+      setData(null);
+      setError(null);
+    },
+  };
+};
+
+/**
+ * Hook for checking LLM API health status
+ */
+export const useLLMHealth = () => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  const [data, setData] = useState<HealthResponse | null>(null);
+
+  const checkApiHealth = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await checkHealth();
+      setData(response);
+      return response;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('An unknown error occurred');
+      setError(error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return {
+    checkApiHealth,
+    data,
+    loading,
+    error,
+    reset: () => {
+      setData(null);
+      setError(null);
+    },
   };
 };

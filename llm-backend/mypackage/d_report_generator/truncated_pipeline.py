@@ -1,17 +1,16 @@
 #!/usr/bin/env python
 import logging
-from typing import Union, Dict
+from typing import Dict, List, Union
 
-from mypackage.b_data_processor import json_processor
-from mypackage.c_regular_generator import chart_data_generator, description_generator
+from mypackage.b_data_processor import collection_processor
+from mypackage.c_regular_generator import chart_generator, description_generator
 from mypackage.d_report_generator.generate_analysis_queries import QueryItem, QueryType
 
-# Configure logger
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.propagate = False
 
-# Add handler if not already added
+
 if not logger.handlers:
     handler = logging.StreamHandler()
     formatter = logging.Formatter(
@@ -21,25 +20,9 @@ if not logger.handlers:
     logger.addHandler(handler)
 
 
-def run_truncated_pipeline(queryItem: QueryItem) -> Dict[str, str]:
-    """
-    Main function that processes the given query item.
-
-    Args:
-        queryItem (QueryItem): An instance of QueryItem containing the query details.
-
-    Returns:
-        Dict[str, str]: A dictionary containing:
-            - 'type': The type of result ("chart", "description", "error")
-            - 'result': The processed result (image URL, description text, or error message)
-
-    Raises:
-        ValueError: If the query type is invalid.
-    """
-
+def run_truncated_pipeline(queryItem: QueryItem) -> Dict[str, Union[str, List[str]]]:
     logger.info(f"Processing query: '{queryItem.query}'")
 
-    # query classifier
     if queryItem.query_type == QueryType.CHART:
         classification_result = "chart"
     elif queryItem.query_type == QueryType.DESCRIPTION:
@@ -47,21 +30,20 @@ def run_truncated_pipeline(queryItem: QueryItem) -> Dict[str, str]:
     else:
         raise ValueError(f"Invalid query type: {queryItem.query_type}")
 
-    # data selector
     collection_name = queryItem.collection_name
 
-    # data processor
     try:
-        df = json_processor.process_json_query(collection_name, queryItem.query)
+        df = collection_processor.process_collection_query(
+            collection_name, queryItem.query
+        )
     except Exception as e:
         logger.error(f"Error processing JSON: {str(e)}")
         return {"type": "error", "result": f"Error processing JSON: {str(e)}"}
 
-    # generator
     try:
         if classification_result == "chart":
             logger.info("Generating chart data")
-            result = chart_data_generator.generate_chart_data(df, queryItem.query)
+            result = chart_generator.generate_chart(df, queryItem.query)
             return {"type": "chart", "result": result}
         elif classification_result == "description":
             logger.info("Generating description")

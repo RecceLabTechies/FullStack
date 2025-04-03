@@ -1,9 +1,9 @@
-import pytest
 import json
-import sys
 import os
-from unittest.mock import patch, MagicMock
-from flask import Flask, Blueprint, jsonify, request
+import sys
+
+import pytest
+from flask import Blueprint, Flask, jsonify, request
 
 # Add the project root to the Python path to ensure imports work
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
