@@ -1,3 +1,18 @@
+"""
+LLM Backend API Application
+
+This Flask application provides a RESTful API for processing analytical queries
+using a pipeline of LLM-powered components. It serves as the entry point for HTTP
+requests and handles request validation, processing, and response formatting.
+
+The application exposes endpoints for:
+- Processing queries via the main pipeline
+- Health checking the application and its database connection
+
+The API is CORS-enabled for cross-origin requests and uses JSON for all request
+and response data.
+"""
+
 from typing import Dict, Union
 
 from flask import Flask, jsonify, request
@@ -18,26 +33,85 @@ Database.initialize()
 
 @app.route("/api/query", methods=["POST"])
 def process_query():
+    """
+    Process an analytical query submitted via POST request.
+
+    This endpoint accepts a JSON payload with a 'query' field containing the
+    user's analytical query. It validates the request format, processes the
+    query through the main pipeline, and returns the results.
+
+    Expected Request Format:
+        {
+            "query": "String containing the user's analytical question"
+        }
+
+    Response Format:
+        {
+            "output": {
+                "type": "chart|description|report|error",
+                "result": <URL, text, or error message>
+            },
+            "original_query": "The original query string"
+        }
+
+    Returns:
+        JSON response with results or error message
+        HTTP 400 for malformed requests
+        HTTP 500 for server-side errors
+    """
+    # Validate that the request contains JSON
     if not request.is_json:
         return jsonify({"error": "Request must be JSON"}), 400
+
+    # Extract and validate the query field
     data = request.get_json()
     if "query" not in data:
         return jsonify({"error": "Query field is required"}), 400
+
     query = data["query"]
+    logger.info(f"Received query: '{query}'")
+
+    # Process the query through the pipeline
     try:
         result: Dict[str, Union[str, ReportResults]] = run_pipeline(query)
         response = {"output": result, "original_query": query}
+        logger.info(f"Successfully processed query, result type: {result['type']}")
         return jsonify(response)
     except Exception as e:
-        logger.error(f"Error processing query: {str(e)}")
+        logger.error(f"Error processing query: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/health", methods=["GET"])
 def health_check():
+    """
+    Perform a health check of the application and its dependencies.
+
+    This endpoint checks:
+    1. Database connection status
+    2. Availability of accessible collections
+
+    It returns a JSON response indicating whether the application is healthy
+    and can function properly.
+
+    Response Format:
+        {
+            "status": "ok|error",
+            "message": "Descriptive status message",
+            "healthy": true|false,
+            "collections_count": <number of accessible collections> (if healthy)
+        }
+
+    Returns:
+        JSON response with health status
+        HTTP 200 if healthy
+        HTTP 503 if service is unavailable or unhealthy
+    """
+    # Check database connection
     if Database.db is None:
         success = Database.initialize()
         if not success:
+            logger.error("Health check failed: Database connection failed")
             return (
                 jsonify(
                     {
@@ -48,8 +122,11 @@ def health_check():
                 ),
                 503,
             )
+
+    # Check for accessible collections
     collections = Database.list_collections()
     if not collections:
+        logger.error("Health check failed: No accessible collections found")
         return (
             jsonify(
                 {
@@ -60,6 +137,9 @@ def health_check():
             ),
             503,
         )
+
+    # All checks passed
+    logger.info(f"Health check successful: {len(collections)} collections available")
     return (
         jsonify(
             {
@@ -74,4 +154,5 @@ def health_check():
 
 
 if __name__ == "__main__":
+    logger.info(f"Starting Flask application on {HOST}:{PORT} (debug={DEBUG})")
     app.run(debug=DEBUG, host=HOST, port=PORT)

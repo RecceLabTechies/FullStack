@@ -12,6 +12,15 @@ The module handles:
 
 import logging
 
+from mypackage.b_data_processor.collection_processor import (
+    process_collection_query,
+)
+from mypackage.b_data_processor.collection_selector import (
+    CollectionAnalysisResult,
+    CollectionNotFoundError,
+    select_collection_for_query,
+)
+
 # Set up module-level logger
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -25,14 +34,6 @@ if not logger.handlers:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-from mypackage.b_data_processor.collection_processor import (
-    process_collection_query,
-)
-from mypackage.b_data_processor.collection_selector import (
-    CollectionAnalysisResult,
-    CollectionNotFoundError,
-    select_collection_for_query,
-)
 
 logger.debug("b_data_processor module initialized")
 

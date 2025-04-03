@@ -12,19 +12,6 @@ they are processed by downstream components.
 
 import logging
 
-# Set up module-level logger
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-logger.propagate = False
-
-if not logger.handlers:
-    handler = logging.StreamHandler()
-    formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-
 # Import components from submodules
 from .query_classifier import (
     QueryType,
@@ -39,6 +26,20 @@ from .query_validator import (
     get_valid_query,
     normalize_query,
 )
+
+# Set up module-level logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.propagate = False
+
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+
 
 logger.debug("a_query_processor module initialized")
 

@@ -1,4 +1,18 @@
 #!/usr/bin/env python
+"""
+Collection Selector Module
+
+This module provides functionality for selecting the most appropriate database collection
+to query based on natural language user input. It employs both rule-based and LLM-based
+approaches to understand the query and match it to the most relevant collection.
+
+Key components:
+- Collection metadata extraction and analysis
+- Field and value matching between query terms and collection content
+- LLM-based disambiguation for complex queries
+- Scoring algorithm to rank potential collection matches
+"""
+
 import logging
 from typing import Any, Dict, List, Optional, Protocol, Tuple, TypeAlias, TypedDict
 
@@ -8,6 +22,7 @@ from pydantic import BaseModel
 from mypackage.utils.database import Database
 from mypackage.utils.llm_config import COLLECTION_SELECTOR_MODEL, get_groq_llm
 
+# Set up module-level logger
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.propagate = False
@@ -21,11 +36,21 @@ if not logger.handlers:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
+logger.debug("collection_selector module initialized")
 
 DEFAULT_MODEL_NAME = COLLECTION_SELECTOR_MODEL
 
 
 class CollectionNotFoundError(Exception):
+    """
+    Exception raised when no suitable collection is found for a query.
+
+    Attributes:
+        query: The user query that couldn't be matched
+        available_collections: List of available collections in the database
+        message: Explanation of why the collection was not found
+    """
+
     def __init__(
         self,
         message: str,
@@ -39,6 +64,18 @@ class CollectionNotFoundError(Exception):
 
 
 class CollectionInfo(TypedDict):
+    """
+    Type definition for storing collection metadata.
+
+    Attributes:
+        type: The type of collection (typically "list" for MongoDB collections)
+        count: Approximate number of documents in the collection
+        fields: List of field names in the collection
+        field_types: Mapping of field names to their data types
+        sample_values: Mapping of field names to lists of sample values
+        unique_values: Mapping of field names to lists of unique values
+    """
+
     type: str
     count: int
     fields: List[str]
@@ -48,6 +85,19 @@ class CollectionInfo(TypedDict):
 
 
 class CollectionAnalysisResult(BaseModel):
+    """
+    Pydantic model representing the result of collection analysis.
+
+    Attributes:
+        collection_name: The name of the selected collection (if found)
+        query: The original user query
+        reason: Explanation of why this collection was selected
+        matching_fields: List of fields that matched the query
+        matching_values: Dictionary of fields and values that matched the query
+        error: Error message if collection selection failed
+        alternative_collections: List of other possible collections with scores
+    """
+
     collection_name: Optional[str] = None
     query: str
     reason: Optional[str] = None
@@ -58,12 +108,31 @@ class CollectionAnalysisResult(BaseModel):
 
 
 class HeaderMatch(TypedDict):
+    """
+    Type definition for storing matches between query terms and collection field names.
+
+    Attributes:
+        score: Numerical score representing match quality
+        fields: List of field names that matched
+        reason: Explanation of why these fields matched
+    """
+
     score: int
     fields: List[str]
     reason: str
 
 
 class ValueMatch(TypedDict):
+    """
+    Type definition for storing matches between query terms and collection values.
+
+    Attributes:
+        score: Numerical score representing match quality
+        values: Dictionary mapping field names to lists of matching values
+        fields: List of field names that contained matching values
+        reason: Explanation of why these values matched
+    """
+
     score: int
     values: Dict[str, List[str]]
     fields: List[str]
@@ -71,6 +140,18 @@ class ValueMatch(TypedDict):
 
 
 class MatchDetails(TypedDict):
+    """
+    Type definition for storing comprehensive match details for a collection.
+
+    Attributes:
+        score: Overall match score (weighted combination of header and value scores)
+        fields: List of all matching fields
+        values: Dictionary of all matching values
+        reason: Explanation of the match
+        header_score: Score based on field name matches
+        value_score: Score based on field value matches
+    """
+
     score: float
     fields: List[str]
     values: Dict[str, List[str]]
@@ -80,6 +161,16 @@ class MatchDetails(TypedDict):
 
 
 class AlternativeMatch(TypedDict):
+    """
+    Type definition for storing information about alternative collection matches.
+
+    Attributes:
+        collection: Name of the alternative collection
+        score: Match score
+        fields: List of fields that matched
+        reason: Explanation of why this collection is a potential match
+    """
+
     collection: str
     score: float
     fields: List[str]
@@ -87,32 +178,67 @@ class AlternativeMatch(TypedDict):
 
 
 class LLMResponse(Protocol):
+    """
+    Protocol defining the expected structure of responses from language models.
+    """
+
     content: str
 
 
+# Type aliases for better code readability
 ValueMatchDict = Dict[str, List[str]]
 CollectionValueMatches = Dict[str, ValueMatchDict]
-
-
 HeaderMatches: TypeAlias = Dict[str, HeaderMatch]
 ValueMatches: TypeAlias = Dict[str, ValueMatch]
 
 
 class FieldProcessor:
+    """
+    Utility class for processing different field types and extracting
+    sample and unique values in a standardized format.
+    """
+
     @staticmethod
     def process_numerical(stats: Dict) -> Tuple[List[str], List[str]]:
+        """
+        Process numerical field statistics to extract representative values.
+
+        Args:
+            stats: Dictionary containing numerical field statistics
+
+        Returns:
+            Tuple of (sample values, unique values)
+        """
         min_val = stats.get("min", "")
         max_val = stats.get("max", "")
         return [str(min_val), str(max_val)], [str(min_val), str(max_val)]
 
     @staticmethod
     def process_datetime(stats: Dict) -> Tuple[List[str], List[str]]:
+        """
+        Process datetime field statistics to extract representative values.
+
+        Args:
+            stats: Dictionary containing datetime field statistics
+
+        Returns:
+            Tuple of (sample values, unique values)
+        """
         min_val = stats.get("min", "")
         max_val = stats.get("max", "")
         return [str(min_val), str(max_val)], [str(min_val), str(max_val)]
 
     @staticmethod
     def process_categorical(stats: Dict) -> Tuple[List[str], List[str]]:
+        """
+        Process categorical field statistics to extract representative values.
+
+        Args:
+            stats: Dictionary containing categorical field statistics
+
+        Returns:
+            Tuple of (sample values, unique values)
+        """
         unique_list = stats.get("unique_values", [])
         clean_list = [v for v in unique_list if v != "..."]
         samples = clean_list[:5] if len(clean_list) > 5 else clean_list
@@ -120,6 +246,16 @@ class FieldProcessor:
 
     @classmethod
     def process_field(cls, field_type: str, stats: Dict) -> Tuple[List[str], List[str]]:
+        """
+        Process any field type by dispatching to the appropriate method.
+
+        Args:
+            field_type: The type of field (numerical, datetime, categorical)
+            stats: Dictionary containing field statistics
+
+        Returns:
+            Tuple of (sample values, unique values)
+        """
         processor = getattr(cls, f"process_{field_type}", None)
         if processor:
             return processor(stats)
@@ -137,7 +273,11 @@ def _extract_key_terms(query: str) -> List[str]:
         List of key terms extracted from the query
     """
     logger.debug(f"Extracting key terms from query: '{query}'")
+
+    # Split query into words and convert to lowercase
     words = query.lower().split()
+
+    # Define common stop words to filter out
     stop_words = {
         "a",
         "an",
@@ -155,29 +295,41 @@ def _extract_key_terms(query: str) -> List[str]:
         "was",
         "were",
     }
+
+    # Filter out stop words and short words
     key_terms = [word for word in words if word not in stop_words and len(word) > 3]
-    logger.debug(f"Extracted key terms: {key_terms}")
+    logger.debug(f"Extracted {len(key_terms)} key terms: {key_terms}")
     return key_terms
 
 
 def _extract_collection_info() -> Dict[str, CollectionInfo]:
     """
-    Extract schema and sample value information from MongoDB collections using Database.analyze_collections().
+    Extract schema and sample value information from MongoDB collections.
+
+    This function analyzes all accessible collections in the database and
+    extracts metadata including field names, types, and representative values.
 
     Returns:
         Dictionary mapping collection names to their schema and sample data information
+
+    Note:
+        Uses Database.analyze_collections() to get raw collection data
     """
     logger.info("Extracting collection info from MongoDB using analyze_collections")
     collection_info = {}
 
+    # Get raw collection analysis data
     collections_analysis = Database.analyze_collections()
     if not collections_analysis:
         logger.warning("No collections or metadata returned from analyze_collections")
         return collection_info
 
+    # Process each collection
     for collection_name, fields_data in collections_analysis.items():
+        logger.debug(f"Processing metadata for collection: {collection_name}")
         col_info = {}
 
+        # Handle empty collections
         if not fields_data:
             logger.debug(f"Collection {collection_name} has no fields or is empty")
             col_info["type"] = "unknown"
@@ -189,6 +341,7 @@ def _extract_collection_info() -> Dict[str, CollectionInfo]:
             collection_info[collection_name] = col_info
             continue
 
+        # Initialize collection info
         col_info["type"] = "list"
         col_info["count"] = 100
 
@@ -197,29 +350,33 @@ def _extract_collection_info() -> Dict[str, CollectionInfo]:
         sample_values = {}
         unique_values = {}
 
+        # Process each field in the collection
+        field_count = 0
         for field_name, field_info in fields_data.items():
+            # Skip MongoDB internal ID field
             if field_name == "_id":
                 continue
 
+            field_count += 1
             field_type = field_info.get("type", "unknown")
             field_types[field_name] = field_type
 
+            # Process field based on its type
             stats = field_info.get("stats", {})
             sample_values[field_name], unique_values[field_name] = (
                 FieldProcessor.process_field(field_type, stats)
             )
 
+        # Store processed collection info
         col_info["fields"] = field_list
         col_info["field_types"] = field_types
         col_info["sample_values"] = sample_values
         col_info["unique_values"] = unique_values
 
-        logger.debug(
-            f"Identified {len(field_list)} fields in collection {collection_name}"
-        )
+        logger.debug(f"Processed {field_count} fields in collection {collection_name}")
         collection_info[collection_name] = col_info
 
-    logger.info(f"Processed {len(collection_info)} collections in MongoDB")
+    logger.info(f"Extracted metadata for {len(collection_info)} collections")
     return collection_info
 
 
@@ -229,56 +386,79 @@ def _match_headers_to_query(
     """
     Match collection field names to a query to find the most relevant collection.
 
+    This function analyzes the query and compares key terms to field names in each collection
+    to determine which collection is most likely to contain the relevant data.
+
     Args:
         collection_info: Dictionary of collection information
         query: User query string
 
     Returns:
-        Tuple containing (all matches with scores, best match collection name, best match fields)
+        Tuple containing:
+        - Dictionary of all collection matches with scores
+        - Name of the best matching collection (or None if no match)
+        - List of matching fields in the best matching collection
     """
     logger.info(f"Matching field names to query: '{query}'")
+
+    # Extract key terms from the query
     query_terms = _extract_key_terms(query)
+
     best_match = None
     best_match_fields = []
     best_match_score = 0
     all_matches = {}
 
+    # Process each collection
     for collection_name, info in collection_info.items():
-        if "fields" not in info:
+        logger.debug(f"Checking collection '{collection_name}' for field name matches")
+
+        if "fields" not in info or not info["fields"]:
             logger.warning(f"No fields found in collection: {collection_name}")
             continue
 
-        matching_fields = []
-        field_match_score = 0
+        matched_fields = []
+        match_score = 0
+        match_reasons = []
+
+        # Check each field name for matches with query terms
         for field in info["fields"]:
+            if field == "_id":
+                continue
+
             field_lower = field.lower()
+
+            # Check for direct field name matches in query terms
             for term in query_terms:
-                if term == field_lower or term in field_lower:
-                    matching_fields.append(field)
-                    field_match_score += 3 if term == field_lower else 1
+                if term in field_lower or field_lower in term:
+                    matched_fields.append(field)
+                    match_score += 1
+                    match_reasons.append(f"Term '{term}' matches field '{field}'")
+                    logger.debug(f"Match found: term '{term}' -> field '{field}'")
                     break
 
-        if matching_fields and field_match_score > 0:
+        # Record match details if any fields matched
+        if matched_fields:
+            match_reason = "; ".join(match_reasons)
             all_matches[collection_name] = {
-                "score": field_match_score,
-                "fields": matching_fields,
-                "reason": f"Field names match query terms: {', '.join(matching_fields)}",
+                "score": match_score,
+                "fields": matched_fields,
+                "reason": match_reason,
             }
-            logger.debug(
-                f"Collection {collection_name} matched with score {field_match_score}: {matching_fields}"
-            )
 
-            if field_match_score > best_match_score:
+            # Update best match if this collection has a higher score
+            if match_score > best_match_score:
                 best_match = collection_name
-                best_match_fields = matching_fields
-                best_match_score = field_match_score
+                best_match_fields = matched_fields
+                best_match_score = match_score
+                logger.debug(
+                    f"New best match: '{collection_name}' with score {match_score}"
+                )
 
     if best_match:
-        logger.info(
-            f"Best field name match: {best_match} with score {best_match_score}"
-        )
+        logger.info(f"Best header match: '{best_match}' with score {best_match_score}")
     else:
-        logger.info("No field name matches found")
+        logger.info("No field name matches found in any collection")
 
     return all_matches, best_match, best_match_fields
 

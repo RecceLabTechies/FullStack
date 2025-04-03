@@ -11,11 +11,34 @@ RESTRICTED_COLLECTIONS = ["users", "prophet_predictions"]
 
 
 class Database:
+    """
+    Singleton class for managing MongoDB database connections and operations.
+
+    This class provides centralized access to the MongoDB database, with methods
+    for initializing connections, accessing collections, and analyzing collection
+    metadata. It implements a singleton pattern to ensure a single connection
+    is maintained throughout the application.
+
+    Attributes:
+        client: MongoDB client instance
+        db: Reference to the configured MongoDB database
+    """
+
     client = None
     db = None
 
     @classmethod
     def initialize(cls):
+        """
+        Initialize the MongoDB connection.
+
+        This method establishes a connection to MongoDB using the configured
+        MONGO_URI and DB_NAME from the config module. It sets up the class-level
+        client and db attributes for later use.
+
+        Returns:
+            bool: True if connection was successful, False otherwise
+        """
         try:
             # Connect to MongoDB
             cls.client = MongoClient(MONGO_URI)
@@ -31,6 +54,19 @@ class Database:
 
     @classmethod
     def get_collection(cls, collection_name):
+        """
+        Get a reference to a MongoDB collection, if it's not restricted.
+
+        This method checks if the requested collection is in the restricted list
+        before returning a reference to it. If the database connection hasn't been
+        initialized, it will initialize it first.
+
+        Args:
+            collection_name (str): Name of the collection to retrieve
+
+        Returns:
+            Collection: MongoDB collection reference, or None if the collection is restricted
+        """
         if collection_name in RESTRICTED_COLLECTIONS:
             logger.warning(
                 f"Access to restricted collection '{collection_name}' was denied"
@@ -43,6 +79,15 @@ class Database:
 
     @classmethod
     def list_collections(cls):
+        """
+        List all accessible (non-restricted) collections in the database.
+
+        This method retrieves the names of all collections in the database
+        and filters out any that are in the RESTRICTED_COLLECTIONS list.
+
+        Returns:
+            list: List of accessible collection names
+        """
         if cls.db is None:
             cls.initialize()
         all_collections = cls.db.list_collection_names()
@@ -50,6 +95,28 @@ class Database:
 
     @classmethod
     def analyze_collections(cls):
+        """
+        Analyze all accessible collections to extract field information and statistics.
+
+        This method examines each accessible collection in the database, identifies
+        all fields, and generates statistics about each field (min/max values for
+        numerical fields, unique values for categorical fields, etc.).
+
+        Returns:
+            dict: Nested dictionary with structure:
+                {
+                    "collection_name": {
+                        "field_name": {
+                            "type": "numerical|categorical|datetime|etc",
+                            "stats": {
+                                "min": minimum value (for numerical/datetime),
+                                "max": maximum value (for numerical/datetime),
+                                "unique_values": list of values (for categorical)
+                            }
+                        }
+                    }
+                }
+        """
         if cls.db is None:
             cls.initialize()
 
@@ -122,9 +189,26 @@ class Database:
 
 # Initialize common collection references
 def get_campaign_performance_collection():
+    """
+    Get a reference to the campaign_performance collection.
+
+    This is a convenience function for accessing a commonly used collection.
+
+    Returns:
+        Collection: MongoDB collection reference for campaign_performance
+    """
     return Database.get_collection("campaign_performance")
 
 
 # Function to check if a collection is accessible
 def is_collection_accessible(collection_name):
+    """
+    Check if a collection is accessible (not in the restricted list).
+
+    Args:
+        collection_name (str): Name of the collection to check
+
+    Returns:
+        bool: True if the collection is accessible, False if it's restricted
+    """
     return collection_name not in RESTRICTED_COLLECTIONS

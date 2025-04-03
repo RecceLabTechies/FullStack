@@ -12,6 +12,14 @@ Key components:
 
 import logging
 
+from mypackage.c_regular_generator.chart_generator import (
+    ChartInfo,
+    generate_chart,
+)
+from mypackage.c_regular_generator.description_generator import (
+    generate_description,
+)
+
 # Set up module-level logger
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -25,13 +33,6 @@ if not logger.handlers:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-from mypackage.c_regular_generator.chart_generator import (
-    ChartInfo,
-    generate_chart,
-)
-from mypackage.c_regular_generator.description_generator import (
-    generate_description,
-)
 
 logger.debug("c_regular_generator module initialized")
 

@@ -12,19 +12,6 @@ The module handles:
 
 import logging
 
-# Set up module-level logger
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-logger.propagate = False
-
-if not logger.handlers:
-    handler = logging.StreamHandler()
-    formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-
 from mypackage.d_report_generator.generate_analysis_queries import (
     QueryItem,
     QueryList,
@@ -38,6 +25,20 @@ from mypackage.d_report_generator.report_generator import (
 from mypackage.d_report_generator.truncated_pipeline import (
     run_truncated_pipeline,
 )
+
+# Set up module-level logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.propagate = False
+
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+
 
 logger.debug("d_report_generator module initialized")
 
