@@ -7,9 +7,10 @@ from typing import List, Optional, Union
 import pandas as pd
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_ollama.llms import OllamaLLM
 from pandas.api.types import is_numeric_dtype
 from pydantic import BaseModel, Field
+
+from mypackage.utils.llm_config import get_groq_llm, JSON_PROCESSOR_MODEL
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -266,7 +267,7 @@ IMPORTANT:
         format_instructions=parser.get_format_instructions()
     )
 
-    model = OllamaLLM(model="dolphin-mistral", temperature=0)
+    model = get_groq_llm(JSON_PROCESSOR_MODEL)
     chain = prompt | model | parser
     json_file_path = os.path.join(directory, file_name)
 
@@ -282,7 +283,7 @@ IMPORTANT:
     formatted_headers = list(df.columns)
     sample_data = _get_sample_data(df)
 
-    logger.debug("Invoking LLM chain for query processing")
+    logger.debug("Invoking Groq LLM chain for query processing")
     try:
         result = chain.invoke(
             {

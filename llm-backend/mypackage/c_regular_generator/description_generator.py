@@ -4,8 +4,9 @@ from typing import Any, Dict, List, cast
 
 import pandas as pd
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_ollama.llms import OllamaLLM
 from pydantic import BaseModel, Field, field_validator
+
+from mypackage.utils.llm_config import get_groq_llm, DESCRIPTION_GENERATOR_MODEL
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -22,7 +23,7 @@ if not logger.handlers:
     logger.addHandler(handler)
 
 # Global variable for LLM model name
-DEFAULT_MODEL_NAME = "description-generator"
+DEFAULT_MODEL_NAME = DESCRIPTION_GENERATOR_MODEL
 
 
 def _extract_key_terms(query: str) -> List[str]:
@@ -358,7 +359,7 @@ def _select_columns_with_llm(query: str, df: pd.DataFrame, sorted_columns) -> Li
     Returns:
         List of column names selected by the LLM
     """
-    logger.info("Using LLM to resolve column selection ambiguity")
+    logger.info("Using Groq LLM to resolve column selection ambiguity")
     prompt = ChatPromptTemplate.from_template(
         """I need to select the most relevant columns from a DataFrame to answer a user's query.
 
@@ -374,7 +375,7 @@ Based on the user query, select between 1 and 5 columns that would be most helpf
 Respond with ONLY a comma-separated list of column names, exactly as they appear in the available columns list."""
     )
 
-    model = OllamaLLM(model=DEFAULT_MODEL_NAME)
+    model = get_groq_llm(DEFAULT_MODEL_NAME)
 
     column_dict = {col: df[col].dtype for col in df.columns}
     formatted_columns = "\n".join(
@@ -382,34 +383,42 @@ Respond with ONLY a comma-separated list of column names, exactly as they appear
     )
 
     try:
-        logger.debug("Invoking LLM for column selection")
+        logger.debug("Invoking Groq LLM for column selection")
         response = model.invoke(
             prompt.format(
                 query=query,
                 available_columns=formatted_columns,
             )
         )
-        logger.debug(f"LLM response: {response}")
+        logger.debug(f"Groq LLM response: {response}")
+
+        # Extract content from AIMessage if needed
+        if hasattr(response, "content"):
+            response_text = response.content
+        else:
+            response_text = str(response)
 
         # Parse response
-        selected_columns = [col.strip() for col in response.split(",")]
+        selected_columns = [col.strip() for col in response_text.split(",")]
 
         # Validate columns exist in DataFrame
         valid_columns = [col for col in selected_columns if col in df.columns]
 
         if not valid_columns:
-            logger.warning("LLM returned no valid columns, using fallback selection")
+            logger.warning(
+                "Groq LLM returned no valid columns, using fallback selection"
+            )
             # If no valid columns selected, use top matched columns
             valid_columns = [col for col, _ in sorted_columns[:5]]
 
-        logger.info(f"LLM selected columns: {valid_columns}")
+        logger.info(f"Groq LLM selected columns: {valid_columns}")
         return valid_columns
 
     except Exception as e:
-        logger.error(f"Error in LLM column selection: {str(e)}", exc_info=True)
+        logger.error(f"Error in Groq LLM column selection: {str(e)}", exc_info=True)
         # Fallback to sorted columns from matching algorithm
         fallback_columns = [col for col, _ in sorted_columns[:5]]
-        logger.info(f"Using fallback columns after LLM error: {fallback_columns}")
+        logger.info(f"Using fallback columns after Groq LLM error: {fallback_columns}")
         return fallback_columns
 
 
@@ -467,7 +476,7 @@ def generate_description(df: pd.DataFrame, query: str) -> str:
             len(sorted_matches) >= 2
             and sorted_matches[0][1]["score"] == sorted_matches[1][1]["score"]
         ):
-            logger.info("Multiple columns with same score, using LLM selection")
+            logger.info("Multiple columns with same score, using Groq LLM selection")
             selected_columns = _select_columns_with_llm(query, df, sorted_matches)
         else:
             selected_columns = _select_columns_for_analysis(query, df)
@@ -600,10 +609,10 @@ def generate_description(df: pd.DataFrame, query: str) -> str:
     if not correlation_info:
         correlation_info = ["No relevant correlations to report"]
 
-    model = OllamaLLM(model=DEFAULT_MODEL_NAME)
+    model = get_groq_llm(DEFAULT_MODEL_NAME)
 
     try:
-        logger.info("Invoking LLM to generate description")
+        logger.info("Invoking Groq LLM to generate description")
         description = model.invoke(
             prompt.format(
                 query=query,

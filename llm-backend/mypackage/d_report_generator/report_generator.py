@@ -43,7 +43,7 @@ def report_generator(user_query: str) -> ReportResults:
     """
     logger.info(f"Starting report generation for query: {user_query}")
     queryList: QueryList = generate_analysis_queries(user_query)
-    logger.debug(f"Generated {len(queryList.queries)} analysis queries")
+    logger.debug(f"Generated {len(queryList.queries)} analysis queries using Groq")
 
     results: List[Union[str, ChartDataType]] = []
     for queryItem in queryList.queries:

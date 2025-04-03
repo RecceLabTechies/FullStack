@@ -5,8 +5,9 @@ import os
 from typing import Any, Dict, List, Optional, Tuple
 
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_ollama.llms import OllamaLLM
 from pydantic import BaseModel
+
+from mypackage.utils.llm_config import get_groq_llm, JSON_SELECTOR_MODEL
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -23,7 +24,7 @@ if not logger.handlers:
     logger.addHandler(handler)
 
 
-DEFAULT_MODEL_NAME = "json-selector"
+DEFAULT_MODEL_NAME = JSON_SELECTOR_MODEL
 
 
 class JSONFileNotFoundError(Exception):
@@ -527,9 +528,9 @@ matching_fields: [comma-separated list of fields that match the query criteria]
 Important: The filename MUST be exactly as shown in the available files list."""
     )
 
-    model = OllamaLLM(model=DEFAULT_MODEL_NAME)
+    model = get_groq_llm(DEFAULT_MODEL_NAME)
     try:
-        logger.debug("Invoking LLM to resolve ambiguous matches")
+        logger.debug("Invoking Groq LLM to resolve ambiguous matches")
         response = model.invoke(
             prompt.format(
                 query=query,
@@ -537,13 +538,19 @@ Important: The filename MUST be exactly as shown in the available files list."""
                 alternatives_info=alternatives_text,
             )
         )
-        logger.debug(f"LLM response: {response}")
+        logger.debug(f"Groq LLM response: {response}")
 
         selected_file = best_match
         reason = best_match_details["reason"]
         matching_fields = best_match_details["fields"]
 
-        response_lines = response.strip().split("\n")
+        # Extract content from AIMessage if needed
+        if hasattr(response, "content"):
+            response_text = response.content
+        else:
+            response_text = str(response)
+
+        response_lines = response_text.strip().split("\n")
         if response_lines:
             for line in response_lines:
                 if line.lower().startswith("file:"):
@@ -581,7 +588,7 @@ def _select_json_with_llm(
     Returns:
         JSONAnalysisResult with the selected file and matching information
     """
-    logger.info(f"Selecting JSON with LLM for query: '{query}'")
+    logger.info(f"Selecting JSON with Groq LLM for query: '{query}'")
     result = JSONAnalysisResult(query=query)
     formatted_info = _format_json_info_for_prompt(json_info)
 
@@ -617,30 +624,36 @@ def _select_json_with_llm(
         Important: The filename MUST be exactly as shown in the available files list."""
     )
 
-    model = OllamaLLM(model=DEFAULT_MODEL_NAME)
+    model = get_groq_llm(DEFAULT_MODEL_NAME)
     try:
-        logger.debug("Invoking LLM for JSON selection")
+        logger.debug("Invoking Groq LLM for JSON selection")
         response = model.invoke(
             prompt.format(
                 json_info=formatted_info, query=query, value_match_info=value_match_info
             )
         )
-        logger.debug(f"LLM response: {response}")
+        logger.debug(f"Groq LLM response: {response}")
 
-        response_lines = response.strip().split("\n")
+        # Extract content from AIMessage if needed
+        if hasattr(response, "content"):
+            response_text = response.content
+        else:
+            response_text = str(response)
+
+        response_lines = response_text.strip().split("\n")
         if response_lines:
             for line in response_lines:
                 if line.lower().startswith("file:"):
                     file_name = line.split(":", 1)[1].strip()
                     if file_name.lower() == "none":
                         result.error = "No appropriate JSON file found for this query"
-                        logger.info("LLM found no appropriate file")
+                        logger.info("Groq LLM found no appropriate file")
                     elif file_name in json_info:
                         result.json_file = file_name
-                        logger.info(f"LLM selected file: {file_name}")
+                        logger.info(f"Groq LLM selected file: {file_name}")
                     else:
                         result.error = f"Selected file '{file_name}' not found in available JSON files"
-                        logger.warning(f"LLM selected invalid file: {file_name}")
+                        logger.warning(f"Groq LLM selected invalid file: {file_name}")
                 elif line.lower().startswith("reason:"):
                     result.reason = line.split(":", 1)[1].strip()
                 elif line.lower().startswith("matching_fields:"):
@@ -662,8 +675,8 @@ def _select_json_with_llm(
                             field
                         ]
         else:
-            result.error = "Invalid response format from LLM"
-            logger.error("Invalid response format from LLM")
+            result.error = "Invalid response format from Groq LLM"
+            logger.error("Invalid response format from Groq LLM")
 
     except Exception as e:
         error_msg = f"Error during JSON selection: {str(e)}"
@@ -728,10 +741,10 @@ def select_json_for_query(query: str, data_dir: str = "./data") -> str:
         return selected_file
 
     if not best_match:
-        logger.info("No matching files found, asking LLM to help")
+        logger.info("No matching files found, asking Groq LLM to help")
         llm_result = _select_json_with_llm(json_info, query, value_matches)
         if llm_result.json_file:
-            logger.info(f"LLM selected JSON file: {llm_result.json_file}")
+            logger.info(f"Groq LLM selected JSON file: {llm_result.json_file}")
             return llm_result.json_file
 
     error_msg = "No matching JSON file found for this query. The query terms don't match any column headers or values in the available JSON files."

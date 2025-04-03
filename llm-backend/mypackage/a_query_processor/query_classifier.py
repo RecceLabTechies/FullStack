@@ -4,8 +4,9 @@ from enum import Enum
 from typing import Dict, Set
 
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_ollama.llms import OllamaLLM
 from pydantic import BaseModel
+
+from mypackage.utils.llm_config import get_groq_llm, CLASSIFIER_MODEL
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ if not logger.handlers:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-DEFAULT_MODEL_NAME = "query-classifier"
+DEFAULT_MODEL_NAME = CLASSIFIER_MODEL
 
 
 class QueryTypeEnum(str, Enum):
@@ -102,18 +103,25 @@ def _count_keyword_matches(query: str) -> Dict[QueryTypeEnum, int]:
     return matches
 
 
-def _parse_llm_response(response: str) -> Dict[str, QueryTypeEnum]:
+def _parse_llm_response(response) -> Dict[str, QueryTypeEnum]:
     """
     Parse the LLM's response into a query type dictionary.
 
     Args:
-        response: Raw string response from the LLM
+        response: Response from the LLM (can be string or AIMessage)
 
     Returns:
         Dictionary with query_type key mapped to the appropriate QueryTypeEnum
     """
     logger.debug(f"Parsing LLM response: '{response}'")
-    query_type = response.strip().lower()
+
+    # Handle AIMessage objects by extracting content
+    if hasattr(response, "content"):
+        content = response.content
+    else:
+        content = str(response)
+
+    query_type = content.strip().lower()
     try:
         result = {"query_type": QueryTypeEnum(query_type)}
         logger.debug(f"Successfully parsed response to {result}")
@@ -139,7 +147,9 @@ def _classify_with_llm(query: str, model_name: str = DEFAULT_MODEL_NAME) -> Quer
     Raises:
         Exception: If there is an error during classification
     """
-    logger.info(f"Classifying query with LLM: '{query}' using model '{model_name}'")
+    logger.info(
+        f"Classifying query with Groq LLM: '{query}' using model '{model_name}'"
+    )
 
     _template = """Classify the following query into one of these categories:
 - description: Queries asking for specific details, explanations, or summaries about particular aspects of the data. These often focus on a specific topic, metric, or segment. Examples: "describe the spending on LinkedIn", "generate description of marketing expenses", "explain the revenue trends for Q1", "summarize the customer acquisition costs"        
@@ -152,17 +162,17 @@ Respond with exactly one word: description, report, chart, or error"""
 
     _prompt = ChatPromptTemplate.from_template(_template)
 
-    model = OllamaLLM(model=model_name)
+    model = get_groq_llm(model_name)
     chain = _prompt | model | _parse_llm_response
 
     try:
-        logger.debug("Invoking LLM chain for classification")
+        logger.debug("Invoking Groq LLM chain for classification")
         result = chain.invoke({"query": query})
-        logger.info(f"LLM classification result: {result}")
+        logger.info(f"Groq LLM classification result: {result}")
         return QueryType(**result)
     except Exception as e:
-        logger.error(f"Error classifying query with LLM: {str(e)}", exc_info=True)
-        raise Exception(f"Error classifying query with LLM: {str(e)}")
+        logger.error(f"Error classifying query with Groq LLM: {str(e)}", exc_info=True)
+        raise Exception(f"Error classifying query with Groq LLM: {str(e)}")
 
 
 def classify_query(user_query: str, model_name: str = DEFAULT_MODEL_NAME) -> str:
@@ -197,9 +207,9 @@ def classify_query(user_query: str, model_name: str = DEFAULT_MODEL_NAME) -> str
                 logger.info(f"Classified by keywords as: {result}")
                 return result
 
-        logger.debug("No clear keyword match, falling back to LLM classification")
+        logger.debug("No clear keyword match, falling back to Groq LLM classification")
         result = _classify_with_llm(user_query, model_name)
-        logger.info(f"Classified by LLM as: {result.query_type.value}")
+        logger.info(f"Classified by Groq LLM as: {result.query_type.value}")
         return result.query_type.value
     except Exception as e:
         logger.error(f"Error classifying query: {str(e)}", exc_info=True)

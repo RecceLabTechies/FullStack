@@ -6,7 +6,7 @@ from typing_extensions import TypedDict
 import numpy as np
 import pandas as pd
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_ollama.llms import OllamaLLM
+from mypackage.utils.llm_config import get_groq_llm, CHART_DATA_MODEL
 from pandas.api.types import (
     is_bool_dtype,
     is_datetime64_any_dtype,
@@ -29,7 +29,7 @@ if not logger.handlers:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-DEFAULT_MODEL_NAME = "chart-data-generator"
+DEFAULT_MODEL_NAME = CHART_DATA_MODEL
 
 
 class ColumnStats(BaseModel):
@@ -524,7 +524,7 @@ def _select_chart_type(x_type: str, y_type: str, query: str) -> str:
 
 def _select_columns_for_chart(query: str, df: pd.DataFrame) -> ChartInfo:
     """
-    Select the most appropriate columns and chart type for visualization based on query.
+    Select the most appropriate columns for a chart based on the query.
 
     Args:
         query: User query string
@@ -534,19 +534,22 @@ def _select_columns_for_chart(query: str, df: pd.DataFrame) -> ChartInfo:
         ChartInfo object with selected x-axis, y-axis, and chart type
 
     Raises:
-        ValueError: If suitable columns cannot be determined
+        ValueError: If no suitable columns could be found
     """
     logger.info(f"Selecting columns for chart based on query: '{query}'")
-    direct_columns = _allow_direct_column_selection(df, query)
 
-    if direct_columns and len(direct_columns) >= 2:
+    # Direct column selection from query if possible
+    direct_columns = _allow_direct_column_selection(df, query)
+    if len(direct_columns) >= 2:
         logger.info(f"Using direct column selection: {direct_columns[:2]}")
-        x_axis, y_axis = direct_columns[0], direct_columns[1]
+        x_axis, y_axis = direct_columns[:2]
         chart_type = _select_chart_type(
             _get_column_type(df[x_axis]), _get_column_type(df[y_axis]), query
         )
+        logger.info(f"Selected chart type: {chart_type}")
         return ChartInfo(x_axis=x_axis, y_axis=y_axis, chart_type=chart_type)
 
+    # Otherwise use column matching approach
     column_matches = _match_columns_to_query(df, query)
 
     if not column_matches:
@@ -564,7 +567,7 @@ def _select_columns_for_chart(query: str, df: pd.DataFrame) -> ChartInfo:
             == sorted_columns[1][1].score
             == sorted_columns[2][1].score
         ):
-            logger.info("Multiple columns with same score, using LLM selection")
+            logger.info("Multiple columns with same score, using Groq LLM selection")
             return _select_columns_with_llm(query, df, sorted_columns)
 
         top_two_columns = [col for col, _ in sorted_columns[:2]]
@@ -602,7 +605,7 @@ def _select_columns_with_llm(query: str, df: pd.DataFrame, sorted_columns) -> Ch
     Raises:
         ValueError: If LLM selection fails
     """
-    logger.info("Using LLM to resolve column selection ambiguity")
+    logger.info("Using Groq LLM to resolve column selection ambiguity")
     available_columns = ", ".join(df.columns)
 
     prompt = ChatPromptTemplate.from_template(
@@ -661,8 +664,8 @@ def _select_columns_with_llm(query: str, df: pd.DataFrame, sorted_columns) -> Ch
         column_details.append("\n".join(col_info))
 
     try:
-        logger.debug("Invoking LLM for column selection")
-        model = OllamaLLM(model=DEFAULT_MODEL_NAME)
+        logger.debug("Invoking Groq LLM for column selection")
+        model = get_groq_llm(DEFAULT_MODEL_NAME)
         response = (prompt | model).invoke(
             {
                 "query": query,
@@ -670,11 +673,17 @@ def _select_columns_with_llm(query: str, df: pd.DataFrame, sorted_columns) -> Ch
                 "column_details": "\n\n".join(column_details),
             }
         )
-        logger.debug(f"LLM response: {response}")
+        logger.debug(f"Groq LLM response: {response}")
+
+        # Extract content from AIMessage if needed
+        if hasattr(response, "content"):
+            response_text = response.content
+        else:
+            response_text = str(response)
 
         parsed = dict(
             line.split(": ", 1)
-            for line in response.strip().split("\n")
+            for line in response_text.strip().split("\n")
             if line.strip() and ": " in line
         )
 
@@ -682,16 +691,16 @@ def _select_columns_with_llm(query: str, df: pd.DataFrame, sorted_columns) -> Ch
 
         x_axis = parsed.get("x_axis")
         if x_axis not in available_cols:
-            logger.error(f"LLM suggested invalid column '{x_axis}'")
+            logger.error(f"Groq LLM suggested invalid column '{x_axis}'")
             raise ValueError(
-                f"LLM suggested invalid column '{x_axis}'. Please try a different query."
+                f"Groq LLM suggested invalid column '{x_axis}'. Please try a different query."
             )
 
         y_axis = parsed.get("y_axis")
         if y_axis not in available_cols:
-            logger.error(f"LLM suggested invalid column '{y_axis}'")
+            logger.error(f"Groq LLM suggested invalid column '{y_axis}'")
             raise ValueError(
-                f"LLM suggested invalid column '{y_axis}'. Please try a different query."
+                f"Groq LLM suggested invalid column '{y_axis}'. Please try a different query."
             )
 
         chart_type = parsed.get("chart_type", "line")
@@ -700,11 +709,11 @@ def _select_columns_with_llm(query: str, df: pd.DataFrame, sorted_columns) -> Ch
             chart_type = "line"
 
         logger.info(
-            f"LLM selected x_axis: {x_axis}, y_axis: {y_axis}, chart_type: {chart_type}"
+            f"Groq LLM selected x_axis: {x_axis}, y_axis: {y_axis}, chart_type: {chart_type}"
         )
         return ChartInfo(x_axis=x_axis, y_axis=y_axis, chart_type=chart_type)
     except Exception as e:
-        logger.error(f"Error in LLM column selection: {str(e)}", exc_info=True)
+        logger.error(f"Error in Groq LLM column selection: {str(e)}", exc_info=True)
         raise ValueError(f"Failed to select columns: {str(e)}")
 
 

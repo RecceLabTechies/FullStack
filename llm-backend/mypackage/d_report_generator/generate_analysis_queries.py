@@ -6,8 +6,9 @@ from enum import Enum
 from typing import Dict, List
 
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_ollama.llms import OllamaLLM
 from pydantic import BaseModel
+
+from mypackage.utils.llm_config import get_groq_llm, ANALYSIS_QUERIES_MODEL
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -23,7 +24,7 @@ if not logger.handlers:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-DEFAULT_MODEL_NAME = "qwen2.5"
+DEFAULT_MODEL_NAME = ANALYSIS_QUERIES_MODEL
 
 
 class QueryType(Enum):
@@ -159,21 +160,26 @@ Generate a description of spending over time | purchases.json
 
 
 prompt = ChatPromptTemplate.from_template(template)
-model = OllamaLLM(model=DEFAULT_MODEL_NAME, temperature=0.3)
 
 
-def _parse_llm_response(response: str) -> QueryList:
+def _parse_llm_response(response) -> QueryList:
     """
     Parse the LLM's response into a structured QueryList.
 
     Args:
-        response: Raw string response from the LLM
+        response: Response from the LLM (can be string or AIMessage)
 
     Returns:
         QueryList object containing parsed analytical queries
     """
-    logger.debug(f"Parsing LLM response of length {len(response)}")
-    lines = [line.strip() for line in response.strip().split("\n") if line.strip()]
+    # Extract content from AIMessage if needed
+    if hasattr(response, "content"):
+        response_text = response.content
+    else:
+        response_text = str(response)
+
+    logger.debug(f"Parsing Groq LLM response of length {len(response_text)}")
+    lines = [line.strip() for line in response_text.strip().split("\n") if line.strip()]
     queries = []
     seen_queries = set()
 
@@ -217,11 +223,8 @@ def _parse_llm_response(response: str) -> QueryList:
             logger.warning(f"Error parsing line '{line}': {str(e)}")
             continue
 
-    logger.info(f"Parsed {len(queries)} unique queries from LLM response")
+    logger.info(f"Parsed {len(queries)} unique queries from Groq LLM response")
     return QueryList(queries=queries)
-
-
-chain = prompt | model | _parse_llm_response
 
 
 def generate_analysis_queries(user_query: str) -> QueryList:
@@ -250,7 +253,9 @@ def generate_analysis_queries(user_query: str) -> QueryList:
     logger.debug("Formatted schema headers for prompt")
 
     try:
-        logger.info("Invoking LLM to generate analysis queries")
+        model = get_groq_llm(DEFAULT_MODEL_NAME)
+        chain = prompt | model | _parse_llm_response
+        logger.info("Invoking Groq LLM to generate analysis queries")
         result = chain.invoke({"json_headers": formatted_headers, "query": user_query})
         logger.info(f"Generated {len(result.queries)} analysis queries")
         return result

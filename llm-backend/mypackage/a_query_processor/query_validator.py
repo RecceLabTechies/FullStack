@@ -2,11 +2,13 @@
 import json
 import logging
 import re
-from typing import Optional
+import functools
+from typing import Optional, Dict, List, Pattern
 
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_ollama.llms import OllamaLLM
 from pydantic import BaseModel
+
+from mypackage.utils.llm_config import get_groq_llm, VALIDATOR_MODEL
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -22,7 +24,57 @@ if not logger.handlers:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-DEFAULT_MODEL_NAME = "qwen2.5"
+DEFAULT_MODEL_NAME = VALIDATOR_MODEL
+
+# LRU Cache for query validation results
+VALIDATION_CACHE_SIZE = 100
+
+# Common invalid query patterns
+INVALID_PATTERNS: List[Dict[str, Pattern]] = [
+    {"pattern": re.compile(r"^\s*$"), "reason": "Empty query"},
+    {
+        "pattern": re.compile(r"^[^a-zA-Z0-9\s]+$"),
+        "reason": "Query contains only special characters",
+    },
+    {
+        "pattern": re.compile(r"^(hi|hello|hey|test)[\s!.]*$", re.IGNORECASE),
+        "reason": "Greeting or test message",
+    },
+]
+
+# Common data analysis keywords to quickly validate relevant queries
+DATA_ANALYSIS_KEYWORDS = [
+    "chart",
+    "plot",
+    "graph",
+    "analyze",
+    "analysis",
+    "report",
+    "dashboard",
+    "visualization",
+    "trend",
+    "compare",
+    "correlation",
+    "data",
+    "metric",
+    "statistics",
+    "forecast",
+    "prediction",
+    "regression",
+    "cluster",
+    "segment",
+    "distribution",
+    "average",
+    "mean",
+    "median",
+    "sum",
+    "count",
+    "min",
+    "max",
+    "percentage",
+    "proportion",
+    "growth",
+]
 
 
 class QueryValidationError(Exception):
@@ -37,25 +89,54 @@ class QueryValidationResult(BaseModel):
     is_valid: bool
     original_query: str
     reason: Optional[str] = None
+    normalized_query: Optional[str] = None
 
     model_config = {"extra": "ignore", "validate_assignment": True}
 
 
-def _validate_query_with_llm(
-    query: str, model_name: str = DEFAULT_MODEL_NAME
-) -> QueryValidationResult:
+def normalize_query(query: str) -> str:
     """
-    Validate a query using an LLM to determine if it's well-formed for data analysis.
+    Normalize a query by removing extra spaces, normalizing whitespace, and
+    other basic text normalizations.
 
     Args:
-        query: The query string to validate
+        query: The query string to normalize
+
+    Returns:
+        Normalized query string
+    """
+    # Remove leading/trailing whitespace
+    normalized = query.strip()
+
+    # Normalize internal whitespace (replace multiple spaces with a single space)
+    normalized = re.sub(r"\s+", " ", normalized)
+
+    # Remove punctuation at the end of the query if it doesn't serve a purpose
+    normalized = re.sub(r"[,.;:!?]+$", "", normalized)
+
+    # Ensure the query ends with proper punctuation if it's a question
+    if re.search(
+        r"^(what|how|why|when|where|which|who|can|could|would|is|are|do|does)\b",
+        normalized,
+        re.IGNORECASE,
+    ) and not normalized.endswith("?"):
+        normalized += "?"
+
+    return normalized
+
+
+@functools.lru_cache(maxsize=VALIDATION_CACHE_SIZE)
+def _cached_llm_validation(query: str, model_name: str) -> dict:
+    """
+    Cached wrapper for LLM validation to avoid repeated calls for the same query.
+
+    Args:
+        query: The normalized query string to validate
         model_name: Name of the model to use for validation
 
     Returns:
-        QueryValidationResult object containing validation status and reason if invalid
+        Dict containing validation result from LLM
     """
-    logger.info(f"Validating query with LLM: '{query}' using model '{model_name}'")
-
     validation_prompt = ChatPromptTemplate.from_template(
         """You are a data analysis assistant that validates user queries before processing them.
         
@@ -78,87 +159,34 @@ def _validate_query_with_llm(
         {{"is_valid": true/false, "reason": "explanation if invalid"}}"""
     )
 
+    logger.debug(f"Sending query to Groq LLM for validation: '{query}'")
+    model = get_groq_llm(model_name)
+    response = model.invoke(validation_prompt.format(query=query))
+    logger.debug(f"Received Groq LLM response: '{response}'")
+
+    # Extract content from AIMessage if needed
+    if hasattr(response, "content"):
+        response_text = response.content
+    else:
+        response_text = str(response)
+
+    json_match = re.search(r"\{.*\}", response_text, re.DOTALL)
+    if not json_match:
+        logger.warning("Could not find JSON in Groq LLM response, assuming valid query")
+        return {"is_valid": True}
+
+    json_str = json_match.group(0)
+    logger.debug(f"Extracted JSON: {json_str}")
+
+    json_str = re.sub(r'(?<!")true(?!")', "true", json_str)
+    json_str = re.sub(r'(?<!")false(?!")', "false", json_str)
+    logger.debug(f"Normalized JSON: {json_str}")
+
     try:
-        logger.debug(f"Sending query to LLM for validation: '{query}'")
-        model = OllamaLLM(model=model_name)
-        response = model.invoke(validation_prompt.format(query=query))
-        logger.debug(f"Received LLM response: '{response}'")
-
-        json_match = re.search(r"\{.*\}", response, re.DOTALL)
-        if not json_match:
-            logger.warning("Could not find JSON in LLM response, assuming valid query")
-            return QueryValidationResult(is_valid=True, original_query=query)
-
-        json_str = json_match.group(0)
-        logger.debug(f"Extracted JSON: {json_str}")
-
-        json_str = re.sub(r'(?<!")true(?!")', "true", json_str)
-        json_str = re.sub(r'(?<!")false(?!")', "false", json_str)
-        logger.debug(f"Normalized JSON: {json_str}")
-
-        try:
-            result_dict = json.loads(json_str)
-            result = QueryValidationResult(
-                is_valid=result_dict.get("is_valid", True),
-                original_query=query,
-                reason=result_dict.get("reason"),
-            )
-            logger.info(f"Validation result: {result}")
-            return result
-        except json.JSONDecodeError:
-            logger.warning("JSON decode error, assuming valid query")
-            return QueryValidationResult(is_valid=True, original_query=query)
-
-    except Exception as e:
-        logger.error(f"Error validating query: {str(e)}", exc_info=True)
-        raise Exception(f"Error validating query: {str(e)}")
-
-
-def _check_query_length(query: str) -> Optional[QueryValidationResult]:
-    """
-    Check if a query is too short to be meaningful.
-
-    Args:
-        query: The query string to check
-
-    Returns:
-        QueryValidationResult if query is too short, None otherwise
-    """
-    logger.debug(f"Checking query length for: '{query}'")
-
-    if len(query.strip()) < 2:
-        logger.warning(f"Query too short: '{query}'")
-        return QueryValidationResult(
-            is_valid=False,
-            original_query=query,
-            reason="Query is too short. Please provide a more detailed query.",
-        )
-    logger.debug("Query length check passed")
-    return None
-
-
-def _validate_query(
-    query: str, model_name: str = DEFAULT_MODEL_NAME
-) -> QueryValidationResult:
-    """
-    Validate a query by checking its length and using an LLM.
-
-    Args:
-        query: The query string to validate
-        model_name: Name of the model to use for validation
-
-    Returns:
-        QueryValidationResult object containing validation status and reason if invalid
-    """
-    logger.info(f"Starting validation for query: '{query}'")
-
-    length_result = _check_query_length(query)
-    if length_result:
-        logger.info("Query failed length validation")
-        return length_result
-
-    logger.debug("Query passed length check, proceeding to LLM validation")
-    return _validate_query_with_llm(query, model_name)
+        return json.loads(json_str)
+    except json.JSONDecodeError:
+        logger.warning("JSON decode error, assuming valid query")
+        return {"is_valid": True}
 
 
 def get_valid_query(query: str, model_name: str = DEFAULT_MODEL_NAME) -> bool:
@@ -177,16 +205,52 @@ def get_valid_query(query: str, model_name: str = DEFAULT_MODEL_NAME) -> bool:
     """
     logger.info(f"Validating query: '{query}'")
 
-    validation_result = _validate_query(query, model_name)
+    # Check query length first (fastest check)
+    if len(query.strip()) < 2:
+        reason = "Query is too short. Please provide a more detailed query."
+        logger.warning(f"Query too short: '{query}'")
+        raise QueryValidationError(reason, query)
 
-    if validation_result.is_valid:
-        logger.info(f"Query '{query}' is valid")
+    # Check against invalid patterns
+    for pattern_dict in INVALID_PATTERNS:
+        if pattern_dict["pattern"].match(query):
+            reason = (
+                f"{pattern_dict['reason']}. Please provide a valid data analysis query."
+            )
+            logger.warning(f"Query matches invalid pattern: '{query}'")
+            raise QueryValidationError(reason, query)
+
+    # Quick approve if it contains data analysis keywords
+    normalized_query_lower = query.lower()
+    for keyword in DATA_ANALYSIS_KEYWORDS:
+        if keyword in normalized_query_lower:
+            logger.info(f"Query '{query}' is valid (contains data analysis keyword)")
+            return True
+
+    # If we get here, we need LLM validation
+    logger.debug("Query passed preliminary checks, proceeding to Groq LLM validation")
+
+    try:
+        # Normalize the query before caching to improve cache hit rate
+        normalized_query = normalize_query(query)
+
+        # Use cached validation result if available
+        result_dict = _cached_llm_validation(normalized_query, model_name)
+
+        is_valid = result_dict.get("is_valid", True)
+        reason = result_dict.get("reason")
+
+        if is_valid:
+            logger.info(f"Query '{query}' is valid")
+            return True
+        else:
+            logger.warning(f"Query '{query}' is invalid: {reason}")
+            raise QueryValidationError(reason or "Invalid query", query)
+
+    except Exception as e:
+        logger.error(f"Error validating query: {str(e)}", exc_info=True)
+        # Fail open - assume query is valid if there's an error in the validation process
         return True
-
-    logger.warning(f"Query '{query}' is invalid: {validation_result.reason}")
-    raise QueryValidationError(
-        validation_result.reason or "Invalid query", validation_result.original_query
-    )
 
 
 if __name__ == "__main__":
