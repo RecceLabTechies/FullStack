@@ -7,7 +7,10 @@ HOST = "0.0.0.0"
 MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
 
 # MongoDB Configuration
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://root:example@mongodb:27017/")
+# MONGO_URI = os.getenv("MONGO_URI", "mongodb://root:example@mongodb:27017/")
+# When running in Docker, the host should be 'mongodb' (service name)
+# When running locally, the host should be 'localhost'
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://root:example@localhost:27017/")
 DB_NAME = os.getenv("MONGO_DB_NAME", "test_database")
 
 # Logging Configuration

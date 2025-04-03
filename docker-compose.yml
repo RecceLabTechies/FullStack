@@ -10,6 +10,32 @@ services:
             - MONGO_INITDB_ROOT_USERNAME=root
             - MONGO_INITDB_ROOT_PASSWORD=example
 
+    minio:
+        image: minio/minio:latest
+        ports:
+            - "9000:9000"
+            - "9001:9001"
+        volumes:
+            - minio_data:/data
+        environment:
+            - MINIO_ROOT_USER=minioadmin
+            - MINIO_ROOT_PASSWORD=minioadmin
+        command: server --console-address ":9001" /data
+        healthcheck:
+            test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+            interval: 5s
+            timeout: 5s
+            retries: 3
+
+    minio-init:
+        image: minio/mc
+        depends_on:
+            minio:
+                condition: service_healthy
+        volumes:
+            - ./minio-init:/scripts
+        entrypoint: [ "/bin/sh", "/scripts/setup.sh" ]
+
     backend:
         build: ./backend
         ports:
@@ -26,9 +52,15 @@ services:
             - "5002:5000"
         depends_on:
             - mongodb
+            - minio
         environment:
             - MONGO_URI=mongodb://root:example@mongodb:27017/
             - PORT=5000
+            - MINIO_ENDPOINT=minio:9000
+            - MINIO_ACCESS_KEY=minioadmin
+            - MINIO_SECRET_KEY=minioadmin
+            - MINIO_BUCKET_NAME=temp-charts
+            - PYTHONUNBUFFERED=1
 
     frontend:
         build: ./frontend
@@ -37,6 +69,8 @@ services:
         environment:
             - WATCHPACK_POLLING=true
             - WDS_SOCKET_PORT=0
+            - NEXT_PUBLIC_MINIO_ENDPOINT=localhost:9000
+            - NEXT_PUBLIC_MINIO_BUCKET_NAME=temp-charts
         volumes:
             - ./frontend:/app
             - /app/node_modules
@@ -44,7 +78,10 @@ services:
         depends_on:
             - backend
             - llm-backend
+            - minio
         extra_hosts:
             - "host.docker.internal:host-gateway"
+
 volumes:
     mongodb_data:
+    minio_data:

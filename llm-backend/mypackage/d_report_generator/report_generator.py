@@ -27,7 +27,7 @@ if not logger.handlers:
 
 
 class ReportResults(BaseModel):
-    results: List[Union[str, ChartDataType]]
+    results: List[Union[str, str]]
 
 
 def report_generator(user_query: str) -> ReportResults:
@@ -45,12 +45,10 @@ def report_generator(user_query: str) -> ReportResults:
     queryList: QueryList = generate_analysis_queries(user_query)
     logger.debug(f"Generated {len(queryList.queries)} analysis queries using Groq")
 
-    results: List[Union[str, ChartDataType]] = []
+    results: List[Union[str]] = []
     for queryItem in queryList.queries:
         logger.debug(f"Processing query: {queryItem}")
-        result: Union[str, ChartDataType] = truncated_pipeline.run_truncated_pipeline(
-            queryItem
-        )
+        result: Union[str] = truncated_pipeline.run_truncated_pipeline(queryItem)
         results.append(result)
         logger.debug("Query processed successfully")
 

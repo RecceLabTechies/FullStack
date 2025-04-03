@@ -1,10 +1,15 @@
 #!/usr/bin/env python
 import logging
+import numpy as np
+import os
+import uuid
 from typing import Any, Dict, List, Optional
 from typing_extensions import TypedDict
-
-import numpy as np
 import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+from minio import Minio
+from io import BytesIO
 from langchain_core.prompts import ChatPromptTemplate
 from mypackage.utils.llm_config import get_groq_llm, CHART_DATA_MODEL
 from pandas.api.types import (
@@ -30,6 +35,97 @@ if not logger.handlers:
     logger.addHandler(handler)
 
 DEFAULT_MODEL_NAME = CHART_DATA_MODEL
+
+# MinIO client configuration
+MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "localhost:9000")
+MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
+MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin")
+BUCKET_NAME = os.getenv("MINIO_BUCKET_NAME", "temp-charts")
+
+logger.info(f"Initializing MinIO client with endpoint: {MINIO_ENDPOINT}")
+MINIO_CLIENT = Minio(
+    MINIO_ENDPOINT,
+    access_key=MINIO_ACCESS_KEY,
+    secret_key=MINIO_SECRET_KEY,
+    secure=False,  # Set to True if using HTTPS
+)
+
+# Ensure bucket exists
+try:
+    if not MINIO_CLIENT.bucket_exists(BUCKET_NAME):
+        logger.info(f"Creating bucket: {BUCKET_NAME}")
+        MINIO_CLIENT.make_bucket(BUCKET_NAME)
+        logger.info(f"Successfully created bucket: {BUCKET_NAME}")
+except Exception as e:
+    logger.error(f"Failed to initialize MinIO bucket: {str(e)}")
+    # Don't raise the exception here, let the code continue and fail gracefully if needed
+
+
+def _save_plot_to_minio(fig, chart_type: str) -> str:
+    """
+    Save a matplotlib figure to MinIO and return the URL.
+
+    Args:
+        fig: matplotlib figure object
+        chart_type: type of chart for filename
+
+    Returns:
+        URL to access the saved image
+    """
+    try:
+        # Generate unique filename
+        filename = f"{chart_type}_{uuid.uuid4()}.png"
+
+        # Save plot to bytes buffer
+        buf = BytesIO()
+        fig.savefig(buf, format="png", bbox_inches="tight", dpi=300)
+        buf.seek(0)
+
+        # Upload to MinIO
+        MINIO_CLIENT.put_object(
+            BUCKET_NAME, filename, buf, buf.getbuffer().nbytes, content_type="image/png"
+        )
+
+        # Generate URL
+        url = f"/api/minio/{BUCKET_NAME}/{filename}"
+        logger.info(f"Saved plot to MinIO: {url}")
+        return url
+    except Exception as e:
+        logger.error(f"Failed to save plot to MinIO: {str(e)}")
+        raise
+
+
+def _create_seaborn_plot(df: pd.DataFrame, chart_info: "ChartInfo") -> plt.Figure:
+    """
+    Create a seaborn plot based on chart type and data.
+
+    Args:
+        df: Input DataFrame
+        chart_info: ChartInfo object with plot configuration
+
+    Returns:
+        matplotlib Figure object
+    """
+    plt.clf()
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    if chart_info.chart_type == "line":
+        sns.lineplot(data=df, x=chart_info.x_axis, y=chart_info.y_axis, ax=ax)
+    elif chart_info.chart_type == "scatter":
+        sns.scatterplot(data=df, x=chart_info.x_axis, y=chart_info.y_axis, ax=ax)
+    elif chart_info.chart_type == "bar":
+        sns.barplot(data=df, x=chart_info.x_axis, y=chart_info.y_axis, ax=ax)
+    elif chart_info.chart_type == "box":
+        sns.boxplot(data=df, x=chart_info.x_axis, y=chart_info.y_axis, ax=ax)
+    elif chart_info.chart_type == "heatmap":
+        pivot_table = pd.crosstab(df[chart_info.x_axis], df[chart_info.y_axis])
+        sns.heatmap(pivot_table, annot=True, cmap="YlGnBu", ax=ax)
+
+    plt.title(f"{chart_info.y_axis} by {chart_info.x_axis}")
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+
+    return fig
 
 
 class ColumnStats(BaseModel):
@@ -73,13 +169,6 @@ class AxisConfig(TypedDict):
     dataKey: str
     type: str
     label: str
-
-
-class ChartDataType(TypedDict):
-    data: List[Dict[str, Any]]
-    type: str
-    xAxis: AxisConfig
-    yAxis: AxisConfig
 
 
 def _get_column_type(series: pd.Series) -> str:
@@ -717,7 +806,7 @@ def _select_columns_with_llm(query: str, df: pd.DataFrame, sorted_columns) -> Ch
         raise ValueError(f"Failed to select columns: {str(e)}")
 
 
-def generate_chart_data(df: pd.DataFrame, query: str) -> ChartDataType:
+def generate_chart_data(df: pd.DataFrame, query: str) -> str:
     """
     Generate chart data and configuration based on a user query and DataFrame.
 
@@ -726,63 +815,24 @@ def generate_chart_data(df: pd.DataFrame, query: str) -> ChartDataType:
         query: User query string describing the desired visualization
 
     Returns:
-        Dictionary with chart data and configuration including data points, chart type, and axis information
+        String URL of the generated chart image
     """
     logger.info(f"Generating chart data for query: '{query}'")
     chart_info = _select_columns_for_chart(query, df)
-    CHART_TYPE_MAPPING = {
-        "line": "LineChart",
-        "scatter": "ScatterChart",
-        "bar": "BarChart",
-        "box": "ComposedChart",
-        "heatmap": "Heatmap",
-    }
-    data: List[Dict[str, Any]] = []
-    if chart_info.chart_type == "heatmap":
-        logger.debug("Creating heatmap data")
-        crosstab = pd.crosstab(df[chart_info.x_axis], df[chart_info.y_axis])
-        data = [
-            {"x": str(idx), "y": str(col), "value": float(np.asarray(value))}
-            for idx in crosstab.index
-            for col, value in crosstab.loc[idx].items()
-        ]
-    else:
-        logger.debug(f"Creating {chart_info.chart_type} chart data")
-        data = [
-            {
-                chart_info.x_axis: (
-                    row[chart_info.x_axis].isoformat()
-                    if isinstance(row[chart_info.x_axis], pd.Timestamp)
-                    else row[chart_info.x_axis]
-                ),
-                chart_info.y_axis: row[chart_info.y_axis],
-            }
-            for _, row in df.iterrows()
-        ]
 
-    def _get_axis_config(column: str, is_heatmap: bool = False) -> AxisConfig:
-        return {
-            "dataKey": (
-                "x"
-                if is_heatmap and column == chart_info.x_axis
-                else "y" if is_heatmap and column == chart_info.y_axis else column
-            ),
-            "type": _get_column_type(df[column]),
-            "label": column,
-        }
+    try:
+        # Create seaborn plot
+        fig = _create_seaborn_plot(df, chart_info)
 
-    result: ChartDataType = {
-        "data": data,
-        "type": CHART_TYPE_MAPPING.get(chart_info.chart_type, "LineChart"),
-        "xAxis": _get_axis_config(
-            chart_info.x_axis, chart_info.chart_type == "heatmap"
-        ),
-        "yAxis": _get_axis_config(
-            chart_info.y_axis, chart_info.chart_type == "heatmap"
-        ),
-    }
-    logger.info(f"Generated {len(data)} data points for {result['type']} visualization")
-    return result
+        # Save plot to MinIO and get URL
+        image_url = _save_plot_to_minio(fig, chart_info.chart_type)
+        plt.close(fig)
+
+        logger.info(f"Generated chart visualization with URL: {image_url}")
+        return image_url
+    except Exception as e:
+        logger.error(f"Failed to generate chart: {str(e)}", exc_info=True)
+        raise
 
 
 if __name__ == "__main__":
@@ -796,7 +846,6 @@ if __name__ == "__main__":
     root_logger.addHandler(console_handler)
 
     # Simple test to demonstrate functionality
-    import numpy as np
 
     test_data = {
         "date": pd.date_range(start="2023-01-01", periods=100),
@@ -810,14 +859,7 @@ if __name__ == "__main__":
     logger.info(f"Testing with query: '{test_query}'")
     try:
         chart_data = generate_chart_data(test_df, test_query)
-        print("Generated chart configuration:")
-        print(f"Chart type: {chart_data['type']}")
-        print(
-            f"X-axis: {chart_data['xAxis']['dataKey']} ({chart_data['xAxis']['type']})"
-        )
-        print(
-            f"Y-axis: {chart_data['yAxis']['dataKey']} ({chart_data['yAxis']['type']})"
-        )
-        print(f"Data points: {len(chart_data['data'])}")
+        print("Generated chart visualization URL:")
+        print(f"{chart_data}")
     except Exception as e:
         logger.error(f"Error in test: {str(e)}", exc_info=True)

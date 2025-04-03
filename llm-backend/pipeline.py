@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 import logging
-from typing import Union
+from typing import Union, Dict
 
 from mypackage.a_query_processor import query_classifier, query_validator
 from mypackage.b_data_processor import json_processor, json_selector
 from mypackage.c_regular_generator import (
-    ChartDataType,
     chart_data_generator,
     description_generator,
 )
@@ -26,7 +25,7 @@ if not logger.handlers:
     logger.addHandler(handler)
 
 
-def main(query: str) -> Union[str, ChartDataType, ReportResults]:
+def main(query: str) -> Dict[str, Union[str, ReportResults]]:
     """
     Process a user query through the complete analysis pipeline, including validation,
     classification, and appropriate data processing based on the query type.
@@ -35,10 +34,9 @@ def main(query: str) -> Union[str, ChartDataType, ReportResults]:
         query: The natural language query string to be processed
 
     Returns:
-        Union[str, ChartDataType, ReportResults]: The processed result which can be:
-            - A string (error message or description)
-            - ChartDataType (for chart visualizations)
-            - ReportResults (for comprehensive reports)
+        Dict[str, Union[str, ReportResults]]: A dictionary containing:
+            - 'type': The type of result ("chart", "description", "report", "error", or "unknown")
+            - 'result': The processed result (image URL, description text, or error message)
     """
     query = query.strip()
     logger.info(f"Starting pipeline processing for query: '{query}'")
@@ -49,19 +47,23 @@ def main(query: str) -> Union[str, ChartDataType, ReportResults]:
         logger.debug("Query validation successful")
     except Exception as e:
         logger.error(f"Query validation failed: {str(e)}")
-        return f"Error validating query: {str(e)}"
+        return {"type": "error", "result": f"Error validating query: {str(e)}"}
 
     # query classifier
     classification_result = query_classifier.classify_query(query)
     logger.debug(f"Query classified as: {classification_result}")
     if classification_result == "error":
         logger.error("Query classification failed")
-        return "Classification failed"
+        return {"type": "error", "result": "Classification failed"}
 
     # report generator
     if classification_result == "report":
         logger.info("Query identified as report request, initiating report generation")
-        return report_generator.generate_report(query)
+        try:
+            report_result = report_generator.generate_report(query)
+            return {"type": "report", "result": report_result}
+        except Exception as e:
+            return {"type": "error", "result": f"Error generating report: {str(e)}"}
 
     # data selector
     try:
@@ -69,7 +71,7 @@ def main(query: str) -> Union[str, ChartDataType, ReportResults]:
         logger.debug(f"Selected JSON file: {json_file_name}")
     except Exception as e:
         logger.error(f"JSON selection failed: {str(e)}")
-        return f"Error selecting JSON: {str(e)}"
+        return {"type": "error", "result": f"Error selecting JSON: {str(e)}"}
 
     # data processor
     try:
@@ -77,22 +79,24 @@ def main(query: str) -> Union[str, ChartDataType, ReportResults]:
         logger.debug("JSON data processing completed successfully")
     except Exception as e:
         logger.error(f"JSON processing failed: {str(e)}")
-        return f"Error processing JSON: {str(e)}"
+        return {"type": "error", "result": f"Error processing JSON: {str(e)}"}
 
     # generator
     try:
         if classification_result == "chart":
             logger.info("Generating chart visualization")
-            return chart_data_generator.generate_chart_data(df, query)
+            result = chart_data_generator.generate_chart_data(df, query)
+            return {"type": "chart", "result": result}
         elif classification_result == "description":
             logger.info("Generating data description")
-            return description_generator.generate_description(df, query)
+            result = description_generator.generate_description(df, query)
+            return {"type": "description", "result": result}
         else:
             logger.warning(f"Unknown classification result: {classification_result}")
-            return ""
+            return {"type": "unknown", "result": ""}
     except Exception as e:
         logger.error(f"Output generation failed: {str(e)}")
-        return f"Error generating output: {str(e)}"
+        return {"type": "error", "result": f"Error generating output: {str(e)}"}
 
 
 if __name__ == "__main__":

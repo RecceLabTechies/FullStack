@@ -51,19 +51,52 @@ def process_query():
 
 @app.route("/api/health", methods=["GET"])
 def health_check():
-    """Health check endpoint"""
-    return jsonify({"status": "healthy", "database": Database.client is not None}), 200
+    """
+    Health check endpoint that verifies database connection and collections existence
+    Returns:
+        200: If database is connected and has collections
+        503: If database connection fails or no collections exist
+    """
+    # Check database connection
+    if Database.db is None:
+        success = Database.initialize()
+        if not success:
+            return (
+                jsonify(
+                    {
+                        "status": "error",
+                        "message": "Database connection failed",
+                        "healthy": False,
+                    }
+                ),
+                503,
+            )
 
+    # Check for collections
+    collections = Database.list_collections()
+    if not collections:
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "message": "No accessible collections found",
+                    "healthy": False,
+                }
+            ),
+            503,
+        )
 
-@app.route("/api/collections", methods=["GET"])
-def list_collections():
-    """List available MongoDB collections"""
-    try:
-        collections = Database.list_collections()
-        return jsonify({"collections": collections}), 200
-    except Exception as e:
-        logger.error(f"Error listing collections: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+    return (
+        jsonify(
+            {
+                "status": "ok",
+                "message": "Database is healthy and collections exist",
+                "healthy": True,
+                "collections_count": len(collections),
+            }
+        ),
+        200,
+    )
 
 
 if __name__ == "__main__":

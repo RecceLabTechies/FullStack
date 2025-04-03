@@ -1,13 +1,12 @@
 #!/usr/bin/env python
-import json
 import logging
-import os
 from typing import Any, Dict, List, Optional, Tuple
 
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel
 
 from mypackage.utils.llm_config import get_groq_llm, JSON_SELECTOR_MODEL
+from mypackage.utils.database import Database
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -27,35 +26,33 @@ if not logger.handlers:
 DEFAULT_MODEL_NAME = JSON_SELECTOR_MODEL
 
 
-class JSONFileNotFoundError(Exception):
-    """Exception raised when a requested JSON file cannot be found or processed.
+class CollectionNotFoundError(Exception):
+    """Exception raised when a requested collection cannot be found or processed.
 
     This exception provides detailed information about the search attempt,
-    including the query, directory searched, and reason for failure.
+    including the query, database searched, and reason for failure.
     """
 
     def __init__(
         self,
         message: str,
         query: Optional[str] = None,
-        directory: Optional[str] = None,
-        available_files: Optional[List[str]] = None,
+        available_collections: Optional[List[str]] = None,
     ):
         self.query = query
-        self.directory = directory
-        self.available_files = available_files
+        self.available_collections = available_collections
         super().__init__(message)
-        logger.error(f"JSONFileNotFoundError: {message} for query '{query}'")
+        logger.error(f"CollectionNotFoundError: {message} for query '{query}'")
 
 
-class JSONAnalysisResult(BaseModel):
-    json_file: Optional[str] = None
+class CollectionAnalysisResult(BaseModel):
+    collection_name: Optional[str] = None
     query: str
     reason: Optional[str] = None
     matching_fields: Optional[List[str]] = None
     matching_values: Optional[Dict[str, List[str]]] = None
     error: Optional[str] = None
-    alternative_files: Optional[List[Dict[str, Any]]] = None
+    alternative_collections: Optional[List[Dict[str, Any]]] = None
 
 
 def _extract_key_terms(query: str) -> List[str]:
@@ -92,119 +89,130 @@ def _extract_key_terms(query: str) -> List[str]:
     return key_terms
 
 
-def _extract_json_info(
-    directory: str, unique_value_limit: int = 10
-) -> Dict[str, Dict[str, Any]]:
+def _extract_collection_info() -> Dict[str, Dict[str, Any]]:
     """
-    Extract schema and sample value information from JSON files in a directory.
-
-    Args:
-        directory: Path to directory containing JSON files
-        unique_value_limit: Maximum number of unique values to extract per field
+    Extract schema and sample value information from MongoDB collections using Database.analyze_collections().
 
     Returns:
-        Dictionary mapping filenames to their schema and sample data information
+        Dictionary mapping collection names to their schema and sample data information
     """
-    logger.info(f"Extracting JSON info from directory: {directory}")
-    json_info = {}
+    logger.info("Extracting collection info from MongoDB using analyze_collections")
+    collection_info = {}
 
-    if not os.path.exists(directory):
-        logger.error(f"Directory not found: {directory}")
-        return json_info
+    # Initialize the database connection if not already done
+    if not Database.initialize():
+        logger.error("Failed to connect to MongoDB")
+        return collection_info
 
-    json_files_found = 0
-    successful_files = 0
+    # Use the analyze_collections method to get collection metadata
+    collections_analysis = Database.analyze_collections()
+    if not collections_analysis:
+        logger.warning("No collections or metadata returned from analyze_collections")
+        return collection_info
 
-    for entry in os.listdir(directory):
-        full_path = os.path.join(directory, entry)
-        if not entry.lower().endswith(".json"):
+    for collection_name, fields_data in collections_analysis.items():
+        # Create collection info structure expected by the rest of the code
+        col_info = {}
+
+        # Skip empty collections
+        if not fields_data:
+            logger.debug(f"Collection {collection_name} has no fields or is empty")
+            col_info["type"] = "unknown"
+            col_info["count"] = 0
+            col_info["fields"] = []
+            col_info["field_types"] = {}
+            col_info["sample_values"] = {}
+            col_info["unique_values"] = {}
+            collection_info[collection_name] = col_info
             continue
 
-        json_files_found += 1
-        logger.debug(f"Processing JSON file: {entry}")
+        # Set collection type and assume a non-zero count since we have fields
+        col_info["type"] = "list"
+        col_info["count"] = (
+            100  # Assume a default count, not critical for selection logic
+        )
 
-        try:
-            with open(full_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            file_info = {}
-            if isinstance(data, list) and data:
-                file_info["type"] = "list"
-                file_info["count"] = len(data)
-                fields = set()
-                field_types = {}
-                sample_values = {}
-                unique_values = {}
+        # Extract field information from analyze_collections result
+        field_list = list(fields_data.keys())
+        field_types = {}
+        sample_values = {}
+        unique_values = {}
 
-                logger.debug(f"Processing list data with {len(data)} items")
-                for item in data[:100]:
-                    if not isinstance(item, dict):
-                        continue
-                    for key, value in item.items():
-                        fields.add(key)
-                        field_types[key] = type(value).__name__
-                        str_value = str(value)
-                        if key not in sample_values:
-                            sample_values[key] = []
-                        if len(sample_values[key]) < unique_value_limit:
-                            sample_values[key].append(str_value)
-                        if key not in unique_values:
-                            unique_values[key] = set()
-                        if len(unique_values[key]) < unique_value_limit:
-                            unique_values[key].add(str_value)
+        for field_name, field_info in fields_data.items():
+            # Skip _id field
+            if field_name == "_id":
+                continue
 
-                file_info["fields"] = list(fields)
-                file_info["field_types"] = field_types
-                file_info["sample_values"] = sample_values
-                file_info["unique_values"] = {
-                    k: list(v) for k, v in unique_values.items()
-                }
-                logger.debug(f"Identified {len(fields)} fields in list-type JSON")
+            field_type = field_info.get("type", "unknown")
+            field_types[field_name] = field_type
 
-            elif isinstance(data, dict):
-                file_info["type"] = "dict"
-                fields = list(data.keys())
-                field_types = {key: type(value).__name__ for key, value in data.items()}
-                sample_values = {key: [str(value)] for key, value in data.items()}
-                unique_values = {key: [str(value)] for key, value in data.items()}
-                file_info["fields"] = fields
-                file_info["field_types"] = field_types
-                file_info["sample_values"] = sample_values
-                file_info["unique_values"] = unique_values
-                logger.debug(f"Identified {len(fields)} fields in dict-type JSON")
+            # Extract sample and unique values based on the field type
+            if field_type == "numerical":
+                stats = field_info.get("stats", {})
+                min_val = stats.get("min", "")
+                max_val = stats.get("max", "")
+                # Store min and max as sample values
+                sample_values[field_name] = [str(min_val), str(max_val)]
+                unique_values[field_name] = [str(min_val), str(max_val)]
 
-            json_info[entry] = file_info
-            successful_files += 1
+            elif field_type == "datetime":
+                stats = field_info.get("stats", {})
+                min_val = stats.get("min", "")
+                max_val = stats.get("max", "")
+                # Store min and max dates as sample values
+                sample_values[field_name] = [str(min_val), str(max_val)]
+                unique_values[field_name] = [str(min_val), str(max_val)]
 
-        except Exception as e:
-            logger.error(f"Error processing JSON file {entry}: {str(e)}", exc_info=True)
+            elif field_type == "categorical":
+                stats = field_info.get("stats", {})
+                unique_list = stats.get("unique_values", [])
+                # Store unique values, removing the "..." if present
+                clean_list = [v for v in unique_list if v != "..."]
+                sample_values[field_name] = (
+                    clean_list[:5] if len(clean_list) > 5 else clean_list
+                )
+                unique_values[field_name] = clean_list
+            else:
+                # Handle unknown field types
+                sample_values[field_name] = []
+                unique_values[field_name] = []
 
-    logger.info(
-        f"Processed {successful_files}/{json_files_found} JSON files in {directory}"
-    )
-    return json_info
+        # Store the extracted information
+        col_info["fields"] = field_list
+        col_info["field_types"] = field_types
+        col_info["sample_values"] = sample_values
+        col_info["unique_values"] = unique_values
+
+        logger.debug(
+            f"Identified {len(field_list)} fields in collection {collection_name}"
+        )
+        collection_info[collection_name] = col_info
+
+    logger.info(f"Processed {len(collection_info)} collections in MongoDB")
+    return collection_info
 
 
 def _search_for_values(
-    json_info: dict, search_terms: List[str]
+    collection_info: dict, search_terms: List[str]
 ) -> Dict[str, Dict[str, List[str]]]:
     """
-    Search for values in JSON files that match the provided search terms.
+    Search for values in collections that match the provided search terms.
 
     Args:
-        json_info: Dictionary of JSON file information
+        collection_info: Dictionary of collection information
         search_terms: List of terms to search for
 
     Returns:
-        Dictionary mapping filenames to matching fields and their values
+        Dictionary mapping collection names to matching fields and their values
     """
     logger.debug(f"Searching for values matching terms: {search_terms}")
     results = {}
     search_terms_lower = [term.lower() for term in search_terms]
 
-    for file_name, info in json_info.items():
+    for collection_name, info in collection_info.items():
         matching_fields = {}
         if "unique_values" not in info:
-            logger.warning(f"No unique values found in file: {file_name}")
+            logger.warning(f"No unique values found in collection: {collection_name}")
             continue
 
         for field, unique_values in info["unique_values"].items():
@@ -218,39 +226,39 @@ def _search_for_values(
             if matches:
                 matching_fields[field] = matches
                 logger.debug(
-                    f"File {file_name}, field '{field}' has {len(matches)} matches"
+                    f"Collection {collection_name}, field '{field}' has {len(matches)} matches"
                 )
 
         if matching_fields:
-            results[file_name] = matching_fields
+            results[collection_name] = matching_fields
 
-    logger.info(f"Found value matches in {len(results)} files")
+    logger.info(f"Found value matches in {len(results)} collections")
     return results
 
 
 def _match_headers_to_query(
-    json_info: dict, query: str
+    collection_info: dict, query: str
 ) -> Tuple[Dict[str, Dict[str, Any]], Optional[str], List[str]]:
     """
-    Match JSON file headers to a query to find the most relevant file.
+    Match collection field names to a query to find the most relevant collection.
 
     Args:
-        json_info: Dictionary of JSON file information
+        collection_info: Dictionary of collection information
         query: User query string
 
     Returns:
-        Tuple containing (all matches with scores, best match filename, best match fields)
+        Tuple containing (all matches with scores, best match collection name, best match fields)
     """
-    logger.info(f"Matching headers to query: '{query}'")
+    logger.info(f"Matching field names to query: '{query}'")
     query_terms = _extract_key_terms(query)
     best_match = None
     best_match_fields = []
     best_match_score = 0
     all_matches = {}
 
-    for file_name, info in json_info.items():
+    for collection_name, info in collection_info.items():
         if "fields" not in info:
-            logger.warning(f"No fields found in file: {file_name}")
+            logger.warning(f"No fields found in collection: {collection_name}")
             continue
 
         matching_fields = []
@@ -264,66 +272,70 @@ def _match_headers_to_query(
                     break
 
         if matching_fields and field_match_score > 0:
-            all_matches[file_name] = {
+            all_matches[collection_name] = {
                 "score": field_match_score,
                 "fields": matching_fields,
                 "reason": f"Field names match query terms: {', '.join(matching_fields)}",
             }
             logger.debug(
-                f"File {file_name} matched with score {field_match_score}: {matching_fields}"
+                f"Collection {collection_name} matched with score {field_match_score}: {matching_fields}"
             )
 
             if field_match_score > best_match_score:
-                best_match = file_name
+                best_match = collection_name
                 best_match_fields = matching_fields
                 best_match_score = field_match_score
 
     if best_match:
-        logger.info(f"Best header match: {best_match} with score {best_match_score}")
+        logger.info(
+            f"Best field name match: {best_match} with score {best_match_score}"
+        )
     else:
-        logger.info("No header matches found")
+        logger.info("No field name matches found")
 
     return all_matches, best_match, best_match_fields
 
 
 def _match_values_to_query(
-    json_info: dict, query: str
+    collection_info: dict, query: str
 ) -> Tuple[Dict[str, Dict[str, Any]], Optional[str], Dict[str, List[str]]]:
     """
-    Match JSON file values to a query to find the most relevant file.
+    Match collection values to a query to find the most relevant collection.
 
     Args:
-        json_info: Dictionary of JSON file information
+        collection_info: Dictionary of collection information
         query: User query string
 
     Returns:
-        Tuple containing (all matches with scores, best match filename, best match values)
+        Tuple containing (all matches with scores, best match collection name, best match values)
     """
     logger.info(f"Matching values to query: '{query}'")
     key_terms = _extract_key_terms(query)
-    value_matches = _search_for_values(json_info, key_terms)
+    value_matches = _search_for_values(collection_info, key_terms)
     best_match = None
     best_match_values = {}
     best_match_score = 0
     all_matches = {}
 
-    for file_name, field_matches in value_matches.items():
+    for collection_name, field_matches in value_matches.items():
         match_score = sum(len(values) for values in field_matches.values())
         field_reasons = []
         for field, values in field_matches.items():
             field_reasons.append(f"'{field}' contains values: {', '.join(values[:3])}")
 
         reason = f"Values in fields match query terms: {'; '.join(field_reasons)}"
-        all_matches[file_name] = {
+        all_matches[collection_name] = {
             "score": match_score,
             "values": field_matches,
             "fields": list(field_matches.keys()),
             "reason": reason,
         }
-        logger.debug(f"File {file_name} value match with score {match_score}")
+        logger.debug(
+            f"Collection {collection_name} value match with score {match_score}"
+        )
 
         if match_score > best_match_score:
-            best_match = file_name
+            best_match = collection_name
             best_match_values = field_matches
             best_match_score = match_score
 
@@ -342,34 +354,34 @@ def _compare_matches(
     Compare and combine header and value matches to determine the best overall match.
 
     Args:
-        header_matches: Dictionary of files matching by headers
-        value_matches: Dictionary of files matching by values
+        header_matches: Dictionary of collections matching by field names
+        value_matches: Dictionary of collections matching by values
 
     Returns:
-        Tuple containing (best match filename, best match details, alternative matches)
+        Tuple containing (best match collection name, best match details, alternative matches)
     """
-    logger.info("Comparing header and value matches")
-    all_files = set(list(header_matches.keys()) + list(value_matches.keys()))
+    logger.info("Comparing field name and value matches")
+    all_collections = set(list(header_matches.keys()) + list(value_matches.keys()))
     combined_scores = {}
 
-    for file_name in all_files:
-        header_score = header_matches.get(file_name, {}).get("score", 0)
-        value_score = value_matches.get(file_name, {}).get("score", 0)
+    for collection_name in all_collections:
+        header_score = header_matches.get(collection_name, {}).get("score", 0)
+        value_score = value_matches.get(collection_name, {}).get("score", 0)
         combined_score = header_score * 1.2 + value_score
 
-        header_fields = header_matches.get(file_name, {}).get("fields", [])
-        value_fields = value_matches.get(file_name, {}).get("fields", [])
+        header_fields = header_matches.get(collection_name, {}).get("fields", [])
+        value_fields = value_matches.get(collection_name, {}).get("fields", [])
         all_fields = list(set(header_fields + value_fields))
-        values = value_matches.get(file_name, {}).get("values", {})
+        values = value_matches.get(collection_name, {}).get("values", {})
 
         reasons = []
-        if file_name in header_matches:
-            reasons.append(header_matches[file_name]["reason"])
-        if file_name in value_matches:
-            reasons.append(value_matches[file_name]["reason"])
+        if collection_name in header_matches:
+            reasons.append(header_matches[collection_name]["reason"])
+        if collection_name in value_matches:
+            reasons.append(value_matches[collection_name]["reason"])
 
         combined_reason = " ".join(reasons)
-        combined_scores[file_name] = {
+        combined_scores[collection_name] = {
             "score": combined_score,
             "fields": all_fields,
             "values": values,
@@ -378,34 +390,34 @@ def _compare_matches(
             "value_score": value_score,
         }
         logger.debug(
-            f"File {file_name} combined score: {combined_score} (header: {header_score}, value: {value_score})"
+            f"Collection {collection_name} combined score: {combined_score} (header: {header_score}, value: {value_score})"
         )
 
     best_match = None
     best_match_details = {}
     best_score = 0
 
-    for file_name, details in combined_scores.items():
+    for collection_name, details in combined_scores.items():
         if details["score"] > best_score:
-            best_match = file_name
+            best_match = collection_name
             best_match_details = details
             best_score = details["score"]
 
     alternative_matches = []
     if best_match and best_score > 0:
         threshold = best_score * 0.7
-        for file_name, details in combined_scores.items():
-            if file_name != best_match and details["score"] >= threshold:
+        for collection_name, details in combined_scores.items():
+            if collection_name != best_match and details["score"] >= threshold:
                 alternative_matches.append(
                     {
-                        "file": file_name,
+                        "collection": collection_name,
                         "score": details["score"],
                         "fields": details["fields"],
                         "reason": details["reason"],
                     }
                 )
                 logger.debug(
-                    f"Alternative match: {file_name} with score {details['score']}"
+                    f"Alternative match: {collection_name} with score {details['score']}"
                 )
 
     if best_match:
@@ -417,33 +429,35 @@ def _compare_matches(
     return best_match, best_match_details, alternative_matches
 
 
-def _format_json_info_for_prompt(json_info: dict) -> str:
+def _format_collection_info_for_prompt(collection_info: dict) -> str:
     """
-    Format JSON file information for use in an LLM prompt.
+    Format collection information for use in an LLM prompt.
 
     Args:
-        json_info: Dictionary of JSON file information
+        collection_info: Dictionary of collection information
 
     Returns:
-        Formatted string with JSON file details for the prompt
+        Formatted string with collection details for the prompt
     """
-    logger.debug("Formatting JSON info for LLM prompt")
-    if not json_info:
-        logger.warning("No JSON files available for formatting")
-        return "📭 No JSON files available for analysis."
+    logger.debug("Formatting collection info for LLM prompt")
+    if not collection_info:
+        logger.warning("No collections available for formatting")
+        return "📭 No collections available for analysis."
 
     formatted_info = []
-    for file_name, info in json_info.items():
+    for collection_name, info in collection_info.items():
         if (
             "fields" not in info
             or "sample_values" not in info
             or "unique_values" not in info
         ):
-            logger.warning(f"Incomplete info for file {file_name}, skipping")
+            logger.warning(
+                f"Incomplete info for collection {collection_name}, skipping"
+            )
             continue
 
-        file_desc = [f"📄 File: {file_name}"]
-        file_desc.append("🔑 Fields: " + ", ".join(info["fields"]))
+        col_desc = [f"📄 Collection: {collection_name}"]
+        col_desc.append("🔑 Fields: " + ", ".join(info["fields"]))
         samples = []
 
         for field in info["fields"]:
@@ -452,9 +466,9 @@ def _format_json_info_for_prompt(json_info: dict) -> str:
                     f"{field} examples: {', '.join(map(str, info['sample_values'][field]))}"
                 )
 
-        file_desc.append("📊 Sample values:")
-        file_desc.extend([f"  ▫️ {sample}" for sample in samples])
-        file_desc.append("🔍 Unique values by field:")
+        col_desc.append("📊 Sample values:")
+        col_desc.extend([f"  ▫️ {sample}" for sample in samples])
+        col_desc.append("🔍 Unique values by field:")
 
         for field in info["fields"]:
             if field in info["unique_values"] and info["unique_values"][field]:
@@ -464,47 +478,47 @@ def _format_json_info_for_prompt(json_info: dict) -> str:
                 unique_vals_str = ", ".join(map(str, display_vals))
                 if has_more:
                     unique_vals_str += ", ..."
-                file_desc.append(f"  ▫️ {field}: {unique_vals_str}")
+                col_desc.append(f"  ▫️ {field}: {unique_vals_str}")
 
-        formatted_info.append("\n".join(file_desc))
+        formatted_info.append("\n".join(col_desc))
 
-    logger.debug(f"Formatted info for {len(formatted_info)} files")
+    logger.debug(f"Formatted info for {len(formatted_info)} collections")
     return "\n\n".join(formatted_info)
 
 
 def _resolve_ambiguous_matches(
     query: str,
-    json_info: dict,
+    collection_info: dict,
     best_match: str,
     best_match_details: Dict[str, Any],
     alternative_matches: List[Dict[str, Any]],
 ) -> Tuple[str, str, List[str]]:
     """
-    Resolve ambiguous matches between multiple JSON files using an LLM.
+    Resolve ambiguous matches between multiple collections using an LLM.
 
     Args:
         query: User query string
-        json_info: Dictionary of JSON file information
-        best_match: Current best match filename
+        collection_info: Dictionary of collection information
+        best_match: Current best match collection name
         best_match_details: Details about the best match
-        alternative_matches: List of alternative matching files
+        alternative_matches: List of alternative matching collections
 
     Returns:
-        Tuple containing (selected filename, reason for selection, matching fields)
+        Tuple containing (selected collection name, reason for selection, matching fields)
     """
     logger.info(f"Resolving ambiguous matches for query: '{query}'")
     logger.debug(f"Best match: {best_match}, alternatives: {len(alternative_matches)}")
 
-    best_match_info = f"File: {best_match}\nScore: {best_match_details['score']:.2f}\nMatching fields: {', '.join(best_match_details['fields'])}\nReason: {best_match_details['reason']}"
+    best_match_info = f"Collection: {best_match}\nScore: {best_match_details['score']:.2f}\nMatching fields: {', '.join(best_match_details['fields'])}\nReason: {best_match_details['reason']}"
     alternatives_info = []
 
     for alt in alternative_matches:
-        alt_info = f"File: {alt['file']}\nScore: {alt['score']:.2f}\nMatching fields: {', '.join(alt['fields'])}\nReason: {alt['reason']}"
+        alt_info = f"Collection: {alt['collection']}\nScore: {alt['score']:.2f}\nMatching fields: {', '.join(alt['fields'])}\nReason: {alt['reason']}"
         alternatives_info.append(alt_info)
 
     alternatives_text = "\n\n".join(alternatives_info)
     prompt = ChatPromptTemplate.from_template(
-        """I need to determine which JSON file is most appropriate for a user query when multiple files match.
+        """I need to determine which MongoDB collection is most appropriate for a user query when multiple collections match.
 
 User Query: {query}
 
@@ -514,18 +528,18 @@ Current best match:
 Alternative matches:
 {alternatives_info}
 
-Based on the query and the information about each file, determine which file would be most appropriate.
+Based on the query and the information about each collection, determine which collection would be most appropriate.
 Consider:
-1. Which file's fields and values are most relevant to the query's intent
-2. Which file would provide the most useful information for answering the query
-3. The semantic meaning of the query and how it relates to each file's content
+1. Which collection's fields and values are most relevant to the query's intent
+2. Which collection would provide the most useful information for answering the query
+3. The semantic meaning of the query and how it relates to each collection's content
 
 Respond in this exact format:
-file: [selected json filename]
-reason: [brief explanation of why this file is most appropriate]
+collection: [selected collection name]
+reason: [brief explanation of why this collection is most appropriate]
 matching_fields: [comma-separated list of fields that match the query criteria]
 
-Important: The filename MUST be exactly as shown in the available files list."""
+Important: The collection name MUST be exactly as shown in the available collections list."""
     )
 
     model = get_groq_llm(DEFAULT_MODEL_NAME)
@@ -540,7 +554,7 @@ Important: The filename MUST be exactly as shown in the available files list."""
         )
         logger.debug(f"Groq LLM response: {response}")
 
-        selected_file = best_match
+        selected_collection = best_match
         reason = best_match_details["reason"]
         matching_fields = best_match_details["fields"]
 
@@ -553,10 +567,10 @@ Important: The filename MUST be exactly as shown in the available files list."""
         response_lines = response_text.strip().split("\n")
         if response_lines:
             for line in response_lines:
-                if line.lower().startswith("file:"):
-                    file_name = line.split(":", 1)[1].strip()
-                    if file_name in json_info:
-                        selected_file = file_name
+                if line.lower().startswith("collection:"):
+                    collection_name = line.split(":", 1)[1].strip()
+                    if collection_name in collection_info:
+                        selected_collection = collection_name
                 elif line.lower().startswith("reason:"):
                     reason = line.split(":", 1)[1].strip()
                 elif line.lower().startswith("matching_fields:"):
@@ -566,70 +580,72 @@ Important: The filename MUST be exactly as shown in the available files list."""
                             field.strip() for field in fields_str.split(",")
                         ]
 
-        logger.info(f"Selected file: {selected_file}")
-        return selected_file, reason, matching_fields
+        logger.info(f"Selected collection: {selected_collection}")
+        return selected_collection, reason, matching_fields
 
     except Exception as e:
         logger.error(f"Error resolving ambiguous matches: {str(e)}", exc_info=True)
         return best_match, best_match_details["reason"], best_match_details["fields"]
 
 
-def _select_json_with_llm(
-    json_info: dict, query: str, value_matches: Dict[str, Dict[str, List[str]]]
-) -> JSONAnalysisResult:
+def _select_collection_with_llm(
+    collection_info: dict, query: str, value_matches: Dict[str, Dict[str, List[str]]]
+) -> CollectionAnalysisResult:
     """
-    Select the most appropriate JSON file for a query using an LLM.
+    Select the most appropriate MongoDB collection for a query using an LLM.
 
     Args:
-        json_info: Dictionary of JSON file information
+        collection_info: Dictionary of collection information
         query: User query string
-        value_matches: Dictionary of value matches by file
+        value_matches: Dictionary of value matches by collection
 
     Returns:
-        JSONAnalysisResult with the selected file and matching information
+        CollectionAnalysisResult with the selected collection and matching information
     """
-    logger.info(f"Selecting JSON with Groq LLM for query: '{query}'")
-    result = JSONAnalysisResult(query=query)
-    formatted_info = _format_json_info_for_prompt(json_info)
+    logger.info(f"Selecting collection with Groq LLM for query: '{query}'")
+    result = CollectionAnalysisResult(query=query)
+    formatted_info = _format_collection_info_for_prompt(collection_info)
 
     value_match_info = ""
     if value_matches:
         value_match_info = "\nValue matches found:\n"
-        for file_name, field_matches in value_matches.items():
-            value_match_info += f"File: {file_name}\n"
+        for collection_name, field_matches in value_matches.items():
+            value_match_info += f"Collection: {collection_name}\n"
             for field, matches in field_matches.items():
                 value_match_info += f"  Field '{field}' contains values matching query terms: {', '.join(matches)}\n"
 
     prompt = ChatPromptTemplate.from_template(
-        """Given the following JSON files and their contents, determine the most appropriate file for the query.
+        """Given the following MongoDB collections and their contents, determine the most appropriate collection for the query.
 
-        Available JSON files and their contents:
-        {json_info}
+        Available MongoDB collections and their contents:
+        {collection_info}
 
         {value_match_info}
 
         Query: {query}
 
-        You MUST ONLY select from the JSON files listed above.
-        Analyze the fields, sample values, and unique values to determine which JSON file would be most relevant for this query.
+        You MUST ONLY select from the MongoDB collections listed above.
+        Analyze the fields, sample values, and unique values to determine which collection would be most relevant for this query.
         Pay special attention to any value matches found, as these indicate fields containing values mentioned in the query.
 
-        If NO file is appropriate for this query, respond with "No appropriate file found" and explain why.
+        If NO collection is appropriate for this query, respond with "No appropriate collection found" and explain why.
 
         Respond in this exact format:
-        file: [selected json filename or "NONE" if no appropriate file]
-        reason: [brief explanation of why this file is most appropriate or why no file is appropriate]
+        collection: [selected collection name or "NONE" if no appropriate collection]
+        reason: [brief explanation of why this collection is most appropriate or why no collection is appropriate]
         matching_fields: [comma-separated list of fields that match the query criteria]
 
-        Important: The filename MUST be exactly as shown in the available files list."""
+        Important: The collection name MUST be exactly as shown in the available collections list."""
     )
 
     model = get_groq_llm(DEFAULT_MODEL_NAME)
     try:
-        logger.debug("Invoking Groq LLM for JSON selection")
+        logger.debug("Invoking Groq LLM for collection selection")
         response = model.invoke(
             prompt.format(
-                json_info=formatted_info, query=query, value_match_info=value_match_info
+                collection_info=formatted_info,
+                query=query,
+                value_match_info=value_match_info,
             )
         )
         logger.debug(f"Groq LLM response: {response}")
@@ -643,17 +659,19 @@ def _select_json_with_llm(
         response_lines = response_text.strip().split("\n")
         if response_lines:
             for line in response_lines:
-                if line.lower().startswith("file:"):
-                    file_name = line.split(":", 1)[1].strip()
-                    if file_name.lower() == "none":
-                        result.error = "No appropriate JSON file found for this query"
-                        logger.info("Groq LLM found no appropriate file")
-                    elif file_name in json_info:
-                        result.json_file = file_name
-                        logger.info(f"Groq LLM selected file: {file_name}")
+                if line.lower().startswith("collection:"):
+                    collection_name = line.split(":", 1)[1].strip()
+                    if collection_name.lower() == "none":
+                        result.error = "No appropriate collection found for this query"
+                        logger.info("Groq LLM found no appropriate collection")
+                    elif collection_name in collection_info:
+                        result.collection_name = collection_name
+                        logger.info(f"Groq LLM selected collection: {collection_name}")
                     else:
-                        result.error = f"Selected file '{file_name}' not found in available JSON files"
-                        logger.warning(f"Groq LLM selected invalid file: {file_name}")
+                        result.error = f"Selected collection '{collection_name}' not found in available collections"
+                        logger.warning(
+                            f"Groq LLM selected invalid collection: {collection_name}"
+                        )
                 elif line.lower().startswith("reason:"):
                     result.reason = line.split(":", 1)[1].strip()
                 elif line.lower().startswith("matching_fields:"):
@@ -664,62 +682,70 @@ def _select_json_with_llm(
                         ]
 
             if (
-                result.json_file
+                result.collection_name
                 and result.matching_fields
-                and result.json_file in value_matches
+                and result.collection_name in value_matches
             ):
                 result.matching_values = {}
                 for field in result.matching_fields:
-                    if field in value_matches[result.json_file]:
-                        result.matching_values[field] = value_matches[result.json_file][
-                            field
-                        ]
+                    if field in value_matches[result.collection_name]:
+                        result.matching_values[field] = value_matches[
+                            result.collection_name
+                        ][field]
         else:
             result.error = "Invalid response format from Groq LLM"
             logger.error("Invalid response format from Groq LLM")
 
     except Exception as e:
-        error_msg = f"Error during JSON selection: {str(e)}"
+        error_msg = f"Error during collection selection: {str(e)}"
         result.error = error_msg
         logger.error(error_msg, exc_info=True)
 
     return result
 
 
-def select_json_for_query(query: str, data_dir: str = "./data") -> str:
+def select_collection_for_query(query: str) -> str:
     """
-    Select the most appropriate JSON file for a user query.
+    Select the most appropriate MongoDB collection for a user query.
 
     Args:
         query: User query string
-        data_dir: Directory containing JSON files
 
     Returns:
-        Name of the most appropriate JSON file
+        Name of the most appropriate MongoDB collection
 
     Raises:
-        JSONFileNotFoundError: If no appropriate file can be found
+        CollectionNotFoundError: If no appropriate collection can be found
     """
-    logger.info(f"Selecting JSON for query: '{query}' in directory: {data_dir}")
+    logger.info(f"Selecting collection for query: '{query}'")
 
-    json_info = _extract_json_info(data_dir)
-    if not json_info:
-        error_msg = "No JSON files found in directory"
-        logger.error(f"{error_msg}: {data_dir}")
-        raise JSONFileNotFoundError(
+    # Initialize Database connection if not already done
+    if not Database.initialize():
+        error_msg = "Failed to connect to MongoDB"
+        logger.error(error_msg)
+        raise CollectionNotFoundError(
             error_msg,
             query=query,
-            directory=data_dir,
-            available_files=[],
+            available_collections=[],
+        )
+
+    collection_info = _extract_collection_info()
+    if not collection_info:
+        error_msg = "No collections found in MongoDB database"
+        logger.error(error_msg)
+        raise CollectionNotFoundError(
+            error_msg,
+            query=query,
+            available_collections=[],
         )
 
     header_matches, best_match_by_header, matching_fields = _match_headers_to_query(
-        json_info, query
+        collection_info, query
     )
 
-    value_matches = _search_for_values(json_info, _extract_key_terms(query))
+    value_matches = _search_for_values(collection_info, _extract_key_terms(query))
     value_match_dict, best_match_by_value, best_match_values = _match_values_to_query(
-        json_info, query
+        collection_info, query
     )
 
     best_match, best_match_details, alternative_matches = _compare_matches(
@@ -727,33 +753,34 @@ def select_json_for_query(query: str, data_dir: str = "./data") -> str:
     )
 
     if best_match and not alternative_matches:
-        logger.info(f"Selected JSON file without ambiguity: {best_match}")
+        logger.info(f"Selected collection without ambiguity: {best_match}")
         return best_match
 
     if best_match and alternative_matches:
         logger.info(
             f"Resolving ambiguity between {len(alternative_matches) + 1} matches"
         )
-        selected_file, reason, matching_fields = _resolve_ambiguous_matches(
-            query, json_info, best_match, best_match_details, alternative_matches
+        selected_collection, reason, matching_fields = _resolve_ambiguous_matches(
+            query, collection_info, best_match, best_match_details, alternative_matches
         )
-        logger.info(f"Selected JSON file after resolving ambiguity: {selected_file}")
-        return selected_file
+        logger.info(
+            f"Selected collection after resolving ambiguity: {selected_collection}"
+        )
+        return selected_collection
 
     if not best_match:
-        logger.info("No matching files found, asking Groq LLM to help")
-        llm_result = _select_json_with_llm(json_info, query, value_matches)
-        if llm_result.json_file:
-            logger.info(f"Groq LLM selected JSON file: {llm_result.json_file}")
-            return llm_result.json_file
+        logger.info("No matching collections found, asking Groq LLM to help")
+        llm_result = _select_collection_with_llm(collection_info, query, value_matches)
+        if llm_result.collection_name:
+            logger.info(f"Groq LLM selected collection: {llm_result.collection_name}")
+            return llm_result.collection_name
 
-    error_msg = "No matching JSON file found for this query. The query terms don't match any column headers or values in the available JSON files."
+    error_msg = "No matching collection found for this query. The query terms don't match any field names or values in the available collections."
     logger.error(error_msg)
-    raise JSONFileNotFoundError(
+    raise CollectionNotFoundError(
         error_msg,
         query=query,
-        directory=data_dir,
-        available_files=list(json_info.keys()),
+        available_collections=list(collection_info.keys()),
     )
 
 
@@ -767,10 +794,10 @@ if __name__ == "__main__":
     root_logger.setLevel(logging.INFO)
     root_logger.addHandler(console_handler)
 
-    test_query = "create a bar chart of monthly sales"
+    test_query = "create a bar chart of monthly sales for linkedin"
     logger.info(f"Testing with query: '{test_query}'")
     try:
-        selected_file = select_json_for_query(test_query)
-        print(f"Selected JSON file: {selected_file}")
-    except JSONFileNotFoundError as e:
+        selected_collection = select_collection_for_query(test_query)
+        print(f"Selected collection: {selected_collection}")
+    except CollectionNotFoundError as e:
         print(f"Error: {str(e)}")

@@ -14,15 +14,13 @@ if not GROQ_API_KEY:
     logger.warning("GROQ_API_KEY not found in environment variables")
 
 # Model configurations
-CLASSIFIER_MODEL = "llama3-8b-8192"  # Replacement for query-classifier
-VALIDATOR_MODEL = "mixtral-8x7b-32768"  # Replacement for qwen2.5
-JSON_SELECTOR_MODEL = "llama3-8b-8192"  # Replacement for json-selector
-JSON_PROCESSOR_MODEL = "mixtral-8x7b-32768"  # Replacement for dolphin-mistral
-DESCRIPTION_GENERATOR_MODEL = (
-    "mixtral-8x7b-32768"  # Replacement for description-generator
-)
-ANALYSIS_QUERIES_MODEL = "mixtral-8x7b-32768"  # Replacement for qwen2.5
-CHART_DATA_MODEL = "llama3-8b-8192"  # For chart data generation
+CLASSIFIER_MODEL = "llama3-8b-8192"
+VALIDATOR_MODEL = "mixtral-8x7b-32768"
+JSON_SELECTOR_MODEL = "llama3-8b-8192"
+JSON_PROCESSOR_MODEL = "llama3-8b-8192"
+DESCRIPTION_GENERATOR_MODEL = "llama3-8b-8192"
+ANALYSIS_QUERIES_MODEL = "llama3-8b-8192"
+CHART_DATA_MODEL = "llama3-8b-8192"
 
 
 # Function to get a configured Groq LLM

@@ -9,14 +9,12 @@ from mypackage.b_data_processor.json_processor import (
     process_json_query,
 )
 from mypackage.b_data_processor.json_selector import (
-    JSONFileNotFoundError,
-    select_json_for_query,
+    CollectionNotFoundError,
 )
 
 __all__ = [
     # Exceptions
-    "JSONFileNotFoundError",
+    "CollectionNotFoundError",
     # Main functions
     "process_json_query",
-    "select_json_for_query",
 ]

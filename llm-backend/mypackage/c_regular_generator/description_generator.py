@@ -559,6 +559,7 @@ def generate_description(df: pd.DataFrame, query: str) -> str:
         Based on the above information, provide a concise, factual description that directly answers the query.
         Focus on quantitative insights, notable patterns, and key statistics that address what the user is asking about.
         Use simple language and avoid unnecessary technical jargon.
+        
         Include relevant statistics like means, ranges, correlations, distributions, or trends when they help answer the query.
         Do not include meta-commentary about the analysis process itself.
         """
@@ -622,8 +623,15 @@ def generate_description(df: pd.DataFrame, query: str) -> str:
                 correlation_info="\n".join(correlation_info),
             )
         )
-        logger.info(f"Generated description of {len(description)} characters")
-        return description.strip()
+
+        # Extract content from AIMessage if needed
+        if hasattr(description, "content"):
+            description_text = description.content
+        else:
+            description_text = str(description)
+
+        logger.info(f"Generated description of {len(description_text)} characters")
+        return description_text.strip()
     except Exception as e:
         error_msg = f"Error generating description: {str(e)}"
         logger.error(error_msg, exc_info=True)

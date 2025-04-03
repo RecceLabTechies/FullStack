@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 import logging
-from typing import Union
+from typing import Union, Dict
 
 from mypackage.b_data_processor import json_processor
 from mypackage.c_regular_generator import chart_data_generator, description_generator
-from mypackage.c_regular_generator.chart_data_generator import ChartDataType
 from mypackage.d_report_generator.generate_analysis_queries import QueryItem, QueryType
 
 # Configure logger
@@ -22,7 +21,7 @@ if not logger.handlers:
     logger.addHandler(handler)
 
 
-def run_truncated_pipeline(queryItem: QueryItem) -> Union[str, ChartDataType]:
+def run_truncated_pipeline(queryItem: QueryItem) -> Dict[str, str]:
     """
     Main function that processes the given query item.
 
@@ -30,10 +29,9 @@ def run_truncated_pipeline(queryItem: QueryItem) -> Union[str, ChartDataType]:
         queryItem (QueryItem): An instance of QueryItem containing the query details.
 
     Returns:
-        Union[str, chart_data_generator.ChartDataType]:
-            - A string message in case of an error.
-            - A ChartDataType object if the query type is 'chart'.
-            - A string description if the query type is 'description'.
+        Dict[str, str]: A dictionary containing:
+            - 'type': The type of result ("chart", "description", "error")
+            - 'result': The processed result (image URL, description text, or error message)
 
     Raises:
         ValueError: If the query type is invalid.
@@ -50,35 +48,42 @@ def run_truncated_pipeline(queryItem: QueryItem) -> Union[str, ChartDataType]:
         raise ValueError(f"Invalid query type: {queryItem.query_type}")
 
     # data selector
-    json_file_name = queryItem.file_name
+    collection_name = queryItem.collection_name
 
     # data processor
     try:
-        df = json_processor.process_json_query(json_file_name, queryItem.query)
+        df = json_processor.process_json_query(collection_name, queryItem.query)
     except Exception as e:
         logger.error(f"Error processing JSON: {str(e)}")
-        return f"Error processing JSON: {str(e)}"
+        return {"type": "error", "result": f"Error processing JSON: {str(e)}"}
 
     # generator
     try:
         if classification_result == "chart":
             logger.info("Generating chart data")
-            return chart_data_generator.generate_chart_data(df, queryItem.query)
+            result = chart_data_generator.generate_chart_data(df, queryItem.query)
+            return {"type": "chart", "result": result}
         elif classification_result == "description":
             logger.info("Generating description")
-            return description_generator.generate_description(df, queryItem.query)
+            result = description_generator.generate_description(df, queryItem.query)
+            return {"type": "description", "result": result}
         else:
-            return f"Error generating output: {classification_result}"
+            return {
+                "type": "error",
+                "result": f"Error generating output: {classification_result}",
+            }
     except Exception as e:
         logger.error(f"Error generating output: {str(e)}")
-        return f"Error generating output: {str(e)}"
+        return {"type": "error", "result": f"Error generating output: {str(e)}"}
 
 
 if __name__ == "__main__":
-    run_truncated_pipeline(
+    result = run_truncated_pipeline(
         QueryItem(
             query="What is the average spending per customer?",
-            query_type=QueryType.CHART,
-            file_name="data.json",
+            query_type=QueryType.DESCRIPTION,
+            collection_name="campaign_performance",
         )
     )
+    print(f"Type: {result['type']}")
+    print(f"Result: {result['result']}")
