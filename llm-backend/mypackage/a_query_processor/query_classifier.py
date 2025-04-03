@@ -1,4 +1,12 @@
 #!/usr/bin/env python
+"""
+Query Classification Module
+
+This module provides functionality to classify user queries into predefined types
+using an LLM-based classification approach. It determines whether a query is asking
+for a description, report, chart, or is invalid.
+"""
+
 import logging
 from enum import Enum
 from typing import Dict, Protocol, Union
@@ -8,6 +16,7 @@ from pydantic import BaseModel
 
 from mypackage.utils.llm_config import CLASSIFIER_MODEL, get_groq_llm
 
+# Set up module-level logger
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.propagate = False
@@ -20,8 +29,14 @@ if not logger.handlers:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
+logger.debug("query_classifier module initialized")
+
 
 class QueryTypeEnum(str, Enum):
+    """
+    Enumeration of possible query types that can be classified.
+    """
+
     DESCRIPTION = "description"
     REPORT = "report"
     CHART = "chart"
@@ -29,16 +44,33 @@ class QueryTypeEnum(str, Enum):
 
 
 class QueryType(BaseModel):
+    """
+    Pydantic model representing the classification result.
+    """
+
     query_type: QueryTypeEnum
 
 
 class LLMResponse(Protocol):
+    """
+    Protocol defining the expected structure of responses from language models.
+    """
+
     content: str
 
 
 def _extract_query_type_from_response(
     response: Union[str, LLMResponse],
 ) -> Dict[str, QueryTypeEnum]:
+    """
+    Parse LLM response to extract the query type classification.
+
+    Args:
+        response: The raw response from the LLM, either as a string or object with content attribute
+
+    Returns:
+        Dictionary containing the classified query type
+    """
     logger.debug(f"Parsing LLM response: '{response}'")
 
     if hasattr(response, "content"):
@@ -47,6 +79,7 @@ def _extract_query_type_from_response(
         response_text = str(response)
 
     response_text = response_text.lower().strip()
+    logger.debug(f"Normalized response text: '{response_text}'")
 
     for query_type in QueryTypeEnum:
         if query_type.value in response_text:
@@ -60,6 +93,18 @@ def _extract_query_type_from_response(
 
 
 def _classify_query_with_llm(query: str) -> QueryType:
+    """
+    Use the Groq LLM to classify the user query.
+
+    Args:
+        query: The user's raw query text
+
+    Returns:
+        QueryType object with the classification result
+
+    Raises:
+        Exception: If there is an error in the LLM classification process
+    """
     logger.info(
         f"Classifying query with Groq LLM: '{query}' using model '{CLASSIFIER_MODEL}'"
     )
@@ -105,8 +150,11 @@ Query: {query}
 IMPORTANT: Respond with EXACTLY ONE WORD, which must be one of: description, report, chart, or error
 Classification:"""
 
+    # Creating the prompt and model chain
+    logger.debug("Preparing prompt template for LLM classification")
     prompt = ChatPromptTemplate.from_template(prompt_template)
 
+    logger.debug(f"Initializing Groq LLM with model: {CLASSIFIER_MODEL}")
     model = get_groq_llm(CLASSIFIER_MODEL)
     chain = prompt | model | _extract_query_type_from_response
 
@@ -121,9 +169,23 @@ Classification:"""
 
 
 def classify_query(user_query: str) -> str:
+    """
+    Public function to classify a user query into one of the predefined types.
+
+    Args:
+        user_query: The raw query text from the user
+
+    Returns:
+        String representation of the query type (description, report, chart, or error)
+
+    Raises:
+        Exception: If there is an error in the classification process
+    """
     logger.info(f"Classifying query: '{user_query}'")
 
     try:
+        # Track start of classification process
+        logger.debug("Starting LLM classification process")
         classification_result = _classify_query_with_llm(user_query)
         logger.info(
             f"Classified by Groq LLM as: {classification_result.query_type.value}"
@@ -135,6 +197,7 @@ def classify_query(user_query: str) -> str:
 
 
 if __name__ == "__main__":
+    # Additional logging configuration for direct script execution
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(
         logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
