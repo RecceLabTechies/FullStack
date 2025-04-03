@@ -56,6 +56,7 @@
     <li><a href="#license">License</a></li>
     <li><a href="#contact">Contact</a></li>
     <li><a href="#acknowledgments">Acknowledgments</a></li>
+    <li><a href="#mongodb-integration">MongoDB Integration</a></li>
   </ol>
 </details>
 
@@ -364,3 +365,34 @@ Project Link: [https://github.com/RecceLabTechies/Backend](https://github.com/Re
 [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
 [linkedin-url]: https://linkedin.com/in/linkedin_username
 [product-screenshot]: images/screenshot.png
+
+## MongoDB Integration
+
+The LLM Backend is now integrated with MongoDB for data persistence. Here's what you need to know:
+
+### MongoDB Connection
+
+- The application automatically connects to MongoDB using the environment variables from docker-compose.yml
+- Default connection string: `mongodb://root:example@mongodb:27017/`
+- Default database name: `test_database`
+
+### Collections
+
+The following collections are pre-configured:
+
+- `users`
+- `campaign_performance`
+- `prophet_predictions`
+
+### Endpoints
+
+- `GET /api/health` - Check if the application and database are healthy
+- `GET /api/collections` - List available MongoDB collections
+
+### Testing Connection
+
+To test the MongoDB connection:
+
+```bash
+python -m tests.test_mongodb
+```

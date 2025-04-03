@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime
-from typing import Dict, List, Any, Optional, TypedDict
+from typing import Dict, List, Any, Optional
+from typing_extensions import TypedDict
 import pandas as pd
 import numpy as np
 from app.models.campaign import CampaignModel

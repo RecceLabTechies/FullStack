@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 import logging
+from typing import Union
 
 from mypackage.b_data_processor import json_processor
-from mypackage.c_regular_generator import chart_generator, description_generator
+from mypackage.c_regular_generator import chart_data_generator, description_generator
+from mypackage.c_regular_generator.chart_data_generator import ChartDataType
 from mypackage.d_report_generator.generate_analysis_queries import QueryItem, QueryType
 
 # Configure logger
@@ -20,7 +22,7 @@ if not logger.handlers:
     logger.addHandler(handler)
 
 
-def run_truncated_pipeline(queryItem: QueryItem) -> str:
+def run_truncated_pipeline(queryItem: QueryItem) -> Union[str, ChartDataType]:
     """
     Main function that processes the given query item.
 
@@ -28,9 +30,9 @@ def run_truncated_pipeline(queryItem: QueryItem) -> str:
         queryItem (QueryItem): An instance of QueryItem containing the query details.
 
     Returns:
-        str:
+        Union[str, chart_data_generator.ChartDataType]:
             - A string message in case of an error.
-            - A URL to the chart image if the query type is 'chart'.
+            - A ChartDataType object if the query type is 'chart'.
             - A string description if the query type is 'description'.
 
     Raises:
@@ -60,8 +62,8 @@ def run_truncated_pipeline(queryItem: QueryItem) -> str:
     # generator
     try:
         if classification_result == "chart":
-            logger.info("Generating chart and uploading")
-            return chart_generator.generate_and_upload_chart(df, queryItem.query)
+            logger.info("Generating chart data")
+            return chart_data_generator.generate_chart_data(df, queryItem.query)
         elif classification_result == "description":
             logger.info("Generating description")
             return description_generator.generate_description(df, queryItem.query)

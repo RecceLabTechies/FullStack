@@ -1,14 +1,22 @@
-from typing import Dict, Union
-from datetime import datetime
+from typing import Union
+import os
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from mypackage.d_report_generator import ReportResults
-from pipeline import main as run_pipeline
-from database.connection import Database, get_queries_collection, get_results_collection
-from config import CORS_CONFIG
 
+from mypackage.c_regular_generator import ChartDataType
+from mypackage.d_report_generator import ReportResults
+from mypackage.utils.database import Database
+from mypackage.utils.logging_config import setup_logging
+from pipeline import main as run_pipeline
+
+from config import DEBUG, HOST, PORT, CORS_CONFIG
+
+# Setup logging
+logger = setup_logging("llm_backend")
+
+# Initialize Flask app
 app = Flask(__name__)
-CORS(app, resources={r"/*": CORS_CONFIG})
+CORS(app, **CORS_CONFIG)
 
 # Initialize database connection
 Database.initialize()
@@ -28,76 +36,35 @@ def process_query():
         return jsonify({"error": "Query field is required"}), 400
 
     query = data["query"]
-    start_time = datetime.utcnow()
-
     try:
-        # Store query in database
-        query_doc = {
-            "timestamp": start_time,
-            "query_text": query,
-            "user_id": data.get("user_id", "anonymous"),
-            "status": "processing",
-            "processing_time": None,
-        }
-        query_result = get_queries_collection().insert_one(query_doc)
-        query_id = str(query_result.inserted_id)
+        result: Union[str, ChartDataType, ReportResults] = run_pipeline(query)
 
-        # Run the pipeline
-        result: Dict[str, Union[str, Dict[str, ReportResults]]] = run_pipeline(query)
-
-        # Calculate processing time
-        processing_time = (datetime.utcnow() - start_time).total_seconds()
-
-        # Store results in database
-        result_doc = {
-            "query_id": query_id,
-            "timestamp": datetime.utcnow(),
-            "output": result,
-            "original_query": query,
-            "metadata": {"processing_time": processing_time, "status": "success"},
-            "status": "completed",
-        }
-        get_results_collection().insert_one(result_doc)
-
-        # Update query status
-        get_queries_collection().update_one(
-            {"_id": query_result.inserted_id},
-            {"$set": {"status": "completed", "processing_time": processing_time}},
-        )
-
-        # Prepare response
-        response = {
-            "output": result,
-            "original_query": query,
-            "query_id": query_id,
-            "processing_time": processing_time,
-        }
+        # Convert the result to a JSON-serializable format
+        response = {"output": result, "original_query": query}
 
         return jsonify(response)
 
     except Exception as e:
-        # Update query status to failed
-        if "query_result" in locals():
-            get_queries_collection().update_one(
-                {"_id": query_result.inserted_id},
-                {
-                    "$set": {
-                        "status": "failed",
-                        "processing_time": (
-                            datetime.utcnow() - start_time
-                        ).total_seconds(),
-                    }
-                },
-            )
-
+        logger.error(f"Error processing query: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/health", methods=["GET"])
 def health_check():
     """Health check endpoint"""
-    return jsonify({"status": "healthy"}), 200
+    return jsonify({"status": "healthy", "database": Database.client is not None}), 200
+
+
+@app.route("/api/collections", methods=["GET"])
+def list_collections():
+    """List available MongoDB collections"""
+    try:
+        collections = Database.list_collections()
+        return jsonify({"collections": collections}), 200
+    except Exception as e:
+        logger.error(f"Error listing collections: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5152)
+    app.run(debug=DEBUG, host=HOST, port=PORT)

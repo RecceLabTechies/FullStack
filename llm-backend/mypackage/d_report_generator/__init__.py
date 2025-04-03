@@ -13,7 +13,7 @@ from mypackage.d_report_generator.generate_analysis_queries import (
 )
 from mypackage.d_report_generator.report_generator import (
     ReportResults,
-    generate_report,
+    report_generator,
 )
 from mypackage.d_report_generator.truncated_pipeline import (
     run_truncated_pipeline,
@@ -26,7 +26,7 @@ __all__ = [
     "QueryType",
     "ReportResults",
     # Main functions
-    "generate_report",
+    "report_generator",
     "generate_analysis_queries",
     "run_truncated_pipeline",
 ]

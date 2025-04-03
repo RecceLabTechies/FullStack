@@ -28,22 +28,26 @@ class Database:
     @classmethod
     def get_collection(cls, collection_name):
         """Get a reference to a specific collection"""
-        if not cls.db:
+        if cls.db is None:
             cls.initialize()
         return cls.db[collection_name]
 
     @classmethod
     def list_collections(cls):
         """List all collections in the database"""
-        if not cls.db:
+        if cls.db is None:
             cls.initialize()
         return cls.db.list_collection_names()
 
 
 # Initialize common collection references
-def get_queries_collection():
-    return Database.get_collection("queries")
+def get_users_collection():
+    return Database.get_collection("users")
 
 
-def get_results_collection():
-    return Database.get_collection("results")
+def get_campaign_performance_collection():
+    return Database.get_collection("campaign_performance")
+
+
+def get_prophet_prediction_collection():
+    return Database.get_collection("prophet_predictions")

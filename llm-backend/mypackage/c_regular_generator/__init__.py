@@ -5,11 +5,13 @@ This module provides functionality for generating various types of data visualiz
 and descriptions based on processed data, including chart generation and text descriptions.
 """
 
-from mypackage.c_regular_generator.chart_generator import (
+from mypackage.c_regular_generator.chart_data_generator import (
+    AxisConfig,
+    ChartDataType,
     ChartInfo,
     ColumnMatch,
     ColumnStats,
-    generate_and_upload_chart,
+    generate_chart_data,
 )
 from mypackage.c_regular_generator.description_generator import (
     generate_description,
@@ -17,10 +19,12 @@ from mypackage.c_regular_generator.description_generator import (
 
 __all__ = [
     # Types
+    "AxisConfig",
+    "ChartDataType",
     "ChartInfo",
     "ColumnMatch",
     "ColumnStats",
     # Main functions
-    "generate_and_upload_chart",
+    "generate_chart_data",
     "generate_description",
 ]

@@ -1,20 +1,10 @@
 #!/usr/bin/env python
-import hashlib
 import logging
-import os
-from datetime import datetime
-from io import BytesIO
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
+from typing_extensions import TypedDict
 
-import matplotlib
-
-# Set non-interactive backend to prevent GUI thread issues
-matplotlib.use("Agg")
-
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama.llms import OllamaLLM
 from pandas.api.types import (
@@ -77,6 +67,19 @@ class ChartInfo(BaseModel):
         return v.lower()
 
     model_config = {"frozen": True}
+
+
+class AxisConfig(TypedDict):
+    dataKey: str
+    type: str
+    label: str
+
+
+class ChartDataType(TypedDict):
+    data: List[Dict[str, Any]]
+    type: str
+    xAxis: AxisConfig
+    yAxis: AxisConfig
 
 
 def _get_column_type(series: pd.Series) -> str:
@@ -705,96 +708,72 @@ def _select_columns_with_llm(query: str, df: pd.DataFrame, sorted_columns) -> Ch
         raise ValueError(f"Failed to select columns: {str(e)}")
 
 
-def _plot_seaborn_chart(df: pd.DataFrame, chart_info: ChartInfo) -> BytesIO:
+def generate_chart_data(df: pd.DataFrame, query: str) -> ChartDataType:
     """
-    Plot a chart using Seaborn based on the chart information.
-
-    Args:
-        df: Input DataFrame with the data to visualize
-        chart_info: ChartInfo object with chart configuration
-
-    Returns:
-        BytesIO object containing the chart image
-    """
-    logger.info(f"Plotting {chart_info.chart_type} chart with Seaborn")
-    plt.figure(figsize=(10, 6))
-
-    x_col = chart_info.x_axis
-    y_col = chart_info.y_axis
-    x_type = _get_column_type(df[x_col])
-
-    if chart_info.chart_type == "line":
-        plt.title(f"{y_col} over {x_col}")
-        sns.lineplot(data=df, x=x_col, y=y_col)
-
-    elif chart_info.chart_type == "scatter":
-        plt.title(f"Relationship between {x_col} and {y_col}")
-        sns.scatterplot(data=df, x=x_col, y=y_col)
-
-    elif chart_info.chart_type == "bar":
-        plt.title(f"{y_col} by {x_col}")
-        if x_type == "categorical" or df[x_col].nunique() < 30:
-            sns.barplot(data=df, x=x_col, y=y_col)
-        else:
-            # If x has too many unique values, group by x and take mean of y
-            grouped = df.groupby(x_col)[y_col].mean().reset_index()
-            sns.barplot(data=grouped, x=x_col, y=y_col)
-
-    elif chart_info.chart_type == "box":
-        plt.title(f"Distribution of {y_col} by {x_col}")
-        sns.boxplot(data=df, x=x_col, y=y_col)
-
-    elif chart_info.chart_type == "heatmap":
-        plt.title(f"Heatmap of {x_col} vs {y_col}")
-        crosstab = pd.crosstab(df[x_col], df[y_col])
-        sns.heatmap(crosstab, annot=True, cmap="YlGnBu")
-
-    plt.tight_layout()
-
-    # Save the plot to a BytesIO object
-    img_data = BytesIO()
-    plt.savefig(img_data, format="png", dpi=300)
-    img_data.seek(0)
-    plt.close()
-
-    return img_data
-
-
-def generate_and_upload_chart(df: pd.DataFrame, query: str) -> str:
-    """
-    Generate a chart based on query, plot with Seaborn, upload, and return image URL.
+    Generate chart data and configuration based on a user query and DataFrame.
 
     Args:
         df: Input DataFrame with the data to visualize
         query: User query string describing the desired visualization
 
     Returns:
-        String with the public URL for the chart image
+        Dictionary with chart data and configuration including data points, chart type, and axis information
     """
-    logger.info(f"Generating and uploading chart for query: '{query}'")
+    logger.info(f"Generating chart data for query: '{query}'")
     chart_info = _select_columns_for_chart(query, df)
+    CHART_TYPE_MAPPING = {
+        "line": "LineChart",
+        "scatter": "ScatterChart",
+        "bar": "BarChart",
+        "box": "ComposedChart",
+        "heatmap": "Heatmap",
+    }
+    data: List[Dict[str, Any]] = []
+    if chart_info.chart_type == "heatmap":
+        logger.debug("Creating heatmap data")
+        crosstab = pd.crosstab(df[chart_info.x_axis], df[chart_info.y_axis])
+        data = [
+            {"x": str(idx), "y": str(col), "value": float(np.asarray(value))}
+            for idx in crosstab.index
+            for col, value in crosstab.loc[idx].items()
+        ]
+    else:
+        logger.debug(f"Creating {chart_info.chart_type} chart data")
+        data = [
+            {
+                chart_info.x_axis: (
+                    row[chart_info.x_axis].isoformat()
+                    if isinstance(row[chart_info.x_axis], pd.Timestamp)
+                    else row[chart_info.x_axis]
+                ),
+                chart_info.y_axis: row[chart_info.y_axis],
+            }
+            for _, row in df.iterrows()
+        ]
 
-    # Plot the chart and get image data
-    img_data = _plot_seaborn_chart(df, chart_info)
+    def _get_axis_config(column: str, is_heatmap: bool = False) -> AxisConfig:
+        return {
+            "dataKey": (
+                "x"
+                if is_heatmap and column == chart_info.x_axis
+                else "y" if is_heatmap and column == chart_info.y_axis else column
+            ),
+            "type": _get_column_type(df[column]),
+            "label": column,
+        }
 
-    # Generate a unique filename based on timestamp and query
-
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    query_hash = hashlib.md5(query.encode()).hexdigest()[:8]
-    filename = f"chart_{timestamp}_{query_hash}.png"
-
-    # Save to the shared directory
-    shared_dir = "../frontend/public/shared"
-    os.makedirs(shared_dir, exist_ok=True)
-
-    file_path = os.path.join(shared_dir, filename)
-    with open(file_path, "wb") as f:
-        f.write(img_data.getvalue())
-
-    logger.info(f"Chart saved to shared volume at: {file_path}")
-
-    # Return the relative path that can be used by other services
-    return f"/shared/{filename}"
+    result: ChartDataType = {
+        "data": data,
+        "type": CHART_TYPE_MAPPING.get(chart_info.chart_type, "LineChart"),
+        "xAxis": _get_axis_config(
+            chart_info.x_axis, chart_info.chart_type == "heatmap"
+        ),
+        "yAxis": _get_axis_config(
+            chart_info.y_axis, chart_info.chart_type == "heatmap"
+        ),
+    }
+    logger.info(f"Generated {len(data)} data points for {result['type']} visualization")
+    return result
 
 
 if __name__ == "__main__":
@@ -821,7 +800,15 @@ if __name__ == "__main__":
 
     logger.info(f"Testing with query: '{test_query}'")
     try:
-        image_url = generate_and_upload_chart(test_df, test_query)
-        print(f"Chart image URL: {image_url}")
+        chart_data = generate_chart_data(test_df, test_query)
+        print("Generated chart configuration:")
+        print(f"Chart type: {chart_data['type']}")
+        print(
+            f"X-axis: {chart_data['xAxis']['dataKey']} ({chart_data['xAxis']['type']})"
+        )
+        print(
+            f"Y-axis: {chart_data['yAxis']['dataKey']} ({chart_data['yAxis']['type']})"
+        )
+        print(f"Data points: {len(chart_data['data'])}")
     except Exception as e:
         logger.error(f"Error in test: {str(e)}", exc_info=True)
