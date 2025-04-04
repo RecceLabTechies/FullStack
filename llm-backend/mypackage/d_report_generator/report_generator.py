@@ -16,13 +16,12 @@ Key components:
 import logging
 from typing import List, Protocol, Union
 
-from pydantic import BaseModel
-
 from mypackage.d_report_generator import truncated_pipeline
 from mypackage.d_report_generator.generate_analysis_queries import (
     QueryList,
     generate_analysis_queries,
 )
+from pydantic import BaseModel
 
 # Set up module-level logger
 logger = logging.getLogger(__name__)
@@ -47,10 +46,10 @@ class ReportResults(BaseModel):
 
     Attributes:
         results: List of results from processed analysis queries, which can be
-                strings (for descriptions) or lists of strings (for charts/visuals)
+                strings (for descriptions) or bytes (for chart images)
     """
 
-    results: List[Union[str, List[str]]]
+    results: List[Union[str, bytes]]
 
 
 class LLMResponse(Protocol):
@@ -104,7 +103,7 @@ def report_generator(user_query: str) -> ReportResults:
         return ReportResults(results=["Error generating analysis queries: " + str(e)])
 
     # Step 2: Process each query and collect results
-    results: List[Union[str, List[str]]] = []
+    results: List[Union[str, bytes]] = []
     logger.debug("Beginning to process individual analysis queries")
 
     for i, queryItem in enumerate(queryList.queries):
@@ -113,7 +112,7 @@ def report_generator(user_query: str) -> ReportResults:
         try:
             # Execute the query through the truncated pipeline
             logger.debug(f"Sending query to truncated pipeline: '{queryItem}'")
-            result: Union[str, List[str]] = truncated_pipeline.run_truncated_pipeline(
+            result: Union[str, bytes] = truncated_pipeline.run_truncated_pipeline(
                 queryItem
             )
 
@@ -121,8 +120,10 @@ def report_generator(user_query: str) -> ReportResults:
             results.append(result)
 
             # Log result type for debugging
-            if isinstance(result, list):
-                logger.debug(f"Query {i + 1} produced {len(result)} chart URLs")
+            if isinstance(result, bytes):
+                logger.debug(
+                    f"Query {i + 1} produced chart image ({len(result)} bytes)"
+                )
             else:
                 logger.debug(
                     f"Query {i + 1} produced text description ({len(str(result))} chars)"
@@ -141,9 +142,9 @@ def report_generator(user_query: str) -> ReportResults:
 
     # Log summary of results for debugging
     text_results = sum(1 for r in results if isinstance(r, str))
-    chart_results = sum(1 for r in results if isinstance(r, list))
+    chart_results = sum(1 for r in results if isinstance(r, bytes))
     logger.debug(
-        f"Result summary: {text_results} text descriptions, {chart_results} chart sets"
+        f"Result summary: {text_results} text descriptions, {chart_results} chart images"
     )
 
     return ReportResults(results=results)
@@ -171,8 +172,8 @@ if __name__ == "__main__":
 
         # Print abbreviated results for visual inspection
         for i, res in enumerate(result.results):
-            if isinstance(res, list):
-                logger.info(f"Result {i + 1}: {len(res)} chart URLs")
+            if isinstance(res, bytes):
+                logger.info(f"Result {i + 1}: chart image")
             else:
                 abbreviated = res[:100] + "..." if len(res) > 100 else res
                 logger.info(f"Result {i + 1}: {abbreviated}")

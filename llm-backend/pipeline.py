@@ -38,7 +38,7 @@ if not logger.handlers:
     logger.addHandler(handler)
 
 
-def main(query: str) -> Dict[str, Union[str, ReportResults]]:
+def main(query: str) -> Dict[str, Union[str, bytes, ReportResults]]:
     """
     Execute the complete processing pipeline for a user query.
 
@@ -91,7 +91,12 @@ def main(query: str) -> Dict[str, Union[str, ReportResults]]:
     if classification_result == "report":
         logger.info("Query identified as report request, initiating report generation")
         try:
-            report_result = report_generator.generate_report(query)
+            report_result = report_generator.report_generator(query)
+            logger.debug(
+                f"Report generation completed with {len(report_result.results)} results"
+            )
+
+            # No further processing needed - report_generator now handles both text and binary data
             return {"type": "report", "result": report_result}
         except Exception as e:
             logger.error(f"Report generation failed: {str(e)}", exc_info=True)

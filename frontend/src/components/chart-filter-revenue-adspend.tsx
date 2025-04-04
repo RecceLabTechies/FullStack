@@ -3,7 +3,6 @@
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 
-import * as z from 'zod';
 import { type CampaignFilters } from '@/types/types';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Info } from 'lucide-react';
@@ -18,6 +17,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import * as z from 'zod';
 
 import { DatePickerWithRange } from '@/components/date-range-picker';
 import { Button } from '@/components/ui/button';

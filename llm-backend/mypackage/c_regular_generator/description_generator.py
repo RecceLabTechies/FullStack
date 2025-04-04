@@ -19,13 +19,12 @@ from typing import Any, Dict, List, Literal, Optional, Union
 import numpy as np
 import pandas as pd
 from langchain_core.prompts import ChatPromptTemplate
-from pydantic import BaseModel, field_validator
-
 from mypackage.utils.llm_config import (
     DESCRIPTION_GENERATOR_MODEL,
     DESCRIPTION_GENERATOR_SELECTOR_MODEL,
     get_groq_llm,
 )
+from pydantic import BaseModel, field_validator
 
 # Set up module-level logger
 logger = logging.getLogger(__name__)
@@ -622,7 +621,9 @@ def _calculate_correlation(df: pd.DataFrame, columns: List[str]) -> Dict:
                             "strength": (
                                 "strong"
                                 if abs(corr_value) > 0.7
-                                else "moderate" if abs(corr_value) > 0.5 else "weak"
+                                else "moderate"
+                                if abs(corr_value) > 0.5
+                                else "weak"
                             ),
                             "direction": "positive" if corr_value > 0 else "negative",
                         }
@@ -725,7 +726,9 @@ def _analyze_time_series(
                             resample_rule = (
                                 "M"
                                 if date_range > 60
-                                else "W" if date_range > 14 else "D"
+                                else "W"
+                                if date_range > 14
+                                else "D"
                             )
                             resampled = time_df[col].resample(resample_rule).mean()
 
@@ -837,6 +840,16 @@ def generate_description(df: pd.DataFrame, query: str) -> str:
         # Step 5: Generate natural language description
         logger.debug("Generating natural language description using LLM")
         description = _get_description_from_llm(query, insights, analysis_request)
+
+        # Remove <think> sections using regex
+        import re
+
+        description = re.sub(
+            r"`?\s*<think>.*?</think>\s*`?",
+            "",
+            description,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
 
         logger.info("Description generation complete")
         return description

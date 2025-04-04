@@ -2,6 +2,7 @@
  * This module contains all TypeScript type definitions used throughout the application.
  * It includes interfaces for user management, campaign data, analytics, and API responses.
  */
+import { ReactNode } from 'react';
 
 /**
  * User Management Types
@@ -457,8 +458,20 @@ export type TruncatedResultType = 'chart' | 'description';
  * Report results returned from the API
  */
 export interface ReportResults {
-  /** Array of string pairs/tuples */
-  results: [TruncatedResultType, string][];
+  /** Array of results that can be either text descriptions or base64-encoded chart data */
+  results: Array<string>;
+}
+
+/**
+ * Processed query result for frontend display
+ */
+export interface ProcessedQueryResult {
+  /** The type of result */
+  type: QueryResultType;
+  /** The processed content ready for display */
+  content: string | Array<string | ReactNode> | null;
+  /** The original query that was sent */
+  originalQuery: string;
 }
 
 /**

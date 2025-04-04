@@ -489,9 +489,9 @@ export const useLatestMonthRevenue = () => {
 export const useProphetPipelineTrigger = () => {
   const [state, setState] = useState<HookState<ProphetPipelineResponse>>(createInitialState());
 
-  const triggerPipeline = useCallback(async () => {
+  const triggerPipeline = useCallback(async (forecastMonths: number = 4) => {
     setState((prev) => ({ ...prev, isLoading: true }));
-    const result = await backendApi.triggerProphetPipeline();
+    const result = await backendApi.triggerProphetPipeline(forecastMonths);
 
     if (result instanceof Error) {
       handleError(setState, result);

@@ -10,9 +10,9 @@ Key components:
 - Data analysis to extract column metadata
 - LLM-based selection of appropriate visualization type and axes
 - Chart rendering with matplotlib/seaborn
-- Image storage in MinIO for serving to frontend
 """
 
+import datetime
 import logging
 import os
 import uuid
@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 from langchain_core.prompts import ChatPromptTemplate
-from minio import Minio
+from mypackage.utils.llm_config import CHART_DATA_MODEL, get_groq_llm
 from pandas.api.types import (
     is_bool_dtype,
     is_datetime64_any_dtype,
@@ -32,8 +32,6 @@ from pandas.api.types import (
     is_object_dtype,
 )
 from pydantic import BaseModel, field_validator
-
-from mypackage.utils.llm_config import CHART_DATA_MODEL, get_groq_llm
 
 # Set up module-level logger
 logger = logging.getLogger(__name__)
@@ -49,21 +47,6 @@ if not logger.handlers:
     logger.addHandler(handler)
 
 logger.debug("chart_generator module initialized")
-
-# Configure MinIO client for chart storage
-MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "localhost:9000")
-MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
-MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin")
-BUCKET_NAME = os.getenv("MINIO_BUCKET_NAME", "temp-charts")
-
-logger.info(f"Initializing MinIO client with endpoint: {MINIO_ENDPOINT}")
-MINIO_CLIENT = Minio(
-    MINIO_ENDPOINT,
-    access_key=MINIO_ACCESS_KEY,
-    secret_key=MINIO_SECRET_KEY,
-    secure=False,
-)
-logger.debug(f"MinIO client initialized with bucket: {BUCKET_NAME}")
 
 
 class ColumnMetadata(BaseModel):
@@ -485,83 +468,12 @@ def _create_seaborn_plot(df: pd.DataFrame, chart_info: "ChartInfo") -> plt.Figur
         raise ValueError(f"Failed to create {chart_info.chart_type} chart: {str(e)}")
 
 
-def _save_plot_to_minio(fig: plt.Figure, chart_type: str) -> str:
-    """
-    Save the matplotlib figure to MinIO storage.
-
-    This function converts the figure to a PNG image and uploads
-    it to MinIO with a unique identifier.
-
-    Args:
-        fig: The matplotlib Figure to save
-        chart_type: Type of chart (used in the filename)
-
-    Returns:
-        URL to access the saved chart
-    """
-    logger.info(f"Saving {chart_type} chart to MinIO")
-
-    # Generate unique filename
-    unique_id = str(uuid.uuid4())
-    filename = f"{chart_type}_{unique_id}.png"
-    logger.debug(f"Generated filename: {filename}")
-
-    # Save figure to in-memory buffer
-    buf = BytesIO()
-    fig.savefig(buf, format="png", dpi=100)
-    buf.seek(0)
-
-    # Create bucket if it doesn't exist
-    try:
-        if not MINIO_CLIENT.bucket_exists(BUCKET_NAME):
-            logger.info(f"Creating bucket: {BUCKET_NAME}")
-            MINIO_CLIENT.make_bucket(BUCKET_NAME)
-    except Exception as e:
-        logger.error(f"Error checking/creating bucket: {str(e)}", exc_info=True)
-        raise ValueError(f"Failed to access MinIO bucket: {str(e)}")
-
-    # Upload to MinIO
-    try:
-        logger.debug(f"Uploading file to MinIO: {filename}")
-        MINIO_CLIENT.put_object(
-            bucket_name=BUCKET_NAME,
-            object_name=filename,
-            data=buf,
-            length=buf.getbuffer().nbytes,
-            content_type="image/png",
-        )
-        logger.info(f"Successfully uploaded chart to MinIO: {filename}")
-
-        # Generate URL
-        url = f"http://{MINIO_ENDPOINT}/{BUCKET_NAME}/{filename}"
-        logger.debug(f"Generated chart URL: {url}")
-        return url
-    except Exception as e:
-        logger.error(f"Error uploading to MinIO: {str(e)}", exc_info=True)
-        raise ValueError(f"Failed to upload chart: {str(e)}")
-
-
-def generate_chart(df: pd.DataFrame, query: str) -> str:
+def generate_chart(df: pd.DataFrame, query: str) -> bytes:
     """
     Main function to generate a chart based on a user query.
 
-    This function:
-    1. Extracts column metadata from the DataFrame
-    2. Enhances the query with metadata context
-    3. Uses an LLM to select the appropriate chart type and axes
-    4. Creates the chart visualization
-    5. Saves the chart to MinIO
-    6. Returns the URL to access the chart
-
-    Args:
-        df: The pandas DataFrame containing the data to visualize
-        query: The user's query describing the desired visualization
-
     Returns:
-        URL to access the generated chart
-
-    Raises:
-        ValueError: If chart generation fails at any step
+        PNG image bytes of the generated chart
     """
     logger.info(f"Generating chart for query: {query}")
 
@@ -582,13 +494,19 @@ def generate_chart(df: pd.DataFrame, query: str) -> str:
         logger.debug("Creating the chart visualization")
         fig = _create_seaborn_plot(df, chart_info)
 
-        # Step 5: Save chart to MinIO
-        logger.debug("Saving chart to MinIO")
-        chart_url = _save_plot_to_minio(fig, chart_info.chart_type)
+        # Step 5: Create in-memory image buffer
+        logger.debug("Creating in-memory image buffer")
+        img_buffer = BytesIO()
+        fig.savefig(
+            img_buffer, format="png", dpi=300, bbox_inches="tight", facecolor="white"
+        )
+        img_buffer.seek(0)
+        image_bytes = img_buffer.getvalue()
+        plt.close(fig)
 
         logger.info("Chart generation complete")
-        plt.close(fig)  # Clean up matplotlib resources
-        return chart_url
+        return image_bytes
+
     except Exception as e:
         logger.error(f"Chart generation failed: {str(e)}", exc_info=True)
         raise ValueError(f"Failed to generate chart: {str(e)}")
@@ -620,7 +538,10 @@ if __name__ == "__main__":
     test_query = "Show me monthly sales as a bar chart"
 
     try:
-        chart_url = generate_chart(df, test_query)
-        logger.info(f"Chart generated successfully: {chart_url}")
+        image_bytes = generate_chart(df, test_query)
+        logger.info("Chart generated successfully")
+        print(
+            f"\nChart generated successfully, image bytes length: {len(image_bytes)}\n"
+        )
     except Exception as e:
         logger.error(f"Test failed: {str(e)}", exc_info=True)

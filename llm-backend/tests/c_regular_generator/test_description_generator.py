@@ -6,25 +6,25 @@ This module contains unit tests for the description generation functionality.
 """
 
 import unittest
-from unittest.mock import patch, MagicMock, ANY
-import pandas as pd
-import numpy as np
 from datetime import datetime
+from unittest.mock import ANY, MagicMock, patch
 
+import numpy as np
+import pandas as pd
 from mypackage.c_regular_generator.description_generator import (
-    ColumnMetadata,
     AnalysisRequest,
-    _detect_outliers,
-    extract_column_metadata,
-    enhance_query_with_metadata,
-    get_llm_analysis_plan,
-    _parse_llm_response,
-    _calculate_insights,
-    _calculate_trend,
+    ColumnMetadata,
+    _analyze_time_series,
     _calculate_correlation,
     _calculate_crosstabs,
-    _analyze_time_series,
+    _calculate_insights,
+    _calculate_trend,
+    _detect_outliers,
+    _parse_llm_response,
+    enhance_query_with_metadata,
+    extract_column_metadata,
     generate_description,
+    get_llm_analysis_plan,
 )
 
 

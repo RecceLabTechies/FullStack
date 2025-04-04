@@ -13,12 +13,12 @@ The API is CORS-enabled for cross-origin requests and uses JSON for all request
 and response data.
 """
 
+import base64
 from typing import Dict, Union
 
+from config import CORS_CONFIG, DEBUG, HOST, PORT
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-
-from config import CORS_CONFIG, DEBUG, HOST, PORT
 from mypackage.d_report_generator import ReportResults
 from mypackage.utils.database import Database
 from mypackage.utils.logging_config import setup_logging
@@ -49,7 +49,7 @@ def process_query():
         {
             "output": {
                 "type": "chart|description|report|error",
-                "result": <URL, text, or error message>
+                "result": <base64-encoded bytes for charts, text, or error message>
             },
             "original_query": "The original query string"
         }
@@ -73,7 +73,15 @@ def process_query():
 
     # Process the query through the pipeline
     try:
-        result: Dict[str, Union[str, ReportResults]] = run_pipeline(query)
+        result: Dict[str, Union[str, bytes, ReportResults]] = run_pipeline(query)
+
+        # Base64 encode binary chart data for JSON compatibility
+        if result["type"] == "chart" and isinstance(result["result"], bytes):
+            logger.debug(
+                f"Encoding chart bytes ({len(result['result'])} bytes) to base64"
+            )
+            result["result"] = base64.b64encode(result["result"]).decode("utf-8")
+
         response = {"output": result, "original_query": query}
         logger.info(f"Successfully processed query, result type: {result['type']}")
         return jsonify(response)

@@ -17,14 +17,14 @@ import logging
 import re
 from typing import Dict, Optional, Tuple
 
+import numpy as np
 import pandas as pd
 from langchain_core.messages import AIMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_experimental.utilities import PythonREPL
-from pandas.api.types import is_numeric_dtype, is_string_dtype
-
 from mypackage.utils.database import Database
 from mypackage.utils.llm_config import COLLECTION_PROCESSOR_MODEL, get_groq_llm
+from pandas.api.types import is_numeric_dtype, is_string_dtype
 
 # Set up module-level logger
 logger = logging.getLogger(__name__)
@@ -241,66 +241,27 @@ def _execute_code_safe(
     code: str, df: pd.DataFrame
 ) -> Tuple[pd.DataFrame, Optional[str]]:
     """
-    Execute generated code using a restricted PythonREPL for safety.
-
-    This function runs the generated code in a sandboxed environment with
-    limited capabilities to prevent security issues.
-
-    Args:
-        code: The Python code to execute
-        df: The DataFrame to process
-
-    Returns:
-        Tuple containing:
-        - Processed DataFrame (or original if execution failed)
-        - Error message if execution failed, None otherwise
+    Execute generated code directly in a controlled namespace.
     """
     logger.info(f"Executing code on DataFrame with shape {df.shape}")
     try:
-        logger.debug("Setting up safe execution environment")
-        # Add datetime support to safe globals
-
-        # Prepare full code with DataFrame setup and safety measures
-        logger.debug("Preparing code for execution")
-        full_code = (
-            "import pandas as pd\n"
-            "from pandas import Timestamp\n"
-            "import numpy as np\n"
-            f"df = pd.DataFrame({df.to_dict('list')})\n"
-            f"{PythonREPL.sanitize_input(code)}\n"
-            "result_df = process_data(df)\n"
-            "# Convert Timestamps to strings for CSV\n"
-            "csv_df = result_df.copy()\n"
-            "for col in csv_df.select_dtypes(include=['datetime']):\n"
-            "    csv_df[col] = csv_df[col].astype(str)\n"
-            "print(csv_df.to_csv(index=False))"
-        )
-
-        print("\n", code, "\n")
-
-        # Execute code with timeout for safety
-        logger.debug("Executing code with 30-second timeout")
-        output = python_repl.run(full_code, timeout=30)
-
-        # Check for error messages in output
-        if "Traceback (most recent call last):" in output:
-            error = output.split("\n")[-1].strip()
-            logger.warning(f"Code execution failed: {error}")
-            return df, f"Execution error: {error}"
-
-        # Convert CSV output back to DataFrame
-        logger.debug("Processing execution output")
-        from io import StringIO
-
-        result_df = pd.read_csv(StringIO(output))
+        logger.debug("Setting up execution namespace")
+        namespace = {
+            "pd": pd,
+            "np": np,
+            "df": df.copy(),
+        }
+        exec(code, namespace)
+        exec("result_df = process_data(df)", namespace)
+        result_df = namespace["result_df"]
         logger.info(
             f"Code executed successfully, returned DataFrame with shape {result_df.shape}"
         )
         return result_df, None
 
     except Exception as e:
-        logger.error(f"REPL error during code execution: {str(e)}", exc_info=True)
-        return df, f"REPL error: {str(e)}"
+        logger.error(f"Execution error: {str(e)}", exc_info=True)
+        return df, f"Execution error: {str(e)}"
 
 
 def _correct_code(error: str, code: str, query: str, metadata: Dict) -> str:

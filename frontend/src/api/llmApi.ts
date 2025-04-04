@@ -20,7 +20,9 @@ const LLM_API_BASE_URL = 'http://localhost:5002';
 export const sendQuery = async (query: string): Promise<QueryResponse> => {
   try {
     const request: QueryRequest = { query };
-    const response = await axios.post<QueryResponse>(`${LLM_API_BASE_URL}/api/query`, request);
+    const response = await axios.post<QueryResponse>(`${LLM_API_BASE_URL}/api/query`, request, {
+      responseType: 'json'
+    });
     return response.data;
   } catch (error) {
     throw error;
@@ -40,3 +42,13 @@ export const checkHealth = async (): Promise<HealthResponse> => {
     throw error;
   }
 };
+
+/**
+ * Utility function to convert base64-encoded chart data to a displayable URL
+ * @param base64Data Base64-encoded chart data from the API
+ * @returns Data URL that can be used as image source
+ */
+export const base64ChartToDataUrl = (base64Data: string): string => {
+  return `data:image/png;base64,${base64Data}`;
+};
+
