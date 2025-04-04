@@ -1,14 +1,16 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Info, PlayCircle } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardTitle } from '@/components/ui/card';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { Slider } from '@/components/ui/slider';
 
 import { useProphetPipelineStatus, useProphetPipelineTrigger } from '@/hooks/use-backend-api';
 
 export function CardMLTrigger() {
+  const [forecastMonths, setForecastMonths] = useState(4);
   const {
     data: statusData,
     error: statusError,
@@ -23,8 +25,7 @@ export function CardMLTrigger() {
 
   // Function to handle pipeline trigger
   const handleTriggerPipeline = async () => {
-    await triggerPipeline();
-    // Immediately check status after triggering
+    await triggerPipeline(forecastMonths);
     await checkStatus();
   };
 
@@ -101,7 +102,30 @@ export function CardMLTrigger() {
             </HoverCardContent>
           </HoverCard>
         </div>
-        <div className="flex flex-col gap-2 ">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Forecast duration: {forecastMonths} month{forecastMonths > 1 ? 's' : ''}
+            </div>
+            <HoverCard>
+              <HoverCardTrigger asChild>
+                <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+              </HoverCardTrigger>
+              <HoverCardContent className="w-80">
+                <p className="text-sm text-muted-foreground">
+                  Select how many months into the future you want the prediction to forecast.
+                  Longer ranges may take more time to calculate.
+                </p>
+              </HoverCardContent>
+            </HoverCard>
+          </div>
+          <Slider
+            min={1}
+            max={12}
+            step={1}
+            value={[forecastMonths]}
+            onValueChange={(value) => setForecastMonths(value[0] ?? 4)}
+          />
           <div className="text-sm text-muted-foreground mt-1">{getStatusDisplay()}</div>
           <Button
             onClick={handleTriggerPipeline}

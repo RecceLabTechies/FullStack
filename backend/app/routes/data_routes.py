@@ -765,6 +765,9 @@ def trigger_prophet_pipeline():
     3. Delete existing data in prophet_predictions collection
     4. Insert new prediction data
 
+    Request body:
+        forecast_months (int, optional): Number of months to forecast (1-12), defaults to 4
+
     The task runs asynchronously, so this endpoint returns immediately.
 
     Returns:
@@ -773,9 +776,28 @@ def trigger_prophet_pipeline():
     try:
         logger.info("Received request to trigger Prophet pipeline")
 
+        # Get forecast_months from request json, default to 4 if not provided
+        request_data = request.get_json() or {}
+        forecast_months = request_data.get("forecast_months", 4)
+
+        # Validate forecast_months
+        try:
+            forecast_months = int(forecast_months)
+            if forecast_months < 1 or forecast_months > 12:
+                return jsonify(
+                    {
+                        "status": "error",
+                        "message": "forecast_months must be between 1 and 12",
+                    }
+                ), 400
+        except (ValueError, TypeError):
+            return jsonify(
+                {"status": "error", "message": "forecast_months must be an integer"}
+            ), 400
+
         # Start prediction in a background thread
         def run_prediction_thread():
-            run_prophet_prediction()
+            run_prophet_prediction(forecast_months)
 
         thread = threading.Thread(target=run_prediction_thread)
         thread.daemon = True  # Thread will exit when main thread exits
@@ -785,7 +807,7 @@ def trigger_prophet_pipeline():
             jsonify(
                 {
                     "status": "started",
-                    "message": "Prophet prediction pipeline started in background",
+                    "message": f"Prophet prediction pipeline started in background with {forecast_months} month(s) forecast",
                 }
             ),
             202,

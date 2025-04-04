@@ -21,7 +21,7 @@ import {
   type ProphetPipelineResponse,
   type ProphetPredictionData,
   type ProphetPredictionResponse,
-  type UserData,
+  type UserData
 } from '@/types/types';
 import axios from 'axios';
 
@@ -427,10 +427,13 @@ export const fetchLatestTwelveMonths = async (): Promise<LatestTwelveMonthsData 
  * Triggers the Prophet prediction pipeline
  * @returns Pipeline status message
  */
-export const triggerProphetPipeline = async (): Promise<ProphetPipelineResponse | Error> => {
+export const triggerProphetPipeline = async (
+  forecastMonths: number = 4
+): Promise<ProphetPipelineResponse | Error> => {
   try {
     const response = await axios.post<ProphetPipelineResponse>(
-      `${API_BASE_URL}/api/v1/prophet-pipeline/trigger`
+      `${API_BASE_URL}/api/v1/prophet-pipeline/trigger`,
+      { forecast_months: forecastMonths }
     );
     return response.data;
   } catch (error) {
@@ -454,3 +457,4 @@ export const checkProphetPipelineStatus = async (): Promise<ProphetPipelineRespo
     return new Error('Failed to check Prophet pipeline status');
   }
 };
+
