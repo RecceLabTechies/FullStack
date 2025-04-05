@@ -466,7 +466,7 @@ export interface QueryRequest {
 /**
  * Response types for different query classifications
  */
-type QueryResultType = 'chart' | 'description' | 'report' | 'error' | 'unknown';
+export type QueryResultType = 'chart' | 'description' | 'report' | 'error' | 'unknown';
 
 /**
  * Report results returned from the API
