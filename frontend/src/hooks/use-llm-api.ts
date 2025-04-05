@@ -2,14 +2,10 @@
  * This module provides React hooks for interacting with the Language Learning Model (LLM) API.
  * It handles state management, data fetching, and response type checking for LLM analysis.
  */
-import React, { ReactNode, useState } from 'react';
+import React, { type ReactNode, useState } from 'react';
 
 import { base64ChartToDataUrl, checkHealth, sendQuery } from '@/api/llmApi';
-import {
-  type HealthResponse,
-  type ProcessedQueryResult,
-  type QueryResponse,
-} from '@/types/types';
+import { type HealthResponse, type ProcessedQueryResult, type QueryResponse } from '@/types/types';
 
 /**
  * Hook for sending queries to the LLM API
@@ -26,12 +22,12 @@ export const useLLMQuery = () => {
   const processResponse = (response: QueryResponse): ProcessedQueryResult => {
     const { output, original_query } = response;
     const { type, result } = output;
-    
+
     // Default processed result
     const processed: ProcessedQueryResult = {
       type,
       content: null,
-      originalQuery: original_query
+      originalQuery: original_query,
     };
 
     // Process based on type
@@ -59,7 +55,7 @@ export const useLLMQuery = () => {
             const imgElement: ReactNode = React.createElement('img', {
               key: index.toString(),
               src: item,
-              alt: `Chart ${index + 1}`
+              alt: `Chart ${index + 1}`,
             });
             return imgElement;
           }
@@ -71,7 +67,7 @@ export const useLLMQuery = () => {
         processed.content = result;
       }
     }
-    
+
     return processed;
   };
 
@@ -81,11 +77,11 @@ export const useLLMQuery = () => {
       setError(null);
       const response = await sendQuery(query);
       setData(response);
-      
+
       // Process the response
       const processed = processResponse(response);
       setProcessedResult(processed);
-      
+
       return response;
     } catch (err) {
       const error = err instanceof Error ? err : new Error('An unknown error occurred');
