@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useProphetPredictionsContext } from '@/context/prophet-predictions-context';
 import { Crown, Info, PlayCircle } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardTitle } from '@/components/ui/card';
@@ -32,9 +33,15 @@ export function MLTriggerCard() {
     try {
       lastProcessedTimestamp.current = null;
       await triggerPipeline(forecastMonths);
+      toast.info(
+        `Prophet ML prediction started for ${forecastMonths} month${forecastMonths > 1 ? 's' : ''}`
+      );
       await checkStatus();
     } catch (error) {
       console.error('Failed to trigger pipeline:', error);
+      toast.error(
+        `Failed to trigger ML prediction: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   };
 
@@ -52,6 +59,7 @@ export function MLTriggerCard() {
       if (lastProcessedTimestamp.current !== currentTimestamp) {
         console.log('MLTriggerCard: Prediction completed, fetching new predictions');
         lastProcessedTimestamp.current = currentTimestamp;
+        toast.success('Prophet ML prediction completed successfully!');
         void fetchPredictions();
       }
     }
