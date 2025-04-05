@@ -205,26 +205,24 @@ export function MLPredictionsChart() {
 
   return (
     <Card className="w-full">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>ML Predictions</CardTitle>
-            <CardDescription>Monthly comparison of actual and predicted metrics</CardDescription>
-          </div>
-          <Select
-            value={selectedMetric}
-            onValueChange={(value: 'revenue' | 'accounts') => setSelectedMetric(value)}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select metrics" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="revenue">Revenue & Ad Spend</SelectItem>
-              <SelectItem value="accounts">New Accounts</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </CardHeader>
+      <div className="flex items-center justify-between pr-6">
+        <CardHeader>
+          <CardTitle>ML Predictions</CardTitle>
+          <CardDescription>Monthly comparison of actual and predicted metrics</CardDescription>
+        </CardHeader>
+        <Select
+          value={selectedMetric}
+          onValueChange={(value: 'revenue' | 'accounts') => setSelectedMetric(value)}
+        >
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Select metrics" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="revenue">Revenue & Ad Spend</SelectItem>
+            <SelectItem value="accounts">New Accounts</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
       <CardContent>
         {(latestTwelveMonthsError ?? prophetError) ? (
           <div className="flex h-[400px] w-full items-center justify-center text-muted-foreground">

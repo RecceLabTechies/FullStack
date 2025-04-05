@@ -172,34 +172,32 @@ export function CostMetricsHeatmap() {
 
   return (
     <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>Cost Metrics by Channel</CardTitle>
-            <CardDescription>
-              {data.time_range?.from_ &&
-                data.time_range?.to &&
-                `Data from ${data.time_range.from_} to ${data.time_range.to}`}
-            </CardDescription>
-          </div>
-          <HoverCard>
-            <HoverCardTrigger asChild>
-              <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-            </HoverCardTrigger>
-            <HoverCardContent className="w-80">
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold">Cost Metrics Analysis</h4>
-                <p className="text-sm text-muted-foreground">
-                  This heatmap visualizes various cost metrics across different advertising
-                  channels. Darker colors indicate higher costs, helping you identify which channels
-                  are more expensive for specific metrics. Use this to optimize your budget
-                  allocation and identify cost-efficient channels.
-                </p>
-              </div>
-            </HoverCardContent>
-          </HoverCard>
-        </div>
-      </CardHeader>
+      <div className="flex items-center justify-between pr-6">
+        <CardHeader>
+          <CardTitle>Cost Metrics by Channel</CardTitle>
+          <CardDescription>
+            {data.time_range?.from_ &&
+              data.time_range?.to &&
+              `Data from ${data.time_range.from_} to ${data.time_range.to}`}
+          </CardDescription>
+        </CardHeader>
+        <HoverCard>
+          <HoverCardTrigger asChild>
+            <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+          </HoverCardTrigger>
+          <HoverCardContent className="w-80">
+            <div className="space-y-2">
+              <h4 className="text-sm font-semibold">Cost Metrics Analysis</h4>
+              <p className="text-sm text-muted-foreground">
+                This heatmap visualizes various cost metrics across different advertising channels.
+                Darker colors indicate higher costs, helping you identify which channels are more
+                expensive for specific metrics. Use this to optimize your budget allocation and
+                identify cost-efficient channels.
+              </p>
+            </div>
+          </HoverCardContent>
+        </HoverCard>
+      </div>
       <CardContent>
         <div className="w-full">
           <ReactApexChart options={options} series={series} type="heatmap" height={350} />

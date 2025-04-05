@@ -29,10 +29,12 @@ export default function ReportPage() {
     if (savedHistory) {
       try {
         const parsedHistory = JSON.parse(savedHistory);
-        setChatHistory(parsedHistory.map((item: any) => ({
-          ...item,
-          timestamp: new Date(item.timestamp)
-        })));
+        setChatHistory(
+          parsedHistory.map((item: any) => ({
+            ...item,
+            timestamp: new Date(item.timestamp),
+          }))
+        );
       } catch (err) {
         console.error('Failed to parse saved chat history:', err);
       }
@@ -54,10 +56,10 @@ export default function ReportPage() {
     const newChatItem = {
       id: Date.now().toString(),
       query: query.trim(),
-      timestamp: new Date()
+      timestamp: new Date(),
     };
-    
-    setChatHistory(prev => [newChatItem, ...prev]);
+
+    setChatHistory((prev) => [newChatItem, ...prev]);
 
     try {
       await executeQuery(query);
@@ -92,13 +94,11 @@ export default function ReportPage() {
                   <CardHeader>
                     <CardTitle>Chart {index + 1}</CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    {content}
-                  </CardContent>
+                  <CardContent>{content}</CardContent>
                 </Card>
               );
             }
-            
+
             // If it's a string (base64 image or text)
             if (typeof content === 'string') {
               // Check if it's a data URL or base64 image
@@ -114,7 +114,7 @@ export default function ReportPage() {
                   </Card>
                 );
               }
-              
+
               // Otherwise it's a text description
               return (
                 <Card key={index}>
@@ -127,7 +127,7 @@ export default function ReportPage() {
                 </Card>
               );
             }
-            
+
             return null;
           })}
         </div>
@@ -181,11 +181,7 @@ export default function ReportPage() {
                   disabled={loading}
                   className="w-full"
                 />
-                <Button 
-                  type="submit" 
-                  disabled={loading || !query.trim()}
-                  className="w-full"
-                >
+                <Button type="submit" disabled={loading || !query.trim()} className="w-full">
                   {loading ? 'Processing...' : 'Submit Query'}
                 </Button>
               </form>
@@ -197,7 +193,7 @@ export default function ReportPage() {
               )}
             </CardContent>
           </Card>
-          
+
           {/* Chat history card */}
           <Card className="mt-4">
             <CardHeader>
@@ -208,20 +204,22 @@ export default function ReportPage() {
                 {chatHistory.length > 0 ? (
                   <div className="space-y-4">
                     {chatHistory.map((item) => (
-                      <div 
-                        key={item.id} 
+                      <div
+                        key={item.id}
                         className="flex items-start space-x-3 p-3 rounded-lg bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
                         onClick={() => handleHistoryItemClick(item)}
                       >
                         <Avatar className="h-8 w-8">
                           <div className="bg-primary text-xs text-primary-foreground flex items-center justify-center h-full rounded-full">
-                            {item.timestamp.getHours().toString().padStart(2, '0')}:{item.timestamp.getMinutes().toString().padStart(2, '0')}
+                            {item.timestamp.getHours().toString().padStart(2, '0')}:
+                            {item.timestamp.getMinutes().toString().padStart(2, '0')}
                           </div>
                         </Avatar>
                         <div className="space-y-1">
                           <p className="text-sm font-medium leading-none">{item.query}</p>
                           <p className="text-xs text-muted-foreground">
-                            {item.timestamp.toLocaleDateString()} {item.timestamp.toLocaleTimeString()}
+                            {item.timestamp.toLocaleDateString()}{' '}
+                            {item.timestamp.toLocaleTimeString()}
                           </p>
                         </div>
                       </div>

@@ -175,32 +175,31 @@ export function RevenueAdSpendChart() {
   return (
     <div className="flex gap-4">
       <Card className="w-full">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Revenue & Ad Spend Filter Chart</CardTitle>
-              <CardDescription>
-                Monthly comparison of revenue generated versus advertising expenditure
-              </CardDescription>
-            </div>
-            <HoverCard>
-              <HoverCardTrigger asChild>
-                <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-              </HoverCardTrigger>
-              <HoverCardContent className="w-80">
-                <div className="space-y-2">
-                  <h4 className="text-sm font-semibold">Revenue & Ad Spend Analysis</h4>
-                  <p className="text-sm text-muted-foreground">
-                    This chart visualizes the relationship between your revenue and advertising
-                    costs over time. Compare monthly trends to identify periods of high ROI and
-                    optimize your ad strategy. Use the filters to analyze specific campaigns,
-                    channels, regions, or time periods.
-                  </p>
-                </div>
-              </HoverCardContent>
-            </HoverCard>
-          </div>
-        </CardHeader>
+        <div className="flex items-center justify-between pr-6">
+          <CardHeader>
+            <CardTitle>Revenue & Ad Spend Filter Chart</CardTitle>
+            <CardDescription>
+              Monthly comparison of revenue generated versus advertising expenditure
+            </CardDescription>
+          </CardHeader>
+          <HoverCard>
+            <HoverCardTrigger asChild>
+              <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+            </HoverCardTrigger>
+            <HoverCardContent className="w-80">
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold">Revenue & Ad Spend Analysis</h4>
+                <p className="text-sm text-muted-foreground">
+                  This chart visualizes the relationship between your revenue and advertising costs
+                  over time. Compare monthly trends to identify periods of high ROI and optimize
+                  your ad strategy. Use the filters to analyze specific campaigns, channels,
+                  regions, or time periods.
+                </p>
+              </div>
+            </HoverCardContent>
+          </HoverCard>
+        </div>
+
         <CardContent>
           {monthlyDataError ? (
             <div className="flex h-[400px] w-full items-center justify-center text-muted-foreground">

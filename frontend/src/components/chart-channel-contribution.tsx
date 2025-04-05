@@ -113,34 +113,32 @@ export default function ChannelContributionChart() {
 
   return (
     <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>Channel Contribution by Metric</CardTitle>
-            {data.time_range?.from_ && data.time_range?.to && (
-              <CardDescription>
-                Data from {data.time_range.from_} to {data.time_range.to}
-              </CardDescription>
-            )}
-          </div>
-          <HoverCard>
-            <HoverCardTrigger asChild>
-              <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-            </HoverCardTrigger>
-            <HoverCardContent className="w-80">
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold">Channel Performance Distribution</h4>
-                <p className="text-sm text-muted-foreground">
-                  This stacked bar chart shows how different advertising channels contribute to each
-                  metric as a percentage. Each bar represents 100% of a metric, split by channel
-                  contribution. Use this to understand which channels are your top performers across
-                  different metrics and identify opportunities for channel optimization.
-                </p>
-              </div>
-            </HoverCardContent>
-          </HoverCard>
-        </div>
-      </CardHeader>
+      <div className="flex items-center justify-between pr-6">
+        <CardHeader>
+          <CardTitle>Channel Contribution by Metric</CardTitle>
+          {data.time_range?.from_ && data.time_range?.to && (
+            <CardDescription>
+              Data from {data.time_range.from_} to {data.time_range.to}
+            </CardDescription>
+          )}
+        </CardHeader>
+        <HoverCard>
+          <HoverCardTrigger asChild>
+            <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+          </HoverCardTrigger>
+          <HoverCardContent className="w-80">
+            <div className="space-y-2">
+              <h4 className="text-sm font-semibold">Channel Performance Distribution</h4>
+              <p className="text-sm text-muted-foreground">
+                This stacked bar chart shows how different advertising channels contribute to each
+                metric as a percentage. Each bar represents 100% of a metric, split by channel
+                contribution. Use this to understand which channels are your top performers across
+                different metrics and identify opportunities for channel optimization.
+              </p>
+            </div>
+          </HoverCardContent>
+        </HoverCard>
+      </div>
       <CardContent className="h-[30rem]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} margin={{ right: 30, left: 20 }} stackOffset="expand">

@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { useProphetPredictionsContext } from '@/context/prophet-predictions-context';
-import { Crown, Info, PlayCircle } from 'lucide-react';
+import { Crown, Info, Loader2, Play } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardTitle } from '@/components/ui/card';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Slider } from '@/components/ui/slider';
 
@@ -51,7 +51,7 @@ export function MLTriggerCard() {
     if (statusData?.is_running) {
       intervalId = setInterval(() => {
         void checkStatus();
-      }, 2000);
+      }, 2000); // Check status every 2 seconds
     }
 
     if (statusData?.last_prediction?.status === 'completed') {
@@ -68,45 +68,6 @@ export function MLTriggerCard() {
       if (intervalId) clearInterval(intervalId);
     };
   }, [checkStatus, statusData?.is_running, statusData?.last_prediction, fetchPredictions]);
-
-  const getStatusDisplay = () => {
-    if (isStatusLoading) {
-      return <p className="text-muted-foreground">Checking status...</p>;
-    }
-
-    if (statusError) {
-      return <p className="text-destructive">Error checking status</p>;
-    }
-
-    if (!statusData) {
-      return <p className="text-muted-foreground">No status available</p>;
-    }
-
-    if (statusData.last_prediction?.status === 'completed') {
-      return <p className="text-muted-foreground">Prophet ML is idle</p>;
-    }
-
-    if (statusData.is_running) {
-      return <p className="text-green-500">Prophet ML is running...</p>;
-    }
-
-    switch (statusData.status) {
-      case 'error':
-        return <p className="text-destructive">Error: {statusData.message}</p>;
-      case 'idle':
-        return <p className="text-muted-foreground">Ready to start prediction</p>;
-      case 'skipped':
-      case 'lock_failed':
-        return (
-          <p className="text-amber-500">
-            {statusData.status === 'skipped' ? 'Prediction skipped: ' : 'Unable to start: '}
-            {statusData.message}
-          </p>
-        );
-      default:
-        return <p className="text-muted-foreground">{statusData.message || 'Unknown status'}</p>;
-    }
-  };
 
   return (
     <Card className="col-span-2">
@@ -159,22 +120,42 @@ export function MLTriggerCard() {
             value={[forecastMonths]}
             onValueChange={(value) => setForecastMonths(value[0] ?? 4)}
           />
-          <div className="text-sm text-muted-foreground mt-1">{getStatusDisplay()}</div>
-          <Button
-            onClick={handleTriggerPipeline}
-            disabled={isTriggerLoading || isStatusLoading || statusData?.is_running}
-          >
-            <PlayCircle className="mr-2 h-4 w-4" />
-            Run Prediction
-          </Button>
-
-          {triggerError && (
-            <div className="text-sm text-destructive">
-              Error triggering pipeline: {triggerError.message}
-            </div>
-          )}
         </div>
       </CardContent>
+      <CardFooter>
+        <Button
+          onClick={handleTriggerPipeline}
+          disabled={isTriggerLoading || isStatusLoading || statusData?.is_running}
+        >
+          {isTriggerLoading ? (
+            <>
+              <Play size={16} className="mr-2" />
+              <p>Starting...</p>
+            </>
+          ) : isStatusLoading ? (
+            <>
+              <Loader2 size={16} className="mr-2 animate-spin" />
+              <p>Checking...</p>
+            </>
+          ) : statusData?.is_running ? (
+            <>
+              <Loader2 size={16} className="mr-2 animate-spin" />
+              <p>Running...</p>
+            </>
+          ) : (
+            <>
+              <Play size={16} className="mr-2" />
+              <p>Run Prediction</p>
+            </>
+          )}
+        </Button>
+
+        {triggerError && (
+          <p className="text-sm text-destructive">
+            Error triggering pipeline: {triggerError.message}
+          </p>
+        )}
+      </CardFooter>
     </Card>
   );
 }

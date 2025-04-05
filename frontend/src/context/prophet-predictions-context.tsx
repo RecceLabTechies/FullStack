@@ -22,7 +22,6 @@ export function ProphetPredictionsProvider({ children }: { children: ReactNode }
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
 
   const fetchPredictions = async () => {
-    console.log('ProphetPredictionsContext: Starting to fetch predictions');
     setIsLoading(true);
     setError(null);
 
@@ -30,24 +29,14 @@ export function ProphetPredictionsProvider({ children }: { children: ReactNode }
       const result = await fetchProphetPredictions();
 
       if (result instanceof Error) {
-        console.error('ProphetPredictionsContext: Error fetching predictions', result);
         setError(result);
       } else {
-        console.log('ProphetPredictionsContext: Successfully fetched predictions', {
-          count: result.length,
-          timestamp: Date.now(),
-        });
-
-        // Only update if data has changed to avoid unnecessary re-renders
         if (!data || !arraysEqual(data, result)) {
           setData(result);
           setLastUpdated(Date.now());
-        } else {
-          console.log('ProphetPredictionsContext: Data unchanged, skipping update');
         }
       }
     } catch (err) {
-      console.error('ProphetPredictionsContext: Exception while fetching', err);
       setError(err instanceof Error ? err : new Error('Failed to fetch predictions'));
     } finally {
       setIsLoading(false);

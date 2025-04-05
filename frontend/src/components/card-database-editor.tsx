@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -20,25 +20,17 @@ interface DatabaseEditorCardProps {
 }
 
 export default function DatabaseEditorCard({ onEditSuccess }: DatabaseEditorCardProps) {
-  // Database state
-  const [selectedDatabase, setSelectedDatabase] = useState<string>('');
-
-  // Database hooks
   const { data: databases, fetchDatabases, isLoading: isFetching } = useDatabases();
   const { deleteDatabase, isLoading: isDeleting } = useDeleteDatabase();
-
-  // Load databases on mount
   useEffect(() => {
     void fetchDatabases();
   }, [fetchDatabases]);
-
-  // Handle database deletion
   const handleDelete = useCallback(
     async (dbName: string) => {
       try {
         await deleteDatabase(dbName);
         toast.success(`Database "${dbName}" cleared successfully`);
-        setSelectedDatabase('');
+
         void fetchDatabases();
         onEditSuccess?.();
       } catch (error) {
@@ -65,7 +57,7 @@ export default function DatabaseEditorCard({ onEditSuccess }: DatabaseEditorCard
               className="w-full justify-between"
               disabled={isFetching || !databases?.length}
             >
-              {selectedDatabase || 'Select a database'}
+              Select a database
               {isFetching ? (
                 <span className="animate-pulse">Loading...</span>
               ) : (
@@ -78,20 +70,19 @@ export default function DatabaseEditorCard({ onEditSuccess }: DatabaseEditorCard
             {databases?.map((db) => (
               <DropdownMenuItem
                 key={db}
-                onSelect={() => setSelectedDatabase(db)}
-                className="cursor-pointer flex justify-between items-center"
+                className="group cursor-pointer flex justify-between items-center w-full"
               >
-                {db}
                 <Button
-                  variant="destructive"
-                  size="icon"
+                  variant="outline"
                   type="button"
+                  className="flex w-full justify-between gap-2"
                   onClick={(e) => {
                     e.stopPropagation();
-                    void handleDelete(db); // Pass database name directly
+                    void handleDelete(db);
                   }}
                 >
-                  <Trash2 size={18} />
+                  {db}
+                  <Trash2 size={18} className="group-hover:text-destructive" />
                 </Button>
               </DropdownMenuItem>
             ))}
