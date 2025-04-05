@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 
 import { type ProcessedQueryResult } from '@/types/types';
+import { Loader2, Send } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -122,9 +123,23 @@ export default function ReportPage() {
 
   return (
     <div className="container mx-auto flex gap-6 p-4 ">
-      <aside className="flex flex-col w-1/3 ">
+      <aside className="flex flex-col w-1/3 bg-white rounded-md p-4 h-screen">
         <h2 className="text-xl font-bold mb-4">Report Builder</h2>
-        <form onSubmit={handleSubmit} className="space-y-2">
+        {/* CHAT AREA */}
+        <div className="flex flex-col gap-2 ">
+          {resultHistory.map((item, index) => (
+            <div className="flex flex-col w-full gap-2" key={`chat-${index}`}>
+              <div className="text-left mr-[25%] bg-accent text-accent-foreground rounded-md p-2 ">
+                {item.query}
+              </div>
+              <div className="text-right ml-[25%] bg-primary text-primary-foreground rounded-md p-2">
+                {item.result.type}
+              </div>
+            </div>
+          ))}
+        </div>
+        {/* INPUT AREA */}
+        <form onSubmit={handleSubmit} className="flex items-center gap-2">
           <Input
             type="text"
             value={query}
@@ -133,8 +148,8 @@ export default function ReportPage() {
             disabled={loading}
             className="w-full"
           />
-          <Button type="submit" disabled={loading || !query.trim()} className="w-full">
-            {loading ? 'Processing...' : 'Submit Query'}
+          <Button type="submit" size="icon" disabled={loading || !query.trim()}>
+            {loading ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
           </Button>
         </form>
 
