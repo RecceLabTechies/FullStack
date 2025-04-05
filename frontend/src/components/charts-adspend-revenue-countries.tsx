@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 
+import { useDatabaseOperations } from '@/context/database-operations-context';
 import { format } from 'date-fns';
 import {
   CartesianGrid,
@@ -26,10 +27,11 @@ interface DataPoint {
 
 const CountryPerformanceCharts = () => {
   const { data, isLoading, error, fetchMonthlyCountryData } = useMonthlyCountryData();
+  const { lastUpdated } = useDatabaseOperations();
 
   useEffect(() => {
     void fetchMonthlyCountryData();
-  }, [fetchMonthlyCountryData]);
+  }, [fetchMonthlyCountryData, lastUpdated]);
 
   if (isLoading) {
     return (

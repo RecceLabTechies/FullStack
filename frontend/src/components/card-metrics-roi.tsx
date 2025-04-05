@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 
+import { useDatabaseOperations } from '@/context/database-operations-context';
 import { Banknote, Info } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/card';
@@ -12,10 +13,11 @@ import { useLatestMonthROI } from '@/hooks/use-backend-api';
 
 export function MetricsROICard() {
   const { data, isLoading, error, fetchLatestMonthROI } = useLatestMonthROI();
+  const { lastUpdated } = useDatabaseOperations();
 
   useEffect(() => {
     void fetchLatestMonthROI();
-  }, [fetchLatestMonthROI]);
+  }, [fetchLatestMonthROI, lastUpdated]);
 
   const formatROI = (value: number) => {
     return `${value.toFixed(1)}%`;

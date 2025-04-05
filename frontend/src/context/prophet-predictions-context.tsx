@@ -4,6 +4,7 @@
  */
 import { createContext, type ReactNode, useContext, useEffect } from 'react';
 
+import { useDatabaseOperations } from '@/context/database-operations-context';
 import { type ProphetPredictionData } from '@/types/types';
 
 import { useProphetPredictions } from '@/hooks/use-backend-api';
@@ -56,11 +57,12 @@ const ProphetPredictionsContext = createContext<ProphetPredictionsContextState |
 export function ProphetPredictionsProvider({ children }: ProphetPredictionsProviderProps) {
   // Get prediction data and utilities from the hook
   const { data, isLoading, error, fetchPredictions } = useProphetPredictions();
+  const { lastUpdated } = useDatabaseOperations();
 
-  // Fetch predictions when the component mounts
+  // Fetch predictions when the component mounts or when database is updated
   useEffect(() => {
     void fetchPredictions();
-  }, [fetchPredictions]);
+  }, [fetchPredictions, lastUpdated]);
 
   const contextValue: ProphetPredictionsContextState = {
     data,

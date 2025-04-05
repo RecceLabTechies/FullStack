@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 
 import dynamic from 'next/dynamic';
 
+import { useDatabaseOperations } from '@/context/database-operations-context';
 import { type ApexOptions } from 'apexcharts';
 import { Info } from 'lucide-react';
 
@@ -43,10 +44,11 @@ interface TooltipContext {
 
 export function CostMetricsHeatmap() {
   const { data, isLoading, error, fetchCostMetricsHeatmap } = useCostMetricsHeatmap();
+  const { lastUpdated } = useDatabaseOperations();
 
   useEffect(() => {
     void fetchCostMetricsHeatmap();
-  }, [fetchCostMetricsHeatmap]);
+  }, [fetchCostMetricsHeatmap, lastUpdated]);
 
   if (isLoading) {
     return (

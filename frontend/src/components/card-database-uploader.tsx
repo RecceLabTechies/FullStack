@@ -31,7 +31,11 @@ const formSchema = z.object({
 
 type FormSchema = z.infer<typeof formSchema>;
 
-export default function DatabaseUploaderCard() {
+interface DatabaseUploaderCardProps {
+  onUploadSuccess?: () => void;
+}
+
+export default function DatabaseUploaderCard({ onUploadSuccess }: DatabaseUploaderCardProps) {
   const { uploadCsv, isLoading: isUploading, data, resetData } = useCsvUpload();
 
   const form = useForm<FormSchema>({
@@ -55,8 +59,9 @@ export default function DatabaseUploaderCard() {
       toast.success(`Uploaded file to cloud! (${data.count} records to ${data.collection})`);
       form.reset();
       resetData();
+      onUploadSuccess?.();
     }
-  }, [data, form, resetData]);
+  }, [data, form, resetData, onUploadSuccess]);
 
   return (
     <>

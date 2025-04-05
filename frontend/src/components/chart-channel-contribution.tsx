@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 
+import { useDatabaseOperations } from '@/context/database-operations-context';
 import { Info } from 'lucide-react';
 import {
   Bar,
@@ -49,10 +50,11 @@ const DEFAULT_COLORS = [
  */
 export default function ChannelContributionChart() {
   const { data, isLoading, error, fetchChannelContribution } = useChannelContribution();
+  const { lastUpdated } = useDatabaseOperations();
 
   useEffect(() => {
     void fetchChannelContribution();
-  }, [fetchChannelContribution]);
+  }, [fetchChannelContribution, lastUpdated]);
 
   if (isLoading) {
     return (

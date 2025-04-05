@@ -15,7 +15,11 @@ import {
 
 import { useDatabases, useDeleteDatabase } from '@/hooks/use-backend-api';
 
-export default function DatabaseEditorCard() {
+interface DatabaseEditorCardProps {
+  onEditSuccess?: () => void;
+}
+
+export default function DatabaseEditorCard({ onEditSuccess }: DatabaseEditorCardProps) {
   // Database state
   const [selectedDatabase, setSelectedDatabase] = useState<string>('');
 
@@ -36,12 +40,13 @@ export default function DatabaseEditorCard() {
         toast.success(`Database "${dbName}" cleared successfully`);
         setSelectedDatabase('');
         void fetchDatabases();
+        onEditSuccess?.();
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
         toast.error(`Failed to clear database: ${errorMessage}`);
       }
     },
-    [deleteDatabase, fetchDatabases]
+    [deleteDatabase, fetchDatabases, onEditSuccess]
   );
 
   return (

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 
+import { useDatabaseOperations } from '@/context/database-operations-context';
 import { CircleDollarSign } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,10 +10,11 @@ import { useLatestMonthRevenue } from '@/hooks/use-backend-api';
 
 export function MetricsRevenueCard() {
   const { data, isLoading, error, fetchLatestMonthRevenue } = useLatestMonthRevenue();
+  const { lastUpdated } = useDatabaseOperations();
 
   useEffect(() => {
     void fetchLatestMonthRevenue();
-  }, [fetchLatestMonthRevenue]);
+  }, [fetchLatestMonthRevenue, lastUpdated]);
 
   const formatRevenue = (value: number) => {
     return new Intl.NumberFormat('en-US', {

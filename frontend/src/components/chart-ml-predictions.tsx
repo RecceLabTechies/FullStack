@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
+import { useDatabaseOperations } from '@/context/database-operations-context';
 import { useProphetPredictionsContext } from '@/context/prophet-predictions-context';
 import {
   CartesianGrid,
@@ -33,6 +34,8 @@ export function MLPredictionsChart() {
     fetchLatestTwelveMonths,
   } = useLatestTwelveMonths();
 
+  const { lastUpdated } = useDatabaseOperations();
+
   const {
     data: prophetData,
     isLoading: isLoadingProphet,
@@ -44,7 +47,7 @@ export function MLPredictionsChart() {
   // Effect to fetch latest twelve months data
   useEffect(() => {
     void fetchLatestTwelveMonths();
-  }, [fetchLatestTwelveMonths]);
+  }, [fetchLatestTwelveMonths, lastUpdated]);
 
   // Transform and combine latest twelve months data and prophet predictions for the chart
   const combinedChartData = useMemo(() => {

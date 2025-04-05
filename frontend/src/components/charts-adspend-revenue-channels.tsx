@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 
+import { useDatabaseOperations } from '@/context/database-operations-context';
 import { format } from 'date-fns';
 import {
   CartesianGrid,
@@ -26,10 +27,11 @@ interface DataPoint {
 
 const ChannelPerformanceCharts = () => {
   const { data, isLoading, error, fetchMonthlyChannelData } = useMonthlyChannelData();
+  const { lastUpdated } = useDatabaseOperations();
 
   useEffect(() => {
     void fetchMonthlyChannelData();
-  }, [fetchMonthlyChannelData]);
+  }, [fetchMonthlyChannelData, lastUpdated]);
 
   if (isLoading) {
     return (

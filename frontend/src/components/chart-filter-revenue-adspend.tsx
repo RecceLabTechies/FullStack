@@ -3,6 +3,8 @@
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 
+import * as z from 'zod';
+import { useDatabaseOperations } from '@/context/database-operations-context';
 import { type CampaignFilters } from '@/types/types';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Info } from 'lucide-react';
@@ -17,7 +19,6 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import * as z from 'zod';
 
 import { DatePickerWithRange } from '@/components/date-range-picker';
 import { Button } from '@/components/ui/button';
@@ -71,6 +72,8 @@ export function RevenueAdSpendChart() {
     fetchMonthlyData,
   } = useMonthlyAggregatedData();
 
+  const { lastUpdated } = useDatabaseOperations();
+
   const form = useForm<FilterFormValues>({
     resolver: zodResolver(filterSchema),
     defaultValues: {
@@ -84,9 +87,9 @@ export function RevenueAdSpendChart() {
 
   useEffect(() => {
     void fetchFilterOptions();
-  }, [fetchFilterOptions]);
+  }, [fetchFilterOptions, lastUpdated]);
 
-  // Add effect to fetch monthly data on mount
+  // Add effect to fetch monthly data on mount and when database is updated
   useEffect(() => {
     if (filterOptions) {
       const defaultFilters: CampaignFilters = {
@@ -99,7 +102,7 @@ export function RevenueAdSpendChart() {
       };
       void fetchMonthlyData(defaultFilters);
     }
-  }, [filterOptions, fetchMonthlyData]);
+  }, [filterOptions, fetchMonthlyData, lastUpdated]);
 
   // Transform the data for the chart
   const chartData: ChartData[] = [];
