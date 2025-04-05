@@ -25,6 +25,7 @@ from app.utils.data_processing import (
     get_db_structure,
     process_csv_data,
 )
+from app.database.connection import Database
 
 # Create blueprint
 data_bp = Blueprint("data_routes", __name__)
@@ -321,6 +322,45 @@ def get_database_structures_data():
     """
     structure = get_db_structure()
     return format_response(structure)
+
+
+@data_bp.route("/api/v1/database", methods=["GET"])
+@handle_exceptions
+def get_database():
+    """
+    List all databases in the database
+    Returns:
+        JSON array of database names
+    """
+    databases = Database.list_collections()
+    return format_response({"databases": databases})
+
+
+@data_bp.route("/api/v1/database/delete", methods=["POST"])
+@handle_exceptions
+def delete_database():
+    """
+    Delete a database by name
+    Request body:
+        - database_name: string (required)
+    """
+    request_data = request.get_json() or {}
+    
+    if not request_data.get("database_name"):
+        raise ValueError("database_name parameter is required")
+    
+    database_name = request_data["database_name"]
+    
+    # Add protection for system collections
+    if database_name == "user":
+        return error_response(400, "Cannot delete protected 'user' collection", "protected_collection")
+    
+    Database.delete_collection(database_name)
+    
+    return format_response({
+        "message": f"Database '{database_name}' processed successfully",
+        "database": database_name
+    })
 
 
 # ----------------------------------------------------------------

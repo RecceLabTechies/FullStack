@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 
 import * as z from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Bot, Loader2, TrendingUp } from 'lucide-react';
+import { Bot, LoaderCircle, TrendingUp } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -329,7 +329,7 @@ export default function AuthPage() {
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <LoaderCircle size={24} className="mr-2 animate-spin" />
                       Authenticating...
                     </>
                   ) : (

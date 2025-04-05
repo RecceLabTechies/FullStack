@@ -2,7 +2,7 @@
  * This module contains all TypeScript type definitions used throughout the application.
  * It includes interfaces for user management, campaign data, analytics, and API responses.
  */
-import { ReactNode } from 'react';
+import { type ReactNode } from 'react';
 
 /**
  * User Management Types
@@ -501,4 +501,19 @@ export interface HealthResponse {
   healthy: boolean;
   /** Number of available collections (only if healthy) */
   collections_count?: number;
+}
+
+/**
+ * Database List Response
+ */
+export interface DatabaseListResponse {
+  databases: string[];
+}
+
+/**
+ * Database Delete Response
+ */
+export interface DatabaseDeleteResponse {
+  message: string;
+  database: string;
 }

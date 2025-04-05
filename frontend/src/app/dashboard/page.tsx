@@ -3,11 +3,12 @@
 import { ProphetPredictionsProvider } from '@/context/prophet-predictions-context';
 import { BarChart3, EyeOff, Globe, Users2 } from 'lucide-react';
 
+import DatabaseUploaderEditorCard from '@/components/card-database-uploader-editor';
 import { MetricsPredictedRevenueCard } from '@/components/card-metrics-predicted-revenue';
 import { MetricsPredictedROICard } from '@/components/card-metrics-predicted-roi';
 import { MetricsRevenueCard } from '@/components/card-metrics-revenue';
 import { MetricsROICard } from '@/components/card-metrics-roi';
-import { CardMLTrigger } from '@/components/card-ml-trigger';
+import { MLTriggerCard } from '@/components/card-ml-trigger';
 import ChannelContributionChart from '@/components/chart-channel-contribution';
 import { CostMetricsHeatmap } from '@/components/chart-cost-metrics-heatmap';
 import { RevenueAdSpendChart } from '@/components/chart-filter-revenue-adspend';
@@ -22,13 +23,16 @@ export default function DashboardPage() {
     <ProphetPredictionsProvider>
       <div className="flex flex-col container gap-4 mx-auto pb-4">
         {/* Summary Cards */}
-        <section className="grid grid-cols-5 gap-4">
+        <section className="grid grid-cols-4 gap-4">
           <MetricsRevenueCard />
           <MetricsROICard />
           <MetricsPredictedRevenueCard />
+          <DatabaseUploaderEditorCard />
+          <MLTriggerCard />
           <MetricsPredictedROICard />
-          <CardMLTrigger />
         </section>
+
+        <section className="grid grid-cols-2 gap-4"></section>
 
         {/* ML Predictions Chart */}
         <section>

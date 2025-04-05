@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { Info, PlayCircle } from 'lucide-react';
+import { Crown, Info, PlayCircle } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardTitle } from '@/components/ui/card';
@@ -9,7 +9,7 @@ import { Slider } from '@/components/ui/slider';
 
 import { useProphetPipelineStatus, useProphetPipelineTrigger } from '@/hooks/use-backend-api';
 
-export function CardMLTrigger() {
+export function MLTriggerCard() {
   const [forecastMonths, setForecastMonths] = useState(4);
   const {
     data: statusData,
@@ -28,7 +28,6 @@ export function CardMLTrigger() {
     await triggerPipeline(forecastMonths);
     await checkStatus();
   };
-
   // Effect for polling status when needed
   useEffect(() => {
     // Check status immediately on mount
@@ -76,12 +75,12 @@ export function CardMLTrigger() {
   };
 
   return (
-    <Card>
+    <Card className="col-span-2">
       <CardContent className="pt-6 flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="rounded-full bg-secondary p-3">
-              <PlayCircle className="h-6 w-6" />
+              <Crown size={24} />
             </div>
             <CardTitle>Prophet ML</CardTitle>
           </div>
@@ -113,8 +112,8 @@ export function CardMLTrigger() {
               </HoverCardTrigger>
               <HoverCardContent className="w-80">
                 <p className="text-sm text-muted-foreground">
-                  Select how many months into the future you want the prediction to forecast.
-                  Longer ranges may take more time to calculate.
+                  Select how many months into the future you want the prediction to forecast. Longer
+                  ranges may take more time to calculate.
                 </p>
               </HoverCardContent>
             </HoverCard>

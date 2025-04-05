@@ -3,6 +3,7 @@
 import React, { useCallback, useState } from 'react';
 
 import { type DbStructure } from '@/types/types';
+import { LoaderCircle } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,11 +22,6 @@ import { useCsvUpload, useDbStructure } from '@/hooks/use-backend-api';
 
 // Common types
 type CollectionDocument = Record<string, unknown>;
-
-// UI Components
-const LoadingSpinner = () => (
-  <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-current" />
-);
 
 const StatusMessage = ({
   message,
@@ -203,7 +199,7 @@ const UploadButton = ({ onUploadSuccess }: { onUploadSuccess?: () => void }) => 
       >
         {isUploading ? (
           <>
-            <LoadingSpinner />
+            <LoaderCircle size={24} className="animate-spin" />
             <span className="ml-2">Uploading...</span>
           </>
         ) : (
@@ -242,7 +238,7 @@ export default function DatabaseHelper() {
           <CardContent>
             {isLoading && (
               <div className="flex items-center space-x-4">
-                <LoadingSpinner />
+                <LoaderCircle size={24} className="animate-spin" />
                 <p className="text-muted-foreground">Loading database structure...</p>
               </div>
             )}
@@ -268,7 +264,7 @@ export default function DatabaseHelper() {
             >
               {isLoading ? (
                 <>
-                  <LoadingSpinner />
+                  <LoaderCircle size={24} className="animate-spin" />
                   <span className="ml-2">Refreshing...</span>
                 </>
               ) : (
