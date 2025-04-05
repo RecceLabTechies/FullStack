@@ -13,7 +13,6 @@ import { useProphetPipelineStatus, useProphetPipelineTrigger } from '@/hooks/use
 export function MLTriggerCard() {
   const [forecastMonths, setForecastMonths] = useState(4);
   const { fetchPredictions } = useProphetPredictionsContext();
-  // Track the last timestamp we responded to
   const lastProcessedTimestamp = useRef<number | null>(null);
 
   const {
@@ -29,56 +28,39 @@ export function MLTriggerCard() {
     triggerPipeline,
   } = useProphetPipelineTrigger();
 
-  // Function to handle pipeline trigger
   const handleTriggerPipeline = async () => {
     try {
-      // Reset the last processed timestamp when starting a new prediction
       lastProcessedTimestamp.current = null;
       await triggerPipeline(forecastMonths);
-      // Start polling for status
       await checkStatus();
     } catch (error) {
       console.error('Failed to trigger pipeline:', error);
     }
   };
 
-  // Effect for polling status when needed
   useEffect(() => {
-    // Check status immediately on mount
-    void checkStatus();
+    let intervalId: NodeJS.Timeout;
 
-    // Set up polling if prediction is running
     if (statusData?.is_running) {
-      const intervalId = setInterval(() => {
+      intervalId = setInterval(() => {
         void checkStatus();
-      }, 5000); // Poll every 5 seconds
-
-      return () => clearInterval(intervalId);
-    }
-  }, [checkStatus, statusData?.is_running]);
-
-  // Effect to fetch predictions when prediction completes
-  useEffect(() => {
-    // Skip if no status data or if it's not completed
-    if (!statusData?.last_prediction || statusData.last_prediction.status !== 'completed') {
-      return;
+      }, 2000);
     }
 
-    const currentTimestamp = statusData.last_prediction.timestamp;
-
-    // If we've already processed this completed prediction, don't do it again
-    if (lastProcessedTimestamp.current === currentTimestamp) {
-      return;
+    if (statusData?.last_prediction?.status === 'completed') {
+      const currentTimestamp = statusData.last_prediction.timestamp;
+      if (lastProcessedTimestamp.current !== currentTimestamp) {
+        console.log('MLTriggerCard: Prediction completed, fetching new predictions');
+        lastProcessedTimestamp.current = currentTimestamp;
+        void fetchPredictions();
+      }
     }
 
-    console.log('MLTriggerCard: Prediction completed, fetching new predictions');
-    // Update our reference to prevent future duplicate fetches
-    lastProcessedTimestamp.current = currentTimestamp;
-    // Fetch the predictions
-    void fetchPredictions();
-  }, [statusData?.last_prediction, fetchPredictions]);
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [checkStatus, statusData?.is_running, statusData?.last_prediction, fetchPredictions]);
 
-  // Determine status display
   const getStatusDisplay = () => {
     if (isStatusLoading) {
       return <p className="text-muted-foreground">Checking status...</p>;
@@ -92,7 +74,6 @@ export function MLTriggerCard() {
       return <p className="text-muted-foreground">No status available</p>;
     }
 
-    // Check for successful completion
     if (statusData.last_prediction?.status === 'completed') {
       return <p className="text-muted-foreground">Prophet ML is idle</p>;
     }
@@ -101,16 +82,19 @@ export function MLTriggerCard() {
       return <p className="text-green-500">Prophet ML is running...</p>;
     }
 
-    // Check specific statuses
     switch (statusData.status) {
       case 'error':
         return <p className="text-destructive">Error: {statusData.message}</p>;
       case 'idle':
         return <p className="text-muted-foreground">Ready to start prediction</p>;
       case 'skipped':
-        return <p className="text-amber-500">Prediction skipped: {statusData.message}</p>;
       case 'lock_failed':
-        return <p className="text-amber-500">Unable to start: {statusData.message}</p>;
+        return (
+          <p className="text-amber-500">
+            {statusData.status === 'skipped' ? 'Prediction skipped: ' : 'Unable to start: '}
+            {statusData.message}
+          </p>
+        );
       default:
         return <p className="text-muted-foreground">{statusData.message || 'Unknown status'}</p>;
     }
