@@ -426,9 +426,29 @@ export interface MonthlyCountryData extends MonthlyBreakdownBase {
  */
 export interface ProphetPipelineResponse {
   /** Current pipeline status */
-  status: 'started' | 'in_progress' | 'success' | 'error' | 'idle';
+  status: 'started' | 'in_progress' | 'success' | 'error' | 'idle' | 'skipped' | 'lock_failed';
   /** Status message */
   message: string;
+  /** Whether prediction is currently running */
+  is_running?: boolean;
+  /** Information about the last prediction run */
+  last_prediction?: {
+    /** Number of months that were forecast */
+    forecast_months: number;
+    /** Timestamp of when the prediction was run */
+    timestamp: number;
+    /** Status of the last prediction run */
+    status:
+      | 'not_run'
+      | 'starting'
+      | 'running'
+      | 'completed'
+      | 'failed'
+      | 'error'
+      | 'skipped'
+      | 'lock_failed'
+      | 'success';
+  };
 }
 
 /**

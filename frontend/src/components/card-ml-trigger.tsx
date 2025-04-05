@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
+import { useProphetPredictionsContext } from '@/context/prophet-predictions-context';
 import { Crown, Info, PlayCircle } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -11,12 +12,17 @@ import { useProphetPipelineStatus, useProphetPipelineTrigger } from '@/hooks/use
 
 export function MLTriggerCard() {
   const [forecastMonths, setForecastMonths] = useState(4);
+  const { fetchPredictions } = useProphetPredictionsContext();
+  // Track the last timestamp we responded to
+  const lastProcessedTimestamp = useRef<number | null>(null);
+
   const {
     data: statusData,
     error: statusError,
     isLoading: isStatusLoading,
     checkStatus,
   } = useProphetPipelineStatus();
+
   const {
     error: triggerError,
     isLoading: isTriggerLoading,
@@ -25,24 +31,52 @@ export function MLTriggerCard() {
 
   // Function to handle pipeline trigger
   const handleTriggerPipeline = async () => {
-    await triggerPipeline(forecastMonths);
-    await checkStatus();
+    try {
+      // Reset the last processed timestamp when starting a new prediction
+      lastProcessedTimestamp.current = null;
+      await triggerPipeline(forecastMonths);
+      // Start polling for status
+      await checkStatus();
+    } catch (error) {
+      console.error('Failed to trigger pipeline:', error);
+    }
   };
+
   // Effect for polling status when needed
   useEffect(() => {
     // Check status immediately on mount
     void checkStatus();
 
-    // Set up polling if status is in_progress or started
-    if (statusData?.status === 'in_progress' || statusData?.status === 'started') {
+    // Set up polling if prediction is running
+    if (statusData?.is_running) {
       const intervalId = setInterval(() => {
         void checkStatus();
       }, 5000); // Poll every 5 seconds
 
-      // Cleanup interval on unmount or when polling should stop
       return () => clearInterval(intervalId);
     }
-  }, [checkStatus, statusData?.status]); // Only depend on the status value
+  }, [checkStatus, statusData?.is_running]);
+
+  // Effect to fetch predictions when prediction completes
+  useEffect(() => {
+    // Skip if no status data or if it's not completed
+    if (!statusData?.last_prediction || statusData.last_prediction.status !== 'completed') {
+      return;
+    }
+
+    const currentTimestamp = statusData.last_prediction.timestamp;
+
+    // If we've already processed this completed prediction, don't do it again
+    if (lastProcessedTimestamp.current === currentTimestamp) {
+      return;
+    }
+
+    console.log('MLTriggerCard: Prediction completed, fetching new predictions');
+    // Update our reference to prevent future duplicate fetches
+    lastProcessedTimestamp.current = currentTimestamp;
+    // Fetch the predictions
+    void fetchPredictions();
+  }, [statusData?.last_prediction, fetchPredictions]);
 
   // Determine status display
   const getStatusDisplay = () => {
@@ -58,19 +92,27 @@ export function MLTriggerCard() {
       return <p className="text-muted-foreground">No status available</p>;
     }
 
+    // Check for successful completion
+    if (statusData.last_prediction?.status === 'completed') {
+      return <p className="text-green-500">Prediction completed successfully</p>;
+    }
+
+    if (statusData.is_running) {
+      return <p className="text-blue-500">Prediction in progress...</p>;
+    }
+
+    // Check specific statuses
     switch (statusData.status) {
-      case 'in_progress':
-        return <p className="text-blue-500">Prediction in progress...</p>;
-      case 'started':
-        return <p className="text-blue-500">Starting prediction...</p>;
-      case 'success':
-        return <p className="text-green-500">Prediction completed</p>;
       case 'error':
         return <p className="text-destructive">Error: {statusData.message}</p>;
       case 'idle':
         return <p className="text-muted-foreground">Ready to start prediction</p>;
+      case 'skipped':
+        return <p className="text-amber-500">Prediction skipped: {statusData.message}</p>;
+      case 'lock_failed':
+        return <p className="text-amber-500">Unable to start: {statusData.message}</p>;
       default:
-        return <p className="text-muted-foreground">Unknown status</p>;
+        return <p className="text-muted-foreground">{statusData.message || 'Unknown status'}</p>;
     }
   };
 
@@ -128,12 +170,7 @@ export function MLTriggerCard() {
           <div className="text-sm text-muted-foreground mt-1">{getStatusDisplay()}</div>
           <Button
             onClick={handleTriggerPipeline}
-            disabled={
-              isTriggerLoading ||
-              isStatusLoading ||
-              statusData?.status === 'in_progress' ||
-              statusData?.status === 'started'
-            }
+            disabled={isTriggerLoading || isStatusLoading || statusData?.is_running}
           >
             <PlayCircle className="mr-2 h-4 w-4" />
             Run Prediction

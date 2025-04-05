@@ -34,20 +34,25 @@ export function MLPredictionsChart() {
     fetchLatestTwelveMonths,
   } = useLatestTwelveMonths();
 
-  const { lastUpdated } = useDatabaseOperations();
+  const { lastUpdated: dbLastUpdated } = useDatabaseOperations();
 
   const {
     data: prophetData,
     isLoading: isLoadingProphet,
     error: prophetError,
+    lastUpdated: predictionLastUpdated,
   } = useProphetPredictionsContext();
 
   const [selectedMetric, setSelectedMetric] = useState<'revenue' | 'accounts'>('revenue');
 
-  // Effect to fetch latest twelve months data
+  // Effect to fetch latest twelve months data when database or predictions update
   useEffect(() => {
+    console.log('MLPredictionsChart: Fetching latest data due to update', {
+      dbLastUpdated,
+      predictionLastUpdated,
+    });
     void fetchLatestTwelveMonths();
-  }, [fetchLatestTwelveMonths, lastUpdated]);
+  }, [fetchLatestTwelveMonths, dbLastUpdated, predictionLastUpdated]);
 
   // Transform and combine latest twelve months data and prophet predictions for the chart
   const combinedChartData = useMemo(() => {
