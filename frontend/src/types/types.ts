@@ -466,18 +466,12 @@ export interface QueryRequest {
 /**
  * Response types for different query classifications
  */
-export type QueryResultType = 'chart' | 'description' | 'report' | 'error' | 'unknown';
-
-/**
- * Response types for truncated pipeline results
- */
-
-export type TruncatedResultType = 'chart' | 'description';
+type QueryResultType = 'chart' | 'description' | 'report' | 'error' | 'unknown';
 
 /**
  * Report results returned from the API
  */
-export interface ReportResults {
+interface ReportResults {
   /** Array of results that can be either text descriptions or base64-encoded chart data */
   results: Array<string>;
 }

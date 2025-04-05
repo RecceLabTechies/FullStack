@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useContext, useState } from 'react';
+import { createContext, type ReactNode, useContext, useState } from 'react';
 
 interface DatabaseOperationsContextType {
   lastUpdated: number;
