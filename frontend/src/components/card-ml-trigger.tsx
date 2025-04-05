@@ -94,11 +94,11 @@ export function MLTriggerCard() {
 
     // Check for successful completion
     if (statusData.last_prediction?.status === 'completed') {
-      return <p className="text-green-500">Prediction completed successfully</p>;
+      return <p className="text-muted-foreground">Prophet ML is idle</p>;
     }
 
     if (statusData.is_running) {
-      return <p className="text-blue-500">Prediction in progress...</p>;
+      return <p className="text-green-500">Prophet ML is running...</p>;
     }
 
     // Check specific statuses
