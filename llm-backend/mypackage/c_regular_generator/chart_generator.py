@@ -12,10 +12,7 @@ Key components:
 - Chart rendering with matplotlib/seaborn
 """
 
-import datetime
 import logging
-import os
-import uuid
 from io import BytesIO
 from typing import List, Literal, Optional, Union
 

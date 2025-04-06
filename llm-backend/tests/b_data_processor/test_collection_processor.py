@@ -6,18 +6,16 @@ This module contains unit tests for the collection processing functionality.
 """
 
 import unittest
-from unittest.mock import patch, MagicMock, ANY
-import pandas as pd
-import numpy as np
-from io import StringIO
+from unittest.mock import MagicMock, patch
 
+import pandas as pd
 from mypackage.b_data_processor.collection_processor import (
-    _get_column_metadata,
+    _correct_code,
+    _execute_code_safe,
+    _execute_with_retries,
     _extract_code_block,
     _generate_processing_code,
-    _execute_code_safe,
-    _correct_code,
-    _execute_with_retries,
+    _get_column_metadata,
     process_collection_query,
 )
 
