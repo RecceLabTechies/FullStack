@@ -21,7 +21,7 @@ export const sendQuery = async (query: string): Promise<QueryResponse> => {
   try {
     const request: QueryRequest = { query };
     const response = await axios.post<QueryResponse>(`${LLM_API_BASE_URL}/api/query`, request, {
-      responseType: 'json'
+      responseType: 'json',
     });
     return response.data;
   } catch (error) {
@@ -51,4 +51,3 @@ export const checkHealth = async (): Promise<HealthResponse> => {
 export const base64ChartToDataUrl = (base64Data: string): string => {
   return `data:image/png;base64,${base64Data}`;
 };
-
