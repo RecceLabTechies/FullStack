@@ -7,6 +7,7 @@ import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-p
 import {
   Bot,
   Clock,
+  FileDown,
   GripVertical,
   Loader2,
   Pencil,
@@ -49,6 +50,7 @@ export default function ReportPage() {
   >([]);
   const [editingDescriptionId, setEditingDescriptionId] = useState<string | null>(null);
   const [editedDescription, setEditedDescription] = useState('');
+  const [isPdfReady, setIsPdfReady] = useState(false);
 
   const { executeQuery, processedResult, loading, error } = useLLMQuery();
 
@@ -360,6 +362,102 @@ export default function ReportPage() {
     return result.type || 'Result';
   };
 
+  // Load PDF libraries only on client side
+  useEffect(() => {
+    setIsPdfReady(true);
+  }, []);
+
+  // Function to handle PDF export
+  const handleExportPdf = async () => {
+    try {
+      // Dynamically import PDF renderer components
+      const { pdf } = await import('@react-pdf/renderer');
+      const { Document, Page, Text, View, StyleSheet, Image } = await import('@react-pdf/renderer');
+
+      // Create PDF styles
+      const pdfStyles = StyleSheet.create({
+        page: {
+          padding: 30,
+          backgroundColor: '#FFFFFF',
+        },
+        title: {
+          fontSize: 24,
+          fontWeight: 'bold',
+          marginBottom: 10,
+        },
+        author: {
+          fontSize: 12,
+          marginBottom: 20,
+        },
+        section: {
+          marginBottom: 15,
+          padding: 10,
+          borderRadius: 4,
+          backgroundColor: '#F9F9F9',
+        },
+        text: {
+          fontSize: 12,
+          lineHeight: 1.6,
+        },
+        image: {
+          width: '100%',
+          marginVertical: 10,
+        },
+      });
+
+      // Create PDF Document Component
+      const ReportDocument = () => (
+        <Document>
+          <Page size="A4" style={pdfStyles.page}>
+            <Text style={pdfStyles.title}>{reportTitle}</Text>
+            <Text style={pdfStyles.author}>{reportAuthor}</Text>
+
+            {reportItems.map((item, index) => {
+              const { result } = item;
+
+              if (result.type === 'description') {
+                return (
+                  <View key={index} style={pdfStyles.section}>
+                    <Text style={pdfStyles.text}>
+                      {typeof result.content === 'string' ? result.content : 'Complex content'}
+                    </Text>
+                  </View>
+                );
+              } else if (result.type === 'chart' && typeof result.content === 'string') {
+                return (
+                  <View key={index} style={pdfStyles.section}>
+                    <Image src={result.content} style={pdfStyles.image} />
+                  </View>
+                );
+              } else {
+                return (
+                  <View key={index} style={pdfStyles.section}>
+                    <Text style={pdfStyles.text}>{getResultSummary(result)}</Text>
+                  </View>
+                );
+              }
+            })}
+          </Page>
+        </Document>
+      );
+
+      // Generate blob
+      const blob = await pdf(<ReportDocument />).toBlob();
+
+      // Create URL and trigger download
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${reportTitle.replace(/\s+/g, '-').toLowerCase()}.pdf`;
+      link.click();
+
+      // Clean up
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+    }
+  };
+
   return (
     <div className="container mx-auto flex gap-6 p-4">
       <aside
@@ -539,7 +637,10 @@ export default function ReportPage() {
       <main role="region" aria-label="Report content" className="w-2/3">
         <nav className="flex justify-between h-9">
           <h2 className="text-xl font-bold mb-4">Report Generator</h2>
-          <Button>Export to PDF</Button>
+          <Button onClick={handleExportPdf} disabled={!isPdfReady}>
+            <FileDown className="mr-2 h-4 w-4" />
+            Export to PDF
+          </Button>
         </nav>
 
         <Separator className="my-4" />
