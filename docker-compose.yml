@@ -43,8 +43,8 @@ services:
         environment:
             - WATCHPACK_POLLING=true
             - WDS_SOCKET_PORT=0
-            - NEXT_PUBLIC_API_URL=http://localhost:5001
-            - NEXT_PUBLIC_LLM_API_URL=http://localhost:5002
+            - NEXT_PUBLIC_API_URL=/api
+            - NEXT_PUBLIC_LLM_API_URL=/llm-api
         volumes:
             - ./frontend:/app
             - /app/node_modules
