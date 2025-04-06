@@ -1,516 +1,739 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
-import {
-  analyzeData,
-  isChartResponse,
-  isDescriptionResponse,
-  isErrorResponse,
-  isReportResponse,
-} from '@/api/llmApi';
+import { type ProcessedQueryResult, type QueryResultType } from '@/types/types';
 import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
-import { Check, Download, Edit2, GripVertical, Loader2, Trash2, X } from 'lucide-react';
-import { toast } from 'sonner';
-
-import { Button } from '@/components/ui/button';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+  Bot,
+  Clock,
+  FileDown,
+  GripVertical,
+  Loader2,
+  Pencil,
+  Save,
+  Send,
+  Trash2,
+  User,
+  XCircle,
+} from 'lucide-react';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 
-interface Message {
-  id: string;
-  content: string;
-  sender: 'user' | 'assistant';
-  timestamp: Date;
-}
+import { useLLMQuery } from '@/hooks/use-llm-api';
 
-interface ReportSection {
-  title: string;
-  content: string | JSX.Element;
-  type: 'text' | 'chart';
-  rawContent?: string;
-}
+/* eslint-disable @next/next/no-img-element */
 
-interface Report {
-  title: string;
-  sections: ReportSection[];
-}
+export default function ReportPage() {
+  const [query, setQuery] = useState('');
+  const [reportTitle, setReportTitle] = useState('Report Title');
+  const [reportAuthor, setReportAuthor] = useState('Report Author');
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [editingAuthor, setEditingAuthor] = useState(false);
+  const [resultHistory, setResultHistory] = useState<
+    Array<{
+      query: string;
+      result: ProcessedQueryResult;
+      timestamp: string;
+      id: string;
+    }>
+  >([]);
+  const [reportItems, setReportItems] = useState<
+    Array<{
+      id: string;
+      result: ProcessedQueryResult;
+    }>
+  >([]);
+  const [editingDescriptionId, setEditingDescriptionId] = useState<string | null>(null);
+  const [editedDescription, setEditedDescription] = useState('');
+  const [isPdfReady, setIsPdfReady] = useState(false);
 
-const REPORT_TEMPLATES = [
-  {
-    title: 'Chart Generation',
-    suggestions: ['Generate a chart for spendings over time'],
-  },
-  {
-    title: 'Description Generation',
-    suggestions: ['Generate a description on spendings'],
-  },
-  // {
-  //   title: "Report Generation",
-  //   suggestions: ["Generate a report"],
-  // },
-];
-
-export default function ReportGenerationPage() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      content:
-        "Hello! I'm your report building assistant. What kind of report would you like to create?",
-      sender: 'assistant',
-      timestamp: new Date(),
-    },
-  ]);
-  const [inputMessage, setInputMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [report, setReport] = useState<Report>({
-    title: 'New Report',
-    sections: [],
-  });
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [editedTitle, setEditedTitle] = useState(report.title);
-  const [editingSectionIndex, setEditingSectionIndex] = useState<number | null>(null);
-  const [editedSectionContent, setEditedSectionContent] = useState('');
-
-  const handleDragEnd = useCallback(
-    (result: DropResult) => {
-      if (!result.destination) return;
-
-      const items = Array.from(report.sections);
-      const [reorderedItem] = items.splice(result.source.index, 1) as [ReportSection];
-      items.splice(result.destination.index, 0, reorderedItem);
-      setReport((prev) => ({ ...prev, sections: items }));
-    },
-    [report.sections]
-  );
-
-  const exportReport = async (format: 'pdf' | 'docx' | 'html') => {
-    try {
-      // Placeholder for actual export logic
-      toast.success(`Report exported as ${format.toUpperCase()}`, {
-        description: `Your report has been successfully exported in ${format.toUpperCase()} format.`,
-        action: {
-          label: 'Download',
-          onClick: () => console.log(`Downloading ${format} report...`),
-        },
-      });
-    } catch (error) {
-      toast.error('Failed to export report', {
-        description: error instanceof Error ? error.message : 'An unknown error occurred',
-      });
-    }
-  };
-
-  const handleTitleEdit = () => {
-    if (isEditingTitle) {
-      setReport((prev) => ({ ...prev, title: editedTitle }));
-    }
-    setIsEditingTitle(!isEditingTitle);
-  };
-
-  const generateReportContent = async (userMessage: string) => {
-    const response = await analyzeData(userMessage);
-
-    if (isErrorResponse(response)) {
-      throw new Error(response.output.error);
-    }
-
-    let newSection: ReportSection;
-
-    // Handle chart output type
-    if (isChartResponse(response)) {
-      const chartData = response.output.chart!;
-
-      newSection = {
-        title: 'Chart Analysis',
-        content: (
-          <div className="mt-4 h-[400px] w-full">
-            <img src={chartData} alt="Chart" />
-          </div>
-        ),
-        type: 'chart',
-      };
-    }
-    // Handle report output type
-    else if (isReportResponse(response)) {
-      const reportResults = response.output.report?.report;
-
-      if (reportResults && reportResults.results.length > 0) {
-        // Process report sections - can contain multiple results
-        const sections: ReportSection[] = [];
-
-        for (const result of reportResults.results) {
-          if (result.description) {
-            // Text description
-            sections.push({
-              title: 'Analysis Report',
-              content: result.description,
-              type: 'text',
-              rawContent: result.description,
-            });
-          } else if (result.chart) {
-            // Chart visualization
-            const chartData =
-              typeof result.chart === 'string' ? result.chart : JSON.stringify(result.chart);
-
-            sections.push({
-              title: 'Chart Report',
-              content: (
-                <div className="mt-4 h-[400px] w-full">
-                  <img src={chartData} alt="Chart" />
-                </div>
-              ),
-              type: 'chart',
-            });
-          }
-        }
-
-        // Add all generated sections to the report
-        setReport((prev) => ({
-          ...prev,
-          sections: [...prev.sections, ...sections],
-        }));
-
-        // Return response without creating newSection, as we already added the sections
-        return response;
-      } else {
-        throw new Error('Report has no results');
-      }
-    }
-    // Handle description output (text descriptions)
-    else if (isDescriptionResponse(response)) {
-      newSection = {
-        title: 'Analysis',
-        content: response.output.description!,
-        type: 'text',
-        rawContent: response.output.description!,
-      };
-    } else {
-      throw new Error('Unexpected response format');
-    }
-
-    // Add the single new section to the report (for chart or description)
-    setReport((prev) => ({
-      ...prev,
-      sections: [...prev.sections, newSection],
-    }));
-
-    return response;
-  };
+  const { executeQuery, processedResult, loading, error } = useLLMQuery();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputMessage.trim() || isLoading) return;
-
-    setIsLoading(true);
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content: inputMessage,
-      sender: 'user',
-      timestamp: new Date(),
-    };
+    if (!query.trim()) return;
 
     try {
-      await generateReportContent(inputMessage);
-
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content:
-          "I've updated the report based on your input. What else would you like to analyze?",
-        sender: 'assistant',
-        timestamp: new Date(),
-      };
-
-      setMessages((prev) => [...prev, userMessage, assistantMessage]);
-    } catch (error) {
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content:
-          error instanceof Error
-            ? `Error: ${error.message}`
-            : 'Sorry, I encountered an error while generating the report. Please try again.',
-        sender: 'assistant',
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, userMessage, errorMessage]);
-    } finally {
-      setIsLoading(false);
-      setInputMessage('');
+      await executeQuery(query);
+      // We'll add the result to history in the useEffect below
+      setQuery('');
+    } catch (err) {
+      console.error('Failed to execute query:', err);
     }
   };
 
-  const handleDeleteSection = (indexToDelete: number) => {
-    setReport((prev) => ({
-      ...prev,
-      sections: prev.sections.filter((_, index) => index !== indexToDelete),
-    }));
-    toast.success('Section deleted');
-  };
+  // Update result history when a new result comes in
+  useEffect(() => {
+    if (processedResult?.content) {
+      const newItemId =
+        new Date().getTime().toString() + '-' + Math.random().toString(36).substring(2, 9);
 
-  const handleSectionEdit = (index: number) => {
-    const section = report.sections[index];
-    if (section && section.type === 'text') {
-      setEditingSectionIndex(index);
-      setEditedSectionContent(section.rawContent ?? '');
+      setResultHistory((prev) => [
+        ...prev,
+        {
+          query: processedResult.originalQuery || 'Unknown query',
+          result: processedResult,
+          timestamp: new Date().toLocaleTimeString(),
+          id: newItemId,
+        },
+      ]);
+
+      // Add new item(s) to the report items list for drag and drop
+      if (processedResult.type === 'report') {
+        // Flatten report content items into individual draggable items
+        const reportContentItems = processedResult.content as Array<string | React.ReactNode>;
+
+        if (reportContentItems && reportContentItems.length > 0) {
+          const newItems = reportContentItems.map((content) => {
+            const contentId =
+              new Date().getTime().toString() + '-' + Math.random().toString(36).substring(2, 9);
+            let type: QueryResultType = 'description';
+
+            // Determine the type of content
+            if (typeof content === 'string' && content.startsWith('data:image')) {
+              type = 'chart';
+            }
+
+            return {
+              id: contentId,
+              result: {
+                type: type,
+                content: content,
+                originalQuery: processedResult.originalQuery,
+              } as ProcessedQueryResult,
+            };
+          });
+
+          setReportItems((prev) => [...prev, ...newItems]);
+        }
+      } else {
+        // For non-report types, add as a single item
+        setReportItems((prev) => [
+          ...prev,
+          {
+            id: newItemId,
+            result: processedResult,
+          },
+        ]);
+      }
     }
+  }, [processedResult]);
+
+  // Function to clear chat history
+  const clearHistory = () => {
+    setResultHistory([]);
+    setReportItems([]);
   };
 
-  const handleSectionEditSave = (index: number) => {
-    if (editingSectionIndex === null) return;
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination) return;
 
-    const section = report.sections[index];
-    if (!section) return;
+    const items = Array.from(reportItems);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    if (!reorderedItem) return; // Guard against undefined
 
-    setReport((prev) => ({
-      ...prev,
-      sections: prev.sections.map((s, i) => {
-        if (i === index) {
+    items.splice(result.destination.index, 0, reorderedItem);
+
+    setReportItems(items);
+  };
+
+  const handleDeleteItem = (id: string) => {
+    setReportItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const handleEditDescription = (id: string, content: string) => {
+    setEditingDescriptionId(id);
+    setEditedDescription(typeof content === 'string' ? content : '');
+  };
+
+  const handleSaveDescription = (id: string) => {
+    setReportItems((prev) =>
+      prev.map((item) => {
+        if (item.id === id) {
           return {
-            ...s,
-            content: editedSectionContent,
-            rawContent: editedSectionContent,
+            ...item,
+            result: {
+              ...item.result,
+              content: editedDescription,
+            },
           };
         }
-        return s;
-      }),
-    }));
-
-    // Reset editing state
-    setEditingSectionIndex(null);
-    setEditedSectionContent('');
-
-    toast.success('Section updated successfully');
+        return item;
+      })
+    );
+    setEditingDescriptionId(null);
   };
 
-  const handleSectionEditCancel = () => {
-    setEditingSectionIndex(null);
-    setEditedSectionContent('');
+  const renderSingleResult = (
+    result: ProcessedQueryResult,
+    id: string,
+    index: number
+  ): React.ReactNode => {
+    if (!result?.content) return null;
+
+    return (
+      <Draggable key={id} draggableId={id} index={index}>
+        {(provided) => (
+          <div ref={provided.innerRef} {...provided.draggableProps} className="mb-4 relative">
+            <Card>
+              <button
+                {...provided.dragHandleProps}
+                className="absolute top-2 left-2 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Drag handle"
+                type="button"
+                role="button"
+              >
+                <GripVertical size={16} />
+              </button>
+
+              <div className="absolute top-2 right-2 flex gap-1">
+                {result.type === 'description' && (
+                  <>
+                    {editingDescriptionId === id ? (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                          onClick={() => setEditingDescriptionId(null)}
+                          aria-label="Cancel editing"
+                        >
+                          <XCircle size={14} />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-muted-foreground hover:text-primary"
+                          onClick={() => handleSaveDescription(id)}
+                          aria-label="Save description"
+                        >
+                          <Save size={14} />
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                        onClick={() => handleEditDescription(id, result.content as string)}
+                        aria-label="Edit description"
+                      >
+                        <Pencil size={14} />
+                      </Button>
+                    )}
+                  </>
+                )}
+                {!(result.type === 'description' && editingDescriptionId === id) && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                    onClick={() => handleDeleteItem(id)}
+                    aria-label="Delete item"
+                  >
+                    <Trash2 size={14} />
+                  </Button>
+                )}
+              </div>
+
+              <CardContent className="pt-6">
+                {result.type === 'chart' && typeof result.content === 'string' && (
+                  <figure>
+                    <img
+                      src={result.content}
+                      alt={`Data visualization: ${result.originalQuery?.substring(0, 50)}`}
+                      className="mx-auto pt-2"
+                      role="img"
+                    />
+                    <figcaption className="sr-only">Chart: {result.originalQuery}</figcaption>
+                  </figure>
+                )}
+
+                {result.type === 'description' && (
+                  <div className="pt-4">
+                    {editingDescriptionId === id ? (
+                      <div className="flex flex-col gap-2 ">
+                        <textarea
+                          className="w-full min-h-[100px] p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                          value={editedDescription}
+                          onChange={(e) => setEditedDescription(e.target.value)}
+                          autoFocus
+                        />
+                      </div>
+                    ) : (
+                      <p>
+                        {typeof result.content === 'string'
+                          ? result.content
+                          : React.isValidElement(result.content)
+                            ? 'React element' // Fallback display
+                            : JSON.stringify(result.content)}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {result.type !== 'chart' &&
+                  result.type !== 'description' &&
+                  renderResultContent(result)}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </Draggable>
+    );
+  };
+
+  const renderResultContent = (result: ProcessedQueryResult) => {
+    if (result.type === 'report') {
+      const results = result.content as Array<string | React.ReactNode>;
+
+      if (!results.length) {
+        return <p>No results available</p>;
+      }
+
+      return (
+        <div>
+          {results.map((content, index) => {
+            const contentId = `${new Date().getTime()}-${index}-${Math.random().toString(36).substring(2, 9)}`;
+
+            if (React.isValidElement(content)) {
+              return (
+                <Card key={contentId}>
+                  <CardContent className="pt-6">{content}</CardContent>
+                </Card>
+              );
+            }
+            if (typeof content === 'string') {
+              if (content.startsWith('data:image')) {
+                return (
+                  <Card key={contentId}>
+                    <CardContent className="pt-6">
+                      <img src={content} alt={`Chart ${index + 1}`} />
+                    </CardContent>
+                  </Card>
+                );
+              }
+              return (
+                <Card key={contentId}>
+                  <p>{content}</p>
+                </Card>
+              );
+            }
+            return null;
+          })}
+        </div>
+      );
+    } else if (result.type === 'chart') {
+      return <img src={result.content as string} alt="Chart result" />;
+    } else if (result.type === 'description') {
+      return <p>{result.content as string}</p>;
+    }
+
+    // For unknown types or error results, just display as string
+    return (
+      <p>
+        {result.content
+          ? typeof result.content === 'object'
+            ? JSON.stringify(result.content)
+            : String(result.content)
+          : ''}
+      </p>
+    );
+  };
+
+  // Function to get a summary of the result content
+  const getResultSummary = (result: ProcessedQueryResult): string => {
+    if (!result?.content) return 'No content';
+
+    if (result.type === 'chart') {
+      return 'Chart visualization';
+    } else if (result.type === 'report') {
+      return 'Detailed report';
+    } else if (result.type === 'description') {
+      const content = result.content as string;
+      return content.length > 80 ? content.substring(0, 80) + '...' : content;
+    }
+
+    return result.type || 'Result';
+  };
+
+  // Load PDF libraries only on client side
+  useEffect(() => {
+    setIsPdfReady(true);
+  }, []);
+
+  // Function to handle PDF export
+  const handleExportPdf = async () => {
+    try {
+      // Dynamically import PDF renderer components
+      const { pdf } = await import('@react-pdf/renderer');
+      const { Document, Page, Text, View, StyleSheet, Image } = await import('@react-pdf/renderer');
+
+      // Create PDF styles
+      const pdfStyles = StyleSheet.create({
+        page: {
+          padding: 30,
+          backgroundColor: '#FFFFFF',
+        },
+        title: {
+          fontSize: 24,
+          fontWeight: 'bold',
+          marginBottom: 10,
+        },
+        author: {
+          fontSize: 12,
+          marginBottom: 20,
+        },
+        section: {
+          marginBottom: 15,
+          padding: 10,
+          borderRadius: 4,
+          backgroundColor: '#F9F9F9',
+        },
+        text: {
+          fontSize: 12,
+          lineHeight: 1.6,
+        },
+        image: {
+          width: '100%',
+          marginVertical: 10,
+        },
+      });
+
+      // Create PDF Document Component
+      const ReportDocument = () => (
+        <Document>
+          <Page size="A4" style={pdfStyles.page}>
+            <Text style={pdfStyles.title}>{reportTitle}</Text>
+            <Text style={pdfStyles.author}>{reportAuthor}</Text>
+
+            {reportItems.map((item, index) => {
+              const { result } = item;
+
+              if (result.type === 'description') {
+                return (
+                  <View key={index} style={pdfStyles.section}>
+                    <Text style={pdfStyles.text}>
+                      {typeof result.content === 'string' ? result.content : 'Complex content'}
+                    </Text>
+                  </View>
+                );
+              } else if (result.type === 'chart' && typeof result.content === 'string') {
+                return (
+                  <View key={index} style={pdfStyles.section}>
+                    <Image src={result.content} style={pdfStyles.image} />
+                  </View>
+                );
+              } else {
+                return (
+                  <View key={index} style={pdfStyles.section}>
+                    <Text style={pdfStyles.text}>{getResultSummary(result)}</Text>
+                  </View>
+                );
+              }
+            })}
+          </Page>
+        </Document>
+      );
+
+      // Generate blob
+      const blob = await pdf(<ReportDocument />).toBlob();
+
+      // Create URL and trigger download
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${reportTitle.replace(/\s+/g, '-').toLowerCase()}.pdf`;
+      link.click();
+
+      // Clean up
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+    }
   };
 
   return (
-    <main className="container mx-auto flex h-full gap-3 overflow-clip p-4">
-      <aside className="flex h-full w-1/3 min-w-[26rem] max-w-[52rem] flex-col justify-between rounded-lg border bg-card p-4 shadow-sm">
-        <header className="mb-4">
-          <h1 className="text-xl font-semibold">Chat Assistant</h1>
-          <p className="text-sm text-muted-foreground">
-            Ask questions or request analysis to build your report
-          </p>
+    <div className="container mx-auto flex gap-6 p-4">
+      <aside
+        role="complementary"
+        aria-label="Report controls"
+        className="flex flex-col w-1/3 shadow-lg bg-white rounded-md p-4 h-[calc(100vh-6rem)]"
+      >
+        <h2 className="text-xl font-bold">Report Builder</h2>
 
-          {/* Template Suggestions */}
-          <section className="mt-4">
-            <h2 className="mb-2 text-sm font-medium">Suggested Templates</h2>
-            <div className="space-y-2">
-              {REPORT_TEMPLATES.map((template) => (
-                <article key={template.title} className="rounded-md border p-2">
-                  <h3 className="text-sm font-medium">{template.title}</h3>
-                  <div className="mt-1 space-y-1">
-                    {template.suggestions.map((suggestion) => (
-                      <button
-                        key={suggestion}
-                        onClick={() => setInputMessage(suggestion)}
-                        className="w-full text-left text-xs text-muted-foreground hover:text-foreground"
-                      >
-                        {suggestion}
-                      </button>
-                    ))}
-                  </div>
-                </article>
-              ))}
+        <Separator className="my-2" />
+
+        {/* TEMPLATE PROMPTS */}
+
+        <div className="space-y-4">
+          {/* Report Queries Section */}
+          <div className="space-y-1">
+            <h3 className="text-xs font-semibold">Report Queries</h3>
+            <Button
+              variant="link"
+              size="free"
+              className="justify-start text-wrap text-start text-muted-foreground"
+              onClick={() => setQuery('Generate sales performance report for Q2 2024')}
+            >
+              <small>Generate sales performance report for Q2 2024</small>
+            </Button>
+            <Button
+              variant="link"
+              size="free"
+              className="justify-start text-wrap text-start text-muted-foreground"
+              onClick={() => setQuery('Create marketing campaign analysis report')}
+            >
+              <small>Create marketing campaign analysis report</small>
+            </Button>
+          </div>
+
+          {/* Description Queries Section */}
+          <div className="space-y-1">
+            <h3 className="text-xs font-semibold">Description Queries</h3>
+            <Button
+              variant="link"
+              size="free"
+              className="justify-start text-wrap text-start text-muted-foreground"
+              onClick={() => setQuery('Describe key trends in customer acquisition')}
+            >
+              <small>Describe key trends in customer acquisition</small>
+            </Button>
+            <Button
+              variant="link"
+              size="free"
+              className="justify-start text-wrap text-start text-muted-foreground"
+              onClick={() => setQuery('Explain monthly revenue fluctuations')}
+            >
+              <small>Explain monthly revenue fluctuations</small>
+            </Button>
+          </div>
+          {/* Chart Queries Section */}
+
+          <div className="space-y-1">
+            <h3 className="text-xs font-semibold">Chart Queries</h3>
+            <Button
+              variant="link"
+              size="free"
+              className="justify-start text-wrap text-start text-muted-foreground"
+              onClick={() => setQuery('Show monthly revenue growth as line chart')}
+            >
+              <small>Show monthly revenue growth as line chart</small>
+            </Button>
+            <Button
+              variant="link"
+              size="free"
+              className="justify-start text-wrap text-start text-muted-foreground"
+              onClick={() => setQuery('Visualize regional sales distribution as pie chart')}
+            >
+              <small>Visualize regional sales distribution as pie chart</small>
+            </Button>
+          </div>
+        </div>
+
+        {/* CHAT AREA */}
+
+        <Separator className="my-2" />
+        <div className="flex items-center justify-between my-2">
+          <h3 className="text-sm font-semibold">Conversation History</h3>
+          {resultHistory.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-muted-foreground"
+              onClick={clearHistory}
+              aria-label="Clear history"
+            >
+              <Trash2 size={16} className="mr-1" />
+              <span className="text-xs">Clear</span>
+            </Button>
+          )}
+        </div>
+
+        <article className="flex flex-col gap-3 h-full overflow-y-auto px-1 py-2">
+          {resultHistory.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-muted-foreground">
+              <p className="text-sm">No conversation history yet</p>
             </div>
-          </section>
-        </header>
-
-        {/* Chat History */}
-        <ScrollArea className="flex-1 px-2">
-          <section className="space-y-4">
-            {messages.map((message) => (
-              <article
-                key={message.id}
-                className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                    message.sender === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'
-                  }`}
-                >
-                  <p className="text-sm">{message.content}</p>
+          ) : (
+            resultHistory.map((item) => (
+              <div className="flex flex-col w-full gap-3" key={item.id}>
+                {/* User query message */}
+                <div className="flex gap-2 items-start ml-auto">
+                  <div className="flex-1">
+                    <div className="bg-primary/10 w-fit rounded-lg p-3 rounded-tr-none ml-auto">
+                      <p className="text-sm">{item.query}</p>
+                    </div>
+                    <div className="flex items-center mt-1 mr-1 justify-end">
+                      <Clock size={12} className="text-muted-foreground mr-1" />
+                      <time className="text-xs text-muted-foreground">{item.timestamp}</time>
+                    </div>
+                  </div>
+                  <div className="bg-primary text-primary-foreground rounded-full p-1.5 mt-0.5">
+                    <User size={16} />
+                  </div>
                 </div>
-              </article>
-            ))}
-          </section>
-        </ScrollArea>
 
-        {/* Input Form */}
-        <form onSubmit={handleSubmit} className="mt-4 flex space-x-2">
+                {/* AI response message */}
+                <div className="flex gap-2 items-start">
+                  <div className="bg-secondary text-secondary-foreground rounded-full p-1.5 mt-0.5">
+                    <Bot size={16} />
+                  </div>
+                  <div className="flex-1">
+                    <div className="bg-secondary w-fit  text-secondary-foreground rounded-lg p-3 rounded-tl-none">
+                      <div className="flex  items-center mb-1">
+                        <Badge>{item.result.type}</Badge>
+                      </div>
+                      <p className="text-sm">{getResultSummary(item.result)}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+
+          {loading && (
+            <div className="flex gap-2 items-start">
+              <div className="bg-secondary text-secondary-foreground rounded-full p-1.5 mt-0.5">
+                <Bot size={16} />
+              </div>
+              <div className="flex-1">
+                <div className="bg-secondary text-secondary-foreground rounded-lg p-3 rounded-tl-none w-fit">
+                  <Loader2 size={16} className="animate-spin text-muted-foreground" />
+                </div>
+              </div>
+            </div>
+          )}
+        </article>
+
+        {/* INPUT AREA */}
+        <form onSubmit={handleSubmit} className="flex items-center gap-2 mt-4">
           <Input
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            placeholder="Ask a question or request analysis..."
-            disabled={isLoading}
-            className="flex-1"
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Enter your query here..."
+            disabled={loading}
+            className="w-full"
+            aria-label="Query input"
           />
-          <Button type="submit" disabled={isLoading}>
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Processing
-              </>
-            ) : (
-              'Send'
-            )}
+          <Button
+            type="submit"
+            size="icon"
+            disabled={loading || !query.trim()}
+            aria-label="Send query"
+          >
+            {loading ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
           </Button>
         </form>
-      </aside>
 
-      <section className="flex-1 rounded-lg border bg-card p-4 shadow-sm">
-        <header className="flex items-center justify-between">
+        {error && <div className="text-red-500 mt-2">Error: {error.message}</div>}
+      </aside>
+      <main role="region" aria-label="Report content" className="w-2/3">
+        <nav className="flex justify-between h-9">
+          <h2 className="text-xl font-bold mb-4">Report Generator</h2>
+          <Button onClick={handleExportPdf} disabled={!isPdfReady}>
+            <FileDown className="mr-2 h-4 w-4" />
+            Export to PDF
+          </Button>
+        </nav>
+
+        <Separator className="my-4" />
+
+        <article
+          id="report-container"
+          className="space-y-4 h-[calc(100vh-10.3rem)] overflow-scroll"
+        >
           <div className="flex items-center gap-2">
-            {isEditingTitle ? (
+            {editingTitle ? (
               <div className="flex items-center gap-2">
                 <Input
-                  value={editedTitle}
-                  onChange={(e) => setEditedTitle(e.target.value)}
-                  className="h-8 w-[200px]"
+                  type="text"
+                  value={reportTitle}
+                  onChange={(e) => setReportTitle(e.target.value)}
+                  className="text-lg font-bold"
+                  autoFocus
                 />
-                <Button size="icon" variant="ghost" onClick={handleTitleEdit} className="h-8 w-8">
-                  <Check className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => {
-                    setIsEditingTitle(false);
-                    setEditedTitle(report.title);
-                  }}
-                  className="h-8 w-8"
-                >
-                  <X className="h-4 w-4" />
+                <Button size="icon" variant="ghost" onClick={() => setEditingTitle(false)}>
+                  <Save size={16} />
                 </Button>
               </div>
             ) : (
-              <>
-                <h2 className="text-2xl font-bold">{report.title}</h2>
-                <Button size="icon" variant="ghost" onClick={handleTitleEdit} className="h-8 w-8">
-                  <Edit2 className="h-4 w-4" />
+              <div className="flex items-center gap-2">
+                <h4 className="text-lg font-bold">{reportTitle}</h4>
+                <Button size="icon" variant="ghost" onClick={() => setEditingTitle(true)}>
+                  <Pencil size={16} />
                 </Button>
-              </>
+              </div>
             )}
           </div>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline">
-                <Download className="mr-2 h-4 w-4" />
-                Export Report
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => exportReport('pdf')}>Export as PDF</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => exportReport('docx')}>
-                Export as DOCX
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => exportReport('html')}>
-                Export as HTML
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </header>
-
-        <Separator className="mb-4 mt-2" />
-
-        <ScrollArea className="h-[calc(100vh-12rem)]">
-          <article className="max-w-none">
-            {report.sections.length === 0 ? (
-              <div className="flex h-40 items-center justify-center text-muted-foreground">
-                <p>Your report content will appear here as you chat with the assistant.</p>
+          <div className="flex items-center gap-2 mb-2">
+            {editingAuthor ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  type="text"
+                  value={reportAuthor}
+                  onChange={(e) => setReportAuthor(e.target.value)}
+                  className="text-sm"
+                  autoFocus
+                />
+                <Button size="icon" variant="ghost" onClick={() => setEditingAuthor(false)}>
+                  <Save size={16} />
+                </Button>
               </div>
             ) : (
-              <DragDropContext onDragEnd={handleDragEnd}>
-                <Droppable droppableId="report-sections">
-                  {(provided) => (
-                    <section
-                      {...provided.droppableProps}
-                      ref={provided.innerRef}
-                      className="space-y-6"
-                    >
-                      {report.sections.map((section, index) => (
-                        <Draggable
-                          key={index.toString()}
-                          draggableId={index.toString()}
-                          index={index}
-                        >
-                          {(provided) => (
-                            <article
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              className="group relative rounded-lg border bg-background p-4"
-                            >
-                              <div className="absolute right-2 top-2 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                                <div {...provided.dragHandleProps} className="cursor-grab">
-                                  <div className="flex h-6 w-6 items-center justify-center rounded-sm bg-accent">
-                                    <GripVertical className="h-4 w-4 text-muted-foreground" />
-                                  </div>
-                                </div>
-                                {section.type === 'text' && (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleSectionEdit(index)}
-                                    className="h-6 w-6"
-                                  >
-                                    <Edit2 className="h-4 w-4" />
-                                  </Button>
-                                )}
-                                <Button
-                                  variant="destructive"
-                                  size="icon"
-                                  onClick={() => handleDeleteSection(index)}
-                                  className="h-6 w-6"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                              {editingSectionIndex === index ? (
-                                <div className="flex flex-col gap-4">
-                                  <textarea
-                                    value={editedSectionContent}
-                                    onChange={(e) => setEditedSectionContent(e.target.value)}
-                                    className="min-h-[200px] w-full rounded-md border bg-background px-3 py-2 text-sm"
-                                    placeholder="Edit section content..."
-                                  />
-                                  <div className="flex justify-end gap-2">
-                                    <Button variant="outline" onClick={handleSectionEditCancel}>
-                                      Cancel
-                                    </Button>
-                                    <Button onClick={() => handleSectionEditSave(index)}>
-                                      Save Changes
-                                    </Button>
-                                  </div>
-                                </div>
-                              ) : (
-                                section.content
-                              )}
-                            </article>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-                    </section>
-                  )}
-                </Droppable>
-              </DragDropContext>
+              <div className="flex items-center gap-2">
+                <p>
+                  <small>{reportAuthor}</small>
+                </p>
+                <Button size="icon" variant="ghost" onClick={() => setEditingAuthor(true)}>
+                  <Pencil size={16} />
+                </Button>
+              </div>
             )}
-          </article>
-        </ScrollArea>
-      </section>
-    </main>
+          </div>
+
+          <DragDropContext onDragEnd={handleDragEnd}>
+            <Droppable droppableId="report-items">
+              {(provided) => (
+                <section
+                  {...provided.droppableProps}
+                  ref={provided.innerRef}
+                  className="space-y-4"
+                  aria-label="Report sections"
+                >
+                  {reportItems.length > 0 ? (
+                    reportItems.map((item, index) =>
+                      renderSingleResult(item.result, item.id, index)
+                    )
+                  ) : (
+                    <Card>
+                      <CardContent className="pt-6 flex justify-center items-center">
+                        <p>Submit a query to see results</p>
+                      </CardContent>
+                    </Card>
+                  )}
+                  {provided.placeholder}
+                </section>
+              )}
+            </Droppable>
+          </DragDropContext>
+
+          {loading && (
+            <Card>
+              <CardContent className="pt-6 flex justify-center items-center">
+                <div className="loader"></div>
+              </CardContent>
+            </Card>
+          )}
+        </article>
+      </main>
+    </div>
   );
 }

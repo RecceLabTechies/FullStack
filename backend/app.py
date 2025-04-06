@@ -4,7 +4,7 @@ Main application entry point
 """
 
 from app import create_app
-from app.config import HOST, PORT, DEBUG
+from app.config import DEBUG, HOST, PORT
 
 # Create Flask application
 app = create_app()

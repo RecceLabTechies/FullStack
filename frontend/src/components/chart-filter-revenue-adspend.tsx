@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 
 import * as z from 'zod';
+import { useDatabaseOperations } from '@/context/database-operations-context';
 import { type CampaignFilters } from '@/types/types';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Info } from 'lucide-react';
@@ -71,6 +72,8 @@ export function RevenueAdSpendChart() {
     fetchMonthlyData,
   } = useMonthlyAggregatedData();
 
+  const { lastUpdated } = useDatabaseOperations();
+
   const form = useForm<FilterFormValues>({
     resolver: zodResolver(filterSchema),
     defaultValues: {
@@ -84,9 +87,9 @@ export function RevenueAdSpendChart() {
 
   useEffect(() => {
     void fetchFilterOptions();
-  }, [fetchFilterOptions]);
+  }, [fetchFilterOptions, lastUpdated]);
 
-  // Add effect to fetch monthly data on mount
+  // Add effect to fetch monthly data on mount and when database is updated
   useEffect(() => {
     if (filterOptions) {
       const defaultFilters: CampaignFilters = {
@@ -99,7 +102,7 @@ export function RevenueAdSpendChart() {
       };
       void fetchMonthlyData(defaultFilters);
     }
-  }, [filterOptions, fetchMonthlyData]);
+  }, [filterOptions, fetchMonthlyData, lastUpdated]);
 
   // Transform the data for the chart
   const chartData: ChartData[] = [];
@@ -172,32 +175,31 @@ export function RevenueAdSpendChart() {
   return (
     <div className="flex gap-4">
       <Card className="w-full">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Revenue & Ad Spend Filter Chart</CardTitle>
-              <CardDescription>
-                Monthly comparison of revenue generated versus advertising expenditure
-              </CardDescription>
-            </div>
-            <HoverCard>
-              <HoverCardTrigger asChild>
-                <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-              </HoverCardTrigger>
-              <HoverCardContent className="w-80">
-                <div className="space-y-2">
-                  <h4 className="text-sm font-semibold">Revenue & Ad Spend Analysis</h4>
-                  <p className="text-sm text-muted-foreground">
-                    This chart visualizes the relationship between your revenue and advertising
-                    costs over time. Compare monthly trends to identify periods of high ROI and
-                    optimize your ad strategy. Use the filters to analyze specific campaigns,
-                    channels, regions, or time periods.
-                  </p>
-                </div>
-              </HoverCardContent>
-            </HoverCard>
-          </div>
-        </CardHeader>
+        <div className="flex items-center justify-between pr-6">
+          <CardHeader>
+            <CardTitle>Revenue & Ad Spend Filter Chart</CardTitle>
+            <CardDescription>
+              Monthly comparison of revenue generated versus advertising expenditure
+            </CardDescription>
+          </CardHeader>
+          <HoverCard>
+            <HoverCardTrigger asChild>
+              <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+            </HoverCardTrigger>
+            <HoverCardContent className="w-80">
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold">Revenue & Ad Spend Analysis</h4>
+                <p className="text-sm text-muted-foreground">
+                  This chart visualizes the relationship between your revenue and advertising costs
+                  over time. Compare monthly trends to identify periods of high ROI and optimize
+                  your ad strategy. Use the filters to analyze specific campaigns, channels,
+                  regions, or time periods.
+                </p>
+              </div>
+            </HoverCardContent>
+          </HoverCard>
+        </div>
+
         <CardContent>
           {monthlyDataError ? (
             <div className="flex h-[400px] w-full items-center justify-center text-muted-foreground">

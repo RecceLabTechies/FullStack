@@ -3,12 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import * as z from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Bot, Loader2, TrendingUp } from 'lucide-react';
+import { Bot, LoaderCircle, TrendingUp } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -29,33 +29,14 @@ const loginSchema = z.object({
     .min(1, 'Email is required')
     .email('Please enter a valid email address')
     .transform((email) => email.toLowerCase().trim()),
-  password: z
-    .string()
-    .min(1, 'Password is required')
-    .min(8, 'Password must be at least 8 characters')
-    .regex(
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-      'Password must contain at least one uppercase letter, one lowercase letter, and one number'
-    )
-    .max(100, 'Password is too long'),
+  password: z.string().min(1, 'Password is required').max(100, 'Password is too long'),
 });
 
-const signUpSchema = loginSchema
-  .extend({
-    confirmPassword: z.string(),
-    name: z.string().min(1, 'Name is required').max(50, 'Name is too long'),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords don't match",
-    path: ['confirmPassword'],
-  });
-
 type LoginValues = z.infer<typeof loginSchema>;
-type SignUpValues = z.infer<typeof signUpSchema>;
 
 export default function AuthPage() {
-  const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState('');
+  const [isNavigating, setIsNavigating] = useState(false);
   const router = useRouter();
   const { data: users, isLoading, fetchUsers } = useUsers();
 
@@ -71,16 +52,6 @@ export default function AuthPage() {
     },
   });
 
-  const signUpForm = useForm<SignUpValues>({
-    resolver: zodResolver(signUpSchema),
-    defaultValues: {
-      email: '',
-      password: '',
-      confirmPassword: '',
-      name: '',
-    },
-  });
-
   async function onLoginSubmit(values: LoginValues) {
     try {
       setError('');
@@ -88,6 +59,7 @@ export default function AuthPage() {
       // Regular user check from database
       if (!users) {
         setError('User data is not available. Try again later.');
+        toast.error('User data is not available. Try again later.');
         return;
       }
 
@@ -99,6 +71,7 @@ export default function AuthPage() {
 
       if (!user) {
         setError('Invalid email or password');
+        toast.error('Invalid email or password');
         return;
       }
 
@@ -108,19 +81,27 @@ export default function AuthPage() {
       // Set cookie for server-side auth check
       document.cookie = `auth-token=${btoa(JSON.stringify({ username: user.username, email: user.email }))}; path=/; max-age=${60 * 60 * 24 * 7}`; // 7 days expiry
 
+      // Set loading state immediately
+      setIsNavigating(true);
+      toast.success('Login successful! Redirecting to dashboard...');
       router.push('/dashboard');
     } catch (error: unknown) {
-      console.error('Login error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
       setError('An unexpected error occurred during login.');
+      toast.error(`Login error: ${errorMessage}`);
+      setIsNavigating(false);
     }
   }
 
-  async function onSignUpSubmit(values: SignUpValues) {
-    try {
-      console.log('Sign up submitted:', values);
-    } catch (error) {
-      console.error('Sign up error:', error);
-    }
+  // If we're in the navigating state, show a fullscreen loading overlay
+  if (isNavigating) {
+    return (
+      <div className="fixed inset-0 flex flex-col items-center justify-center bg-background">
+        <LoaderCircle size={48} className="animate-spin text-primary mb-4" />
+        <h2 className="text-xl font-medium">Loading your dashboard...</h2>
+        <p className="text-muted-foreground mt-2">Please wait while we prepare your experience</p>
+      </div>
+    );
   }
 
   return (
@@ -176,180 +157,66 @@ export default function AuthPage() {
       <section className="flex flex-1 flex-col justify-center p-8 lg:p-12">
         <div className="mx-auto w-full max-w-sm space-y-6">
           <header className="space-y-2 text-center">
-            <h1 className="text-3xl font-bold">{isSignUp ? 'Sign Up' : 'Login'}</h1>
-            <p className="text-muted-foreground">
-              {isSignUp
-                ? 'Create a new account to get started'
-                : 'Enter your email below to login to your account'}
-            </p>
+            <h1 className="text-3xl font-bold">Login</h1>
+            <p className="text-muted-foreground">Enter your email below to login to your account</p>
           </header>
-          {isSignUp ? (
-            <Form {...signUpForm}>
-              <form onSubmit={signUpForm.handleSubmit(onSignUpSubmit)} className="space-y-4">
-                <FormField
-                  control={signUpForm.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel htmlFor="name">Full Name</FormLabel>
-                      <FormControl>
-                        <Input
-                          id="name"
-                          placeholder="John Doe"
-                          {...field}
-                          aria-describedby="name-error"
-                        />
-                      </FormControl>
-                      <FormMessage id="name-error" />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={signUpForm.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel htmlFor="email">Email</FormLabel>
-                      <FormControl>
-                        <Input
-                          id="email"
-                          type="email"
-                          placeholder="m@example.com"
-                          {...field}
-                          aria-describedby="email-error"
-                        />
-                      </FormControl>
-                      <FormMessage id="email-error" />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={signUpForm.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-center justify-between">
-                        <FormLabel htmlFor="password">Password</FormLabel>
-                        <span className="text-sm text-muted-foreground">Required</span>
-                      </div>
-                      <FormControl>
-                        <Input
-                          id="password"
-                          type="password"
-                          placeholder="••••••••"
-                          {...field}
-                          aria-describedby="password-error"
-                        />
-                      </FormControl>
-                      <FormMessage id="password-error" />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={signUpForm.control}
-                  name="confirmPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-center justify-between">
-                        <FormLabel htmlFor="confirmPassword">Confirm Password</FormLabel>
-                        <span className="text-sm text-muted-foreground">Required</span>
-                      </div>
-                      <FormControl>
-                        <Input
-                          id="confirmPassword"
-                          type="password"
-                          placeholder="••••••••"
-                          {...field}
-                          aria-describedby="confirm-password-error"
-                        />
-                      </FormControl>
-                      <FormMessage id="confirm-password-error" />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" className="w-full">
-                  Create Account
-                </Button>
-              </form>
-            </Form>
-          ) : (
-            <Form {...loginForm}>
-              <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
-                {error && (
-                  <div className="flex items-center space-x-2 text-red-600">
-                    <span className="text-sm">{error}</span>
-                  </div>
+          <Form {...loginForm}>
+            <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
+              {error && (
+                <div className="flex items-center space-x-2 text-red-600">
+                  <span className="text-sm">{error}</span>
+                </div>
+              )}
+              <FormField
+                control={loginForm.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel htmlFor="email">Email</FormLabel>
+                    <FormControl>
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="m@example.com"
+                        {...field}
+                        aria-describedby="email-error"
+                      />
+                    </FormControl>
+                    <FormMessage id="email-error" />
+                  </FormItem>
                 )}
-                <FormField
-                  control={loginForm.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel htmlFor="email">Email</FormLabel>
-                      <FormControl>
-                        <Input
-                          id="email"
-                          type="email"
-                          placeholder="m@example.com"
-                          {...field}
-                          aria-describedby="email-error"
-                        />
-                      </FormControl>
-                      <FormMessage id="email-error" />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={loginForm.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-center justify-between">
-                        <FormLabel htmlFor="password">Password</FormLabel>
-                        <Link
-                          href="/forgot-password"
-                          className="text-sm text-muted-foreground underline underline-offset-4 hover:text-primary"
-                        >
-                          Forgot your password?
-                        </Link>
-                      </div>
-                      <FormControl>
-                        <Input
-                          id="password"
-                          type="password"
-                          placeholder="********"
-                          {...field}
-                          aria-describedby="password-error"
-                        />
-                      </FormControl>
-                      <FormMessage id="password-error" />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Authenticating...
-                    </>
-                  ) : (
-                    'Sign In'
-                  )}
-                </Button>
-              </form>
-            </Form>
-          )}
-          <footer className="text-center text-sm">
-            <small>
-              {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
-              <button
-                onClick={() => setIsSignUp(!isSignUp)}
-                className="font-medium text-primary underline underline-offset-4 hover:text-primary/90"
-              >
-                {isSignUp ? 'Sign in' : 'Create account'}
-              </button>
-            </small>
-          </footer>
+              />
+              <FormField
+                control={loginForm.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel htmlFor="password">Password</FormLabel>
+                    <FormControl>
+                      <Input
+                        id="password"
+                        type="password"
+                        placeholder="********"
+                        {...field}
+                        aria-describedby="password-error"
+                      />
+                    </FormControl>
+                    <FormMessage id="password-error" />
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <LoaderCircle size={24} className="mr-2 animate-spin" />
+                    Authenticating...
+                  </>
+                ) : (
+                  'Sign In'
+                )}
+              </Button>
+            </form>
+          </Form>
         </div>
       </section>
     </main>

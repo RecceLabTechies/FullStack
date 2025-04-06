@@ -1,21 +1,34 @@
 #!/usr/bin/env python
-import logging
-from typing import Any, Dict, List
+"""
+Report Generator Module
 
-from pydantic import BaseModel
+This module contains functionality for generating comprehensive reports based on user queries.
+It handles the process of breaking down complex queries into smaller analysis tasks,
+executing each analysis, and collecting the results.
+
+Key components:
+- Query decomposition into multiple analysis questions
+- Execution of individual analysis tasks via the truncated pipeline
+- Result aggregation from multiple analyses
+- Structured output via Pydantic models
+"""
+
+import logging
+from typing import List, Protocol, Union
 
 from mypackage.d_report_generator import truncated_pipeline
 from mypackage.d_report_generator.generate_analysis_queries import (
     QueryList,
     generate_analysis_queries,
 )
+from pydantic import BaseModel
 
-# Configure logger
+# Set up module-level logger
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.propagate = False
 
-# Add handler if not already added
+
 if not logger.handlers:
     handler = logging.StreamHandler()
     formatter = logging.Formatter(
@@ -24,47 +37,145 @@ if not logger.handlers:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
+logger.debug("report_generator module initialized")
+
 
 class ReportResults(BaseModel):
-    results: List[Dict[str, str]]
-
-
-def generate_report(user_query: str) -> Dict[str, ReportResults]:
     """
-    Generate a report based on the user's query by processing it through the analysis pipeline.
+    Pydantic model to store and structure the results of report generation.
+
+    Attributes:
+        results: List of results from processed analysis queries, which can be
+                strings (for descriptions) or bytes (for chart images)
+    """
+
+    results: List[Union[str, bytes]]
+
+
+class LLMResponse(Protocol):
+    """
+    Protocol defining the expected interface for LLM response objects.
+
+    This protocol is used to ensure type safety when working with
+    responses from language models that may come from different providers.
+
+    Attributes:
+        content: The text content of the LLM response
+    """
+
+    content: str
+
+
+def report_generator(user_query: str) -> ReportResults:
+    """
+    Generate a comprehensive report by breaking down a complex query
+    into smaller analysis tasks and executing each task.
+
+    This function serves as the primary entry point for report generation,
+    orchestrating the entire process from query decomposition to result
+    collection.
 
     Args:
-        user_query: The natural language query from the user requesting specific analysis
+        user_query: The original user query requesting a report
 
     Returns:
-        Dict[str, ReportResults]: A dictionary with "report" as key and ReportResults object as value,
-        containing a list of results, which can be dictionaries with query type and result
+        ReportResults object containing all analysis results
+
+    Flow:
+        1. Generate list of analysis queries using LLM
+        2. Process each query through the truncated pipeline
+        3. Collect and return all results
+
+    Raises:
+        Exception: Individual query failures are logged but don't halt
+                  the overall report generation process
     """
-    logger.info(f"Starting report generation for query: {user_query}")
-    queryList: QueryList = generate_analysis_queries(user_query)
-    logger.debug(f"Generated {len(queryList.queries)} analysis queries")
+    logger.info(f"Starting report generation for query: '{user_query}'")
 
-    results: List[Dict[str, Any]] = []
-    for queryItem in queryList.queries:
-        logger.debug(f"Processing query: {queryItem}")
-        # Convert string results to dictionary format if needed
-        pipeline_result = truncated_pipeline.run_truncated_pipeline(queryItem)
+    # Step 1: Generate analysis queries from the user query
+    logger.debug("Generating analysis queries from user query")
+    try:
+        queryList: QueryList = generate_analysis_queries(user_query)
+        logger.info(f"Generated {len(queryList.queries)} analysis queries")
+        logger.debug(f"Analysis queries: {queryList.queries}")
+    except Exception as e:
+        logger.error(f"Failed to generate analysis queries: {str(e)}", exc_info=True)
+        return ReportResults(results=["Error generating analysis queries: " + str(e)])
 
-        # Ensure the result is in the right format
-        if isinstance(pipeline_result, str):
-            result = {"description": pipeline_result}
-        elif isinstance(pipeline_result, dict):
-            result = pipeline_result
-        else:
-            # For ChartDataType or other types, wrap in appropriate type
-            result = {"chart": pipeline_result}
+    # Step 2: Process each query and collect results
+    results: List[Union[str, bytes]] = []
+    logger.debug("Beginning to process individual analysis queries")
 
-        results.append(result)
-        logger.debug("Query processed successfully")
+    for i, queryItem in enumerate(queryList.queries):
+        logger.info(f"Processing query {i + 1}/{len(queryList.queries)}: '{queryItem}'")
 
+        try:
+            # Execute the query through the truncated pipeline
+            logger.debug(f"Sending query to truncated pipeline: '{queryItem}'")
+            result: Union[str, bytes] = truncated_pipeline.run_truncated_pipeline(
+                queryItem
+            )
+
+            # Add result to our collection
+            results.append(result)
+
+            # Log result type for debugging
+            if isinstance(result, bytes):
+                logger.debug(
+                    f"Query {i + 1} produced chart image ({len(result)} bytes)"
+                )
+            else:
+                logger.debug(
+                    f"Query {i + 1} produced text description ({len(str(result))} chars)"
+                )
+
+            logger.info(f"Query {i + 1} processed successfully")
+        except Exception as e:
+            # Log any errors but continue with other queries
+            logger.error(f"Error processing query {i + 1}: {str(e)}", exc_info=True)
+            error_message = f"Error in analysis {i + 1}: {str(e)}"
+            results.append(error_message)
+            logger.warning(f"Added error message to results: '{error_message}'")
+
+    # Step 3: Return the collected results
     logger.info(f"Report generation completed with {len(results)} results")
-    return {"report": ReportResults(results=results)}
+
+    # Log summary of results for debugging
+    text_results = sum(1 for r in results if isinstance(r, str))
+    chart_results = sum(1 for r in results if isinstance(r, bytes))
+    logger.debug(
+        f"Result summary: {text_results} text descriptions, {chart_results} chart images"
+    )
+
+    return ReportResults(results=results)
 
 
 if __name__ == "__main__":
-    generate_report("What is the average spending per customer?")
+    # Set up console logging for direct script execution
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    )
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)  # Set to DEBUG for more detailed logging
+    root_logger.addHandler(console_handler)
+
+    # Test the report generator with a sample query
+    test_query = (
+        "What is the average spending per customer and how has it changed over time?"
+    )
+    logger.info(f"Testing report generator with sample query: '{test_query}'")
+
+    try:
+        result = report_generator(test_query)
+        logger.info(f"Received {len(result.results)} results from report generator")
+
+        # Print abbreviated results for visual inspection
+        for i, res in enumerate(result.results):
+            if isinstance(res, bytes):
+                logger.info(f"Result {i + 1}: chart image")
+            else:
+                abbreviated = res[:100] + "..." if len(res) > 100 else res
+                logger.info(f"Result {i + 1}: {abbreviated}")
+    except Exception as e:
+        logger.error(f"Test failed: {str(e)}", exc_info=True)

@@ -2,121 +2,142 @@
  * This module provides React hooks for interacting with the Language Learning Model (LLM) API.
  * It handles state management, data fetching, and response type checking for LLM analysis.
  */
-import { useState } from 'react';
+import React, { type ReactNode, useState } from 'react';
 
-import {
-  type AnalysisResponse,
-  analyzeData,
-  isChartResponse,
-  isDescriptionResponse,
-  isErrorResponse,
-  isReportResponse,
-} from '@/api/llmApi';
+import { base64ChartToDataUrl, checkHealth, sendQuery } from '@/api/llmApi';
+import { type HealthResponse, type ProcessedQueryResult, type QueryResponse } from '@/types/types';
 
 /**
- * State interface for LLM analysis hook
+ * Hook for sending queries to the LLM API
  */
-interface LlmAnalysisState {
-  /** The analysis response data */
-  data: AnalysisResponse | null;
-  /** Loading state indicator */
-  loading: boolean;
-  /** Error object if analysis failed */
-  error: Error | null;
-  /** Whether the response contains chart data */
-  isChart: boolean;
-  /** Whether the response contains a description */
-  isDescription: boolean;
-  /** Whether the response contains a report */
-  isReport: boolean;
-  /** Whether the response contains an error */
-  isError: boolean;
-}
-
-/**
- * Initial state for the LLM analysis hook
- */
-const initialState: LlmAnalysisState = {
-  data: null,
-  loading: false,
-  error: null,
-  isChart: false,
-  isDescription: false,
-  isReport: false,
-  isError: false,
-};
-
-/**
- * Hook for performing LLM analysis on queries
- *
- * Provides functionality to:
- * - Send natural language queries for analysis
- * - Track loading and error states
- * - Determine response type (chart, description, report, or error)
- *
- * @example
- * ```tsx
- * function AnalysisComponent() {
- *   const { analyze, loading, data, isChart, error } = useLlmAnalysis();
- *
- *   const handleAnalysis = async () => {
- *     await analyze("Show me revenue trends for last month");
- *   };
- *
- *   if (loading) return <Loading />;
- *   if (error) return <Error message={error.message} />;
- *   if (isChart && data) return <Chart data={data.output.chart} />;
- *
- *   return <div>No analysis yet</div>;
- * }
- * ```
- *
- * @returns Object containing analysis state and analyze function
- */
-export const useLlmAnalysis = () => {
-  const [state, setState] = useState<LlmAnalysisState>(initialState);
+export const useLLMQuery = () => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  const [data, setData] = useState<QueryResponse | null>(null);
+  const [processedResult, setProcessedResult] = useState<ProcessedQueryResult | null>(null);
 
   /**
-   * Performs LLM analysis on the provided query
-   *
-   * @param query - Natural language query to analyze
-   * @returns Analysis response or null if error occurred
+   * Process the response based on the result type
    */
-  const analyze = async (query: string): Promise<AnalysisResponse | null> => {
-    // Reset state before new analysis
-    setState({
-      ...initialState,
-      loading: true,
-    });
+  const processResponse = (response: QueryResponse): ProcessedQueryResult => {
+    const { output, original_query } = response;
+    const { type, result } = output;
 
+    // Default processed result
+    const processed: ProcessedQueryResult = {
+      type,
+      content: null,
+      originalQuery: original_query,
+    };
+
+    // Process based on type
+    if (type === 'chart') {
+      // Chart result is now a base64 string
+      if (typeof result === 'string') {
+        processed.content = base64ChartToDataUrl(result);
+      }
+    } else if (type === 'description') {
+      // Description result is a string
+      if (typeof result === 'string') {
+        processed.content = result;
+      }
+    } else if (type === 'report' && typeof result === 'object' && result !== null) {
+      // Report result is an object with an array of results
+      const reportObj = result as { results: string[] };
+      if ('results' in reportObj) {
+        // Process each report item
+        processed.content = reportObj.results.map((item, index) => {
+          if (!item.startsWith('data:image')) {
+            // Text content
+            return item;
+          } else {
+            // Already a data URL or base64 encoded chart
+            const imgElement: ReactNode = React.createElement('img', {
+              key: index.toString(),
+              src: item,
+              alt: `Chart ${index + 1}`,
+            });
+            return imgElement;
+          }
+        });
+      }
+    } else if (type === 'error') {
+      // Error result is a string
+      if (typeof result === 'string') {
+        processed.content = result;
+      }
+    }
+
+    return processed;
+  };
+
+  const executeQuery = async (query: string) => {
     try {
-      const data = await analyzeData(query);
+      setLoading(true);
+      setError(null);
+      const response = await sendQuery(query);
+      setData(response);
 
-      // Update state with response and type indicators
-      setState({
-        data,
-        loading: false,
-        error: null,
-        isChart: isChartResponse(data),
-        isDescription: isDescriptionResponse(data),
-        isReport: isReportResponse(data),
-        isError: isErrorResponse(data),
-      });
+      // Process the response
+      const processed = processResponse(response);
+      setProcessedResult(processed);
 
-      return data;
-    } catch (error) {
-      // Handle errors and update state
-      setState({
-        ...initialState,
-        error: error instanceof Error ? error : new Error('Unknown error occurred'),
-        isError: true,
-      });
-      return null;
+      return response;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('An unknown error occurred');
+      setError(error);
+      throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
   return {
-    ...state,
-    analyze,
+    executeQuery,
+    data,
+    processedResult,
+    loading,
+    error,
+    reset: () => {
+      setData(null);
+      setProcessedResult(null);
+      setError(null);
+    },
+  };
+};
+
+/**
+ * Hook for checking LLM API health status
+ */
+export const useLLMHealth = () => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  const [data, setData] = useState<HealthResponse | null>(null);
+
+  const checkApiHealth = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await checkHealth();
+      setData(response);
+      return response;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('An unknown error occurred');
+      setError(error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return {
+    checkApiHealth,
+    data,
+    loading,
+    error,
+    reset: () => {
+      setData(null);
+      setError(null);
+    },
   };
 };

@@ -9,6 +9,8 @@ import {
   type ChannelContributionData,
   type CostMetricsHeatmapData,
   type CsvUploadResponse,
+  type DatabaseDeleteResponse,
+  type DatabaseListResponse,
   type DbStructure,
   type FilterResponse,
   type LatestMonthRevenue,
@@ -427,10 +429,13 @@ export const fetchLatestTwelveMonths = async (): Promise<LatestTwelveMonthsData 
  * Triggers the Prophet prediction pipeline
  * @returns Pipeline status message
  */
-export const triggerProphetPipeline = async (): Promise<ProphetPipelineResponse | Error> => {
+export const triggerProphetPipeline = async (
+  forecastMonths = 4
+): Promise<ProphetPipelineResponse | Error> => {
   try {
     const response = await axios.post<ProphetPipelineResponse>(
-      `${API_BASE_URL}/api/v1/prophet-pipeline/trigger`
+      `${API_BASE_URL}/api/v1/prophet-pipeline/trigger`,
+      { forecast_months: forecastMonths }
     );
     return response.data;
   } catch (error) {
@@ -452,5 +457,52 @@ export const checkProphetPipelineStatus = async (): Promise<ProphetPipelineRespo
   } catch (error) {
     console.error('Failed to check Prophet pipeline status', error);
     return new Error('Failed to check Prophet pipeline status');
+  }
+};
+
+/**
+ * Fetches databases
+ * @returns List of database names
+ */
+export const fetchDatabases = async (): Promise<DatabaseListResponse | Error> => {
+  try {
+    const response = await axios.get<ApiResponse<DatabaseListResponse>>(
+      `${API_BASE_URL}/api/v1/database`
+    );
+    return response.data.data;
+  } catch (error) {
+    console.error('Failed to fetch databases', error);
+    return new Error('Failed to fetch databases');
+  }
+};
+
+/**
+ * Deletes a database
+ * @param databaseName Name of the database to delete
+ * @returns Success message
+ */
+export const deleteDatabase = async (
+  databaseName: string
+): Promise<DatabaseDeleteResponse | Error> => {
+  try {
+    const response = await axios.post<DatabaseDeleteResponse>(
+      `${API_BASE_URL}/api/v1/database/delete`,
+      { database_name: databaseName }
+    );
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response) {
+      // Type-safe error handling using the data_types.py structure
+      const errorData = error.response.data as {
+        error?: {
+          message?: string;
+          type?: string;
+          details?: unknown;
+        };
+      };
+
+      return new Error(errorData.error?.message ?? 'Failed to delete database');
+    }
+    return new Error('Failed to delete database');
   }
 };

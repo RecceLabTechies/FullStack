@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 
+import { useDatabaseOperations } from '@/context/database-operations-context';
 import { format } from 'date-fns';
 import {
   CartesianGrid,
@@ -36,10 +37,11 @@ const AGE_GROUP_COLORS = {
 
 const AgeGroupPerformanceCharts = () => {
   const { data, isLoading, error, fetchMonthlyAgeData } = useMonthlyAgeData();
+  const { lastUpdated } = useDatabaseOperations();
 
   useEffect(() => {
     void fetchMonthlyAgeData();
-  }, [fetchMonthlyAgeData]);
+  }, [fetchMonthlyAgeData, lastUpdated]);
 
   if (isLoading) {
     return (

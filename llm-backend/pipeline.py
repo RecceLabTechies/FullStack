@@ -1,21 +1,34 @@
 #!/usr/bin/env python
+"""
+Main Pipeline Module
+
+This module implements the core processing pipeline for analyzing user queries.
+It orchestrates the entire flow from query validation to result generation,
+coordinating between various specialized components.
+
+The pipeline consists of several stages:
+1. Query validation - Ensuring the query is valid and well-formed
+2. Query classification - Determining the appropriate analysis type
+3. Collection selection - Identifying the relevant data source
+4. Data processing - Retrieving and preparing data for analysis
+5. Result generation - Creating charts or descriptions based on the query type
+
+The module exposes a main function that serves as the entry point for the pipeline,
+taking a user query and returning structured analysis results.
+"""
+
 import logging
 from typing import Dict, Union
 
 from mypackage.a_query_processor import query_classifier, query_validator
-from mypackage.b_data_processor import json_processor, json_selector
-from mypackage.c_regular_generator import (
-    description_generator,
-    generate_and_upload_chart,
-)
-from mypackage.d_report_generator import ReportResults, generate_report
+from mypackage.b_data_processor import collection_processor, collection_selector
+from mypackage.c_regular_generator import chart_generator, description_generator
+from mypackage.d_report_generator import ReportResults, report_generator
 
-# Configure logger
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.propagate = False
 
-# Add handler if not already added
 if not logger.handlers:
     handler = logging.StreamHandler()
     formatter = logging.Formatter(
@@ -25,76 +38,98 @@ if not logger.handlers:
     logger.addHandler(handler)
 
 
-def main(query: str) -> Dict[str, Union[str, Dict[str, ReportResults]]]:
+def main(query: str) -> Dict[str, Union[str, bytes, ReportResults]]:
     """
-    Process a user query through the complete analysis pipeline, including validation,
-    classification, and appropriate data processing based on the query type.
+    Execute the complete processing pipeline for a user query.
+
+    This function orchestrates the full analysis pipeline, from validating the input
+    query to generating the appropriate output based on the query's classification.
+    It handles different query types (chart, description, report) and manages error
+    cases.
 
     Args:
-        query: The natural language query string to be processed
+        query (str): The user query to process
 
     Returns:
-        Dict[str, Any]: A dictionary containing the query type and the result:
-            - {"error": str} for error messages
-            - {"chart": str} for chart visualizations
-            - {"description": str} for descriptions
-            - {"report": ReportResults} for comprehensive reports
+        Dict[str, Union[str, ReportResults]]: A dictionary containing:
+            - 'type': The result type ('chart', 'description', 'report', or 'error')
+            - 'result': The output of the processing, which could be:
+                - A URL for chart results
+                - A text description for description results
+                - A ReportResults object for report results
+                - An error message for error cases
+
+    Flow:
+        1. Validate the input query
+        2. Classify the query (chart, description, report)
+        3. For reports, delegate to the report generator
+        4. For charts/descriptions:
+            a. Select the appropriate data collection
+            b. Process the data
+            c. Generate the appropriate output
     """
     query = query.strip()
     logger.info(f"Starting pipeline processing for query: '{query}'")
 
-    # query validator
+    # Step 1: Validate the query
     try:
         query_validator.get_valid_query(query)
         logger.debug("Query validation successful")
     except Exception as e:
         logger.error(f"Query validation failed: {str(e)}")
-        return {"error": f"Error validating query: {str(e)}"}
+        return {"type": "error", "result": f"Error validating query: {str(e)}"}
 
-    # query classifier
+    # Step 2: Classify the query
     classification_result = query_classifier.classify_query(query)
     logger.debug(f"Query classified as: {classification_result}")
+
     if classification_result == "error":
         logger.error("Query classification failed")
-        return {"error": "Classification failed"}
+        return {"type": "error", "result": "Classification failed"}
 
-    # report generator
+    # Step 3: Handle report requests separately
     if classification_result == "report":
         logger.info("Query identified as report request, initiating report generation")
-        return {"report": generate_report(query)}
+        try:
+            report_result = report_generator.report_generator(query)
+            logger.debug(
+                f"Report generation completed with {len(report_result.results)} results"
+            )
 
-    # data selector
+            # No further processing needed - report_generator now handles both text and binary data
+            return {"type": "report", "result": report_result}
+        except Exception as e:
+            logger.error(f"Report generation failed: {str(e)}", exc_info=True)
+            return {"type": "error", "result": f"Error generating report: {str(e)}"}
+
+    # Step 4: Select and process the appropriate collection for chart/description
     try:
-        json_file_name = json_selector.select_json_for_query(query)
-        logger.debug(f"Selected JSON file: {json_file_name}")
+        # Step 4a: Select the appropriate collection
+        collection_name = collection_selector.select_collection_for_query(query)
+        logger.debug(f"Selected collection: {collection_name}")
     except Exception as e:
-        logger.error(f"JSON selection failed: {str(e)}")
-        return {"error": f"Error selecting JSON: {str(e)}"}
+        logger.error(f"Collection selection failed: {str(e)}", exc_info=True)
+        return {"type": "error", "result": f"Error selecting collection: {str(e)}"}
 
-    # data processor
-    try:
-        df = json_processor.process_json_query(json_file_name, query)
-        logger.debug("JSON data processing completed successfully")
-    except Exception as e:
-        logger.error(f"JSON processing failed: {str(e)}")
-        return {"error": f"Error processing JSON: {str(e)}"}
+    # Step 4b: Process the collection to get a DataFrame
+    df = collection_processor.process_collection_query(collection_name, query)
 
-    # generator
+    # Step 5: Generate the appropriate output based on classification
     try:
         if classification_result == "chart":
             logger.info("Generating chart visualization")
-            return {"chart": generate_and_upload_chart(df, query)}
+            result = chart_generator.generate_chart(df, query)
+            return {"type": "chart", "result": result}
         elif classification_result == "description":
             logger.info("Generating data description")
-            return {
-                "description": description_generator.generate_description(df, query)
-            }
+            result = description_generator.generate_description(df, query)
+            return {"type": "description", "result": result}
         else:
             logger.warning(f"Unknown classification result: {classification_result}")
-            return {"error": f"Unknown classification type: {classification_result}"}
+            return {"type": "unknown", "result": ""}
     except Exception as e:
-        logger.error(f"Output generation failed: {str(e)}")
-        return {"error": f"Error generating output: {str(e)}"}
+        logger.error(f"Output generation failed: {str(e)}", exc_info=True)
+        return {"type": "error", "result": f"Error generating output: {str(e)}"}
 
 
 if __name__ == "__main__":

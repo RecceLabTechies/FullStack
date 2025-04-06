@@ -1,22 +1,30 @@
 #!/usr/bin/env python
-import hashlib
+"""
+Chart Generator Module
+
+This module provides functionality for generating data visualizations based on user queries
+and DataFrame content. It uses a combination of machine learning (LLM) for chart selection
+and matplotlib/seaborn for rendering.
+
+Key components:
+- Data analysis to extract column metadata
+- LLM-based selection of appropriate visualization type and axes
+- Chart rendering with matplotlib/seaborn
+"""
+
+import datetime
 import logging
 import os
-from datetime import datetime
+import uuid
 from io import BytesIO
-from typing import Dict, List, Optional
-
-import matplotlib
-
-# Set non-interactive backend to prevent GUI thread issues
-matplotlib.use("Agg")
+from typing import List, Literal, Optional, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_ollama.llms import OllamaLLM
+from mypackage.utils.llm_config import CHART_DATA_MODEL, get_groq_llm
 from pandas.api.types import (
     is_bool_dtype,
     is_datetime64_any_dtype,
@@ -25,12 +33,11 @@ from pandas.api.types import (
 )
 from pydantic import BaseModel, field_validator
 
-# Configure logger
+# Set up module-level logger
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.propagate = False
 
-# Add handler if not already added
 if not logger.handlers:
     handler = logging.StreamHandler()
     formatter = logging.Formatter(
@@ -39,31 +46,36 @@ if not logger.handlers:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-DEFAULT_MODEL_NAME = "chart-data-generator"
+logger.debug("chart_generator module initialized")
 
 
-class ColumnStats(BaseModel):
-    type: str
-    unique_count: int
-    missing_count: int
-    total_count: int
-    min: Optional[float] = None
-    max: Optional[float] = None
-    mean: Optional[float] = None
-    median: Optional[float] = None
-    categories: Optional[Dict[str, int]] = None
+class ColumnMetadata(BaseModel):
+    """
+    Pydantic model for storing DataFrame column metadata.
 
-    model_config = {"extra": "allow"}
+    Attributes:
+        name: Column name
+        dtype: Data type (categorical, numeric, datetime, etc.)
+        unique_values: List of unique values in the column (limited)
+        sample_values: Sample of values from the column
+    """
 
-
-class ColumnMatch(BaseModel):
-    score: int
-    type: str
-    reasons: List[str]
-    stats: ColumnStats
+    name: str
+    dtype: str
+    unique_values: Optional[List[str]] = None
+    sample_values: List[Union[str, int, float]]
 
 
 class ChartInfo(BaseModel):
+    """
+    Pydantic model for chart configuration.
+
+    Attributes:
+        x_axis: Column name to use for x-axis
+        y_axis: Column name to use for y-axis
+        chart_type: Type of chart to create (line, bar, scatter, etc.)
+    """
+
     x_axis: str
     y_axis: str
     chart_type: str
@@ -71,6 +83,18 @@ class ChartInfo(BaseModel):
     @field_validator("chart_type")
     @classmethod
     def validate_chart_type(cls, v):
+        """
+        Validate that chart_type is one of the supported types.
+
+        Args:
+            v: The chart type value to validate
+
+        Returns:
+            Lowercase version of the validated chart type
+
+        Raises:
+            ValueError: If chart type is not in the list of valid types
+        """
         valid_types = {"line", "scatter", "bar", "box", "heatmap"}
         if v.lower() not in valid_types:
             raise ValueError(f"Chart type must be one of: {', '.join(valid_types)}")
@@ -79,749 +103,445 @@ class ChartInfo(BaseModel):
     model_config = {"frozen": True}
 
 
-def _get_column_type(series: pd.Series) -> str:
+# Type alias for column data types
+ColumnType = Literal["datetime", "numeric", "categorical", "boolean", "text"]
+
+
+def _get_column_type(
+    series: pd.Series,
+) -> ColumnType:
     """
-    Determine the data type of a pandas Series for charting purposes.
+    Determine the semantic type of a pandas Series.
+
+    This function analyzes the contents of a Series to determine its
+    most appropriate type classification beyond just the pandas dtype.
 
     Args:
         series: The pandas Series to analyze
 
     Returns:
-        String representing the column type: "datetime", "numeric", "categorical", "boolean", or "text"
+        A ColumnType value indicating the semantic type
     """
+    logger.debug(f"Determining column type for series with dtype: {series.dtype}")
+
     if is_datetime64_any_dtype(series):
+        logger.debug("Series identified as datetime type")
         return "datetime"
     elif is_numeric_dtype(series):
+        logger.debug("Series identified as numeric type")
         return "numeric"
     elif isinstance(series.dtype, pd.CategoricalDtype):
+        logger.debug(
+            "Series identified as categorical type (explicit categorical dtype)"
+        )
         return "categorical"
     elif is_bool_dtype(series):
+        logger.debug("Series identified as boolean type")
         return "boolean"
     elif is_object_dtype(series) and series.nunique() / len(series) < 0.5:
+        # Object type with relatively few unique values is likely categorical
+        logger.debug("Series identified as categorical type (based on cardinality)")
         return "categorical"
+
+    logger.debug("Series identified as text type (default)")
     return "text"
 
 
-def _get_column_stats(df: pd.DataFrame, column: str) -> ColumnStats:
+def extract_column_metadata(df: pd.DataFrame) -> List[ColumnMetadata]:
     """
-    Calculate statistics for a DataFrame column.
+    Extract structured metadata about DataFrame columns.
+
+    This function analyzes each column in the DataFrame to determine its
+    semantic type, extract sample values, and collect unique values for
+    categorical columns.
 
     Args:
-        df: Input DataFrame
-        column: Column name to analyze
+        df: The pandas DataFrame to analyze
 
     Returns:
-        ColumnStats object with statistics about the column
+        List of ColumnMetadata objects describing each column
     """
-    stats_dict = {
-        "type": _get_column_type(df[column]),
-        "unique_count": df[column].nunique(),
-        "missing_count": df[column].isna().sum(),
-        "total_count": len(df[column]),
-    }
+    logger.info(f"Extracting column metadata from DataFrame with shape {df.shape}")
+    metadata = []
 
-    if stats_dict["type"] == "numeric":
-        stats_dict.update(
-            {
-                "min": float(df[column].min()),
-                "max": float(df[column].max()),
-                "mean": float(df[column].mean()),
-                "median": float(df[column].median()),
-            }
+    for col in df.columns:
+        logger.debug(f"Processing column: {col}")
+        col_type = _get_column_type(df[col])
+        unique_vals = None
+        sample_vals = df[col].dropna().head(5).tolist()
+
+        # Convert datetime objects to strings
+        if col_type == "datetime":
+            logger.debug(f"Converting datetime values to strings for column: {col}")
+            sample_vals = [str(v) for v in sample_vals]
+
+        # Extract unique values for categorical and text columns
+        if col_type in ["categorical", "text"]:
+            logger.debug(f"Extracting unique values for categorical/text column: {col}")
+            unique_vals = df[col].dropna().unique().tolist()
+            if len(unique_vals) > 20:
+                logger.debug(
+                    f"Limiting unique values to 20 (from {len(unique_vals)}) for column: {col}"
+                )
+                unique_vals = unique_vals[:20]
+
+        metadata.append(
+            ColumnMetadata(
+                name=col,
+                dtype=col_type,
+                unique_values=unique_vals,
+                sample_values=sample_vals,
+            )
         )
-    elif stats_dict["type"] == "categorical":
-        stats_dict["categories"] = df[column].value_counts().to_dict()
+        logger.debug(f"Added metadata for column: {col} (type: {col_type})")
 
-    return ColumnStats(**stats_dict)
+    logger.info(f"Extracted metadata for {len(metadata)} columns")
+    return metadata
 
 
-def _extract_key_terms(query: str) -> List[str]:
+def enhance_query_with_metadata(
+    original_query: str, metadata: List[ColumnMetadata]
+) -> str:
     """
-    Extract key terms from a query by removing stop words and domain-specific terms.
+    Enhance user query with column metadata to guide LLM interpretation.
+
+    This function adds contextual information about available columns and
+    highlights columns that appear to be relevant to the query.
 
     Args:
-        query: User query string
+        original_query: The user's raw query text
+        metadata: List of ColumnMetadata objects from the DataFrame
 
     Returns:
-        List of key terms extracted from the query
+        Enhanced query string with added context
     """
-    words = query.lower().split()
+    logger.info(f"Enhancing query with metadata: {original_query}")
+    emphasized = []
+    query_lower = original_query.lower()
 
-    stop_words = {
-        "a",
-        "an",
-        "the",
-        "in",
-        "on",
-        "at",
-        "for",
-        "to",
-        "of",
-        "and",
-        "or",
-        "is",
-        "are",
-        "was",
-        "were",
-        "chart",
-        "plot",
-        "graph",
-        "show",
-        "display",
-        "visualize",
-        "visualization",
-        "data",
-    }
+    # Identify columns referenced in the query
+    for col in metadata:
+        # Check if column name appears in query
+        if col.name.lower() in query_lower:
+            emphasized.append(f"'{col.name}' ({col.dtype})")
+            logger.debug(f"Column directly referenced in query: {col.name}")
+        # Check for semantic matches
+        elif any(synonym in query_lower for synonym in _get_column_synonyms(col.name)):
+            emphasized.append(f"'{col.name}' ({col.dtype})")
+            logger.debug(f"Column matched via synonym in query: {col.name}")
 
-    cleaned_words = [word.strip(",.;:") for word in words]
-    return [word for word in cleaned_words if word not in stop_words and len(word) > 2]
-
-
-def _allow_direct_column_selection(df: pd.DataFrame, query: str) -> List[str]:
-    """
-    Attempt to directly identify column names in the query string.
-
-    Args:
-        df: Input DataFrame
-        query: User query string
-
-    Returns:
-        List of identified column names from the query (up to 2)
-    """
-    query_lower = query.lower()
-    potential_columns = []
-
-    column_lower_dict = {col.lower(): col for col in df.columns}
-
-    for connecting_word in [" and ", " vs ", " versus ", " against ", " with "]:
-        if connecting_word in query_lower:
-            parts = query_lower.split(connecting_word)
-            if len(parts) == 2:
-                left_side = parts[0].strip().split()
-                right_side = parts[1].strip().split()
-
-                if left_side:
-                    left_term = left_side[-1]
-                    for col_lower, col in column_lower_dict.items():
-                        if (
-                            left_term == col_lower
-                            or left_term in col_lower
-                            or col_lower in left_term
-                        ):
-                            potential_columns.append(col)
-                            break
-
-                if right_side:
-                    right_term = right_side[0]
-                    for col_lower, col in column_lower_dict.items():
-                        if (
-                            right_term == col_lower
-                            or right_term in col_lower
-                            or col_lower in right_term
-                        ):
-                            potential_columns.append(col)
-                            break
-
-                if len(potential_columns) == 2:
-                    return potential_columns
-
-    if len(query_lower.split()) == 1 and len(query_lower) > 5:
-        word = query_lower.strip()
-        found_columns = []
-
-        sorted_cols = sorted(column_lower_dict.keys(), key=len, reverse=True)
-
-        remaining = word
-        while remaining and len(remaining) > 2:
-            matched = False
-            for col_lower in sorted_cols:
-                if remaining.startswith(col_lower):
-                    found_columns.append(column_lower_dict[col_lower])
-                    remaining = remaining[len(col_lower) :]
-                    matched = True
-                    break
-                elif remaining.endswith(col_lower):
-                    found_columns.append(column_lower_dict[col_lower])
-                    remaining = remaining[: -len(col_lower)]
-                    matched = True
-                    break
-
-            if not matched:
-                if len(remaining) > len(word) // 2:
-                    remaining = remaining[1:]
-                else:
-                    remaining = remaining[:-1]
-
-        if found_columns and len(found_columns) >= 2:
-            return list(dict.fromkeys(found_columns))[:2]
-
-    for keyword in [
-        "about",
-        "analyze",
-        "show",
-        "of",
-        "for",
-        "chart",
-        "plot",
-        "graph",
-        "visualize",
-    ]:
-        if keyword in query_lower:
-            after_keyword = query_lower.split(keyword, 1)[1].strip()
-
-            comma_chunks = [chunk.strip() for chunk in after_keyword.split(",")]
-
-            for chunk in comma_chunks:
-                chunk_words = chunk.split()
-                if len(chunk_words) > 1:
-                    whole_chunk_match = False
-                    for col in df.columns:
-                        if col.lower() == chunk.strip() or chunk.strip() in col.lower():
-                            potential_columns.append(chunk.strip())
-                            whole_chunk_match = True
-                            break
-
-                    if not whole_chunk_match:
-                        if " and " in chunk:
-                            and_parts = chunk.split(" and ")
-                            if len(and_parts) == 2:
-                                left_term = and_parts[0].strip()
-                                right_term = and_parts[1].strip()
-                                left_match = right_match = None
-
-                                for col_lower, col in column_lower_dict.items():
-                                    if (
-                                        left_term == col_lower
-                                        or left_term in col_lower
-                                        or col_lower in left_term
-                                    ):
-                                        left_match = col
-                                    if (
-                                        right_term == col_lower
-                                        or right_term in col_lower
-                                        or col_lower in right_term
-                                    ):
-                                        right_match = col
-
-                                if left_match:
-                                    potential_columns.append(left_match)
-                                if right_match:
-                                    potential_columns.append(right_match)
-
-                                if left_match and right_match:
-                                    return [left_match, right_match]
-
-                        potential_columns.extend(chunk_words)
-                else:
-                    potential_columns.append(chunk)
-
-            break
-
-    if not potential_columns:
-        if "," in query_lower:
-            potential_columns = [col.strip() for col in query_lower.split(",")]
-        else:
-            potential_columns = query_lower.split()
-
-    valid_columns = []
-
-    for potential in potential_columns:
-        clean_potential = potential.strip().split()
-        if clean_potential and clean_potential[-1] in ["and", "or"]:
-            clean_potential = clean_potential[:-1]
-        if clean_potential and clean_potential[0] in ["and", "or"]:
-            clean_potential = clean_potential[1:]
-
-        clean_str = " ".join(clean_potential).strip(",.;: ")
-
-        if clean_str in [
-            "me",
-            "to",
-            "on",
-            "with",
-            "the",
-            "a",
-            "an",
-            "in",
-            "is",
-            "are",
-            "of",
-            "for",
-            "it",
-            "tell",
-            "chart",
-            "plot",
-            "graph",
-            "visualize",
-            "show",
-            "display",
-            "visualization",
-        ]:
-            continue
-
-        if clean_str in column_lower_dict:
-            valid_columns.append(column_lower_dict[clean_str])
-            continue
-
-        if clean_str.endswith("s") and clean_str[:-1] in column_lower_dict:
-            valid_columns.append(column_lower_dict[clean_str[:-1]])
-            continue
-        if clean_str + "s" in column_lower_dict:
-            valid_columns.append(column_lower_dict[clean_str + "s"])
-            continue
-
-        matched = False
-        for col_lower, col in column_lower_dict.items():
-            if clean_str in col_lower or col_lower in clean_str:
-                valid_columns.append(col)
-                matched = True
-                break
-
-        if not matched and len(clean_str) > 2:
-            for col_lower, col in column_lower_dict.items():
-                if any(
-                    word in col_lower for word in clean_str.split() if len(word) > 2
-                ):
-                    valid_columns.append(col)
-                    break
-
-    unique_cols = list(dict.fromkeys(valid_columns))
-
-    return unique_cols[: min(2, len(unique_cols))]
-
-
-def _match_columns_to_query(df: pd.DataFrame, query: str) -> Dict[str, ColumnMatch]:
-    """
-    Match columns to a query based on semantic relevance and query terms.
-
-    Args:
-        df: Input DataFrame
-        query: User query string
-
-    Returns:
-        Dictionary mapping column names to ColumnMatch objects with scores and reasons
-    """
-    logger.info(f"Matching columns to query: '{query}'")
-    query_terms = _extract_key_terms(query)
-    matches = {}
-    query_lower = query.lower()
-
-    direct_mentions = []
-    for column in df.columns:
-        if column.lower() in query_lower:
-            direct_mentions.append(column)
-
-    if direct_mentions and len(direct_mentions) >= 2:
-        logger.debug(f"Found direct column mentions: {direct_mentions}")
-        for column in direct_mentions:
-            stats = _get_column_stats(df, column)
-            matches[column] = ColumnMatch(
-                score=10,
-                type=stats.type,
-                reasons=["Directly mentioned in query"],
-                stats=stats,
-            )
-        return matches
-
-    for column in df.columns:
-        column_lower = column.lower()
-        stats = _get_column_stats(df, column)
-        score = 0
-        match_reasons = []
-
-        for term in query_terms:
-            if term == column_lower:
-                score += 5
-                match_reasons.append(f"Column name exactly matches term '{term}'")
-            elif term in column_lower:
-                score += 3
-                match_reasons.append(f"Column name contains term '{term}'")
-
-        time_related_terms = ["time", "trend", "over time"]
-        if any(term in query_lower for term in time_related_terms):
-            if stats.type == "datetime":
-                score += 4
-                match_reasons.append("Datetime column matches time-based query")
-            elif any(term in column_lower for term in ["date", "time", "year"]):
-                score += 3
-                match_reasons.append("Column name suggests time data")
-
-        comparison_terms = ["compare", "between", "by"]
-        if any(term in query_lower for term in comparison_terms):
-            if stats.type == "categorical" and stats.unique_count < 15:
-                score += 2
-                match_reasons.append("Categorical column good for comparison")
-
-        if stats.type == "numeric":
-            score += 1
-            if (
-                stats.min is not None
-                and stats.max is not None
-                and stats.min != stats.max
-            ):
-                score += 1
-                match_reasons.append("Numeric column with good distribution")
-
-        if score > 0:
-            logger.debug(
-                f"Column '{column}' matched with score {score}: {match_reasons}"
-            )
-            matches[column] = ColumnMatch(
-                score=score,
-                type=stats.type,
-                reasons=match_reasons,
-                stats=stats,
-            )
-
-    logger.info(f"Found {len(matches)} matching columns")
-    return matches
-
-
-def _select_chart_type(x_type: str, y_type: str, query: str) -> str:
-    """
-    Select the appropriate chart type based on column types and query.
-
-    Args:
-        x_type: Type of the x-axis column
-        y_type: Type of the y-axis column
-        query: User query string
-
-    Returns:
-        Recommended chart type as a string
-    """
-    query_lower = query.lower()
-
-    chart_types = {
-        "line": "line",
-        "bar": "bar",
-        "scatter": "scatter",
-        "box": "box",
-        "heat": "heatmap",
-    }
-
-    for keyword, chart_type in chart_types.items():
-        if keyword in query_lower:
-            return chart_type
-
-    if x_type == "datetime" and y_type == "numeric":
-        return "line"
-    elif x_type == "categorical" and y_type == "numeric":
-        return "distribution" in query_lower and "box" or "bar"
-    elif x_type == "numeric" and y_type == "numeric":
-        return (
-            any(term in query_lower for term in ["correlation", "relationship"])
-            and "scatter"
-            or "line"
+    # Construct enhanced query
+    enhanced = f"{original_query}\n\nData Context:\n- Columns: {', '.join([f'{col.name} ({col.dtype})' for col in metadata])}"
+    if emphasized:
+        enhanced += (
+            f"\n- Emphasized Columns: {', '.join(emphasized)} should be prioritized"
         )
-    elif x_type == "categorical" and y_type == "categorical":
-        return "heatmap"
+        logger.debug(f"Emphasized {len(emphasized)} columns in enhanced query")
 
-    return "line"
+    logger.debug(f"Enhanced query length: {len(enhanced)} chars")
+    return enhanced
 
 
-def _select_columns_for_chart(query: str, df: pd.DataFrame) -> ChartInfo:
+def _get_column_synonyms(col_name: str) -> List[str]:
     """
-    Select the most appropriate columns and chart type for visualization based on query.
+    Generate potential synonyms for column names to improve matching.
+
+    This function returns common synonyms for frequently used column names
+    to help match user query terms to the appropriate columns.
 
     Args:
-        query: User query string
-        df: Input DataFrame
+        col_name: Column name to find synonyms for
 
     Returns:
-        ChartInfo object with selected x-axis, y-axis, and chart type
+        List of synonym strings
+    """
+    logger.debug(f"Getting synonyms for column: {col_name}")
+    synonyms = {
+        "date": ["time", "day", "month", "year"],
+        "sales": ["revenue", "income"],
+        "price": ["cost", "value"],
+        "category": ["type", "group"],
+    }
+    result = synonyms.get(col_name.lower(), [])
+    logger.debug(f"Found {len(result)} synonyms for column: {col_name}")
+    return result
+
+
+def get_llm_chart_selection(query: str, metadata: List[ColumnMetadata]) -> ChartInfo:
+    """
+    Use LLM to select appropriate chart type and axes based on the query.
+
+    This function sends the query and column metadata to an LLM, which
+    then recommends the most appropriate visualization type and columns
+    to use for the x and y axes.
+
+    Args:
+        query: The user's query (possibly enhanced with metadata)
+        metadata: List of ColumnMetadata objects from the DataFrame
+
+    Returns:
+        ChartInfo object containing the selected chart configuration
 
     Raises:
-        ValueError: If suitable columns cannot be determined
+        ValueError: If the LLM response cannot be parsed into valid chart info
     """
-    logger.info(f"Selecting columns for chart based on query: '{query}'")
-    direct_columns = _allow_direct_column_selection(df, query)
+    logger.info(f"Getting chart selection for query: {query}")
 
-    if direct_columns and len(direct_columns) >= 2:
-        logger.info(f"Using direct column selection: {direct_columns[:2]}")
-        x_axis, y_axis = direct_columns[0], direct_columns[1]
-        chart_type = _select_chart_type(
-            _get_column_type(df[x_axis]), _get_column_type(df[y_axis]), query
-        )
-        return ChartInfo(x_axis=x_axis, y_axis=y_axis, chart_type=chart_type)
+    # Define prompt template for LLM
+    prompt_template = ChatPromptTemplate.from_template(
+        """You are a chart configuration assistant. Your ONLY task is to analyze the visualization request and select appropriate columns.
 
-    column_matches = _match_columns_to_query(df, query)
-
-    if not column_matches:
-        logger.warning("No columns matched the query")
-        raise ValueError("No columns matched your query. Please be more specific.")
-
-    sorted_columns = sorted(
-        column_matches.items(), key=lambda x: x[1].score, reverse=True
-    )
-
-    if len(sorted_columns) >= 2:
-        if (
-            len(sorted_columns) > 2
-            and sorted_columns[0][1].score
-            == sorted_columns[1][1].score
-            == sorted_columns[2][1].score
-        ):
-            logger.info("Multiple columns with same score, using LLM selection")
-            return _select_columns_with_llm(query, df, sorted_columns)
-
-        top_two_columns = [col for col, _ in sorted_columns[:2]]
-        logger.info(f"Selected top two columns by score: {top_two_columns}")
-        x_axis, y_axis = top_two_columns[0], top_two_columns[1]
-
-        chart_type = _select_chart_type(
-            _get_column_type(df[x_axis]), _get_column_type(df[y_axis]), query
-        )
-        logger.info(f"Selected chart type: {chart_type}")
-
-        return ChartInfo(x_axis=x_axis, y_axis=y_axis, chart_type=chart_type)
-    elif len(sorted_columns) == 1:
-        logger.warning("Only one column matched the query")
-        raise ValueError(
-            "Only one column matched your query. Please specify two columns."
-        )
-    else:
-        logger.warning("Could not determine suitable columns")
-        raise ValueError("Could not determine suitable columns for visualization")
-
-
-def _select_columns_with_llm(query: str, df: pd.DataFrame, sorted_columns) -> ChartInfo:
-    """
-    Use an LLM to select the most appropriate columns when automatic selection is ambiguous.
-
-    Args:
-        query: User query string
-        df: Input DataFrame
-        sorted_columns: List of (column_name, ColumnMatch) tuples sorted by score
-
-    Returns:
-        ChartInfo object with LLM-selected x-axis, y-axis, and chart type
-
-    Raises:
-        ValueError: If LLM selection fails
-    """
-    logger.info("Using LLM to resolve column selection ambiguity")
-    available_columns = ", ".join(df.columns)
-
-    prompt = ChatPromptTemplate.from_template(
-        """You need to choose the best x-axis and y-axis columns for a chart visualization.
-        
         User Query: {query}
-        
-        Available columns (MUST only use these exact names): {available_columns}
-        
-        Available columns with their match scores:
-        {column_details}
-        
-        Chart Type Guidelines:
-        1. Line Charts (time series): datetime/continuous x-axis, numeric y-axis
-        2. Scatter Plots (relationships): numeric x and y axes
-        3. Bar Charts (comparisons): categorical x-axis, numeric y-axis
-        4. Box Plots (distributions): categorical x-axis, numeric y-axis
-        5. Heatmaps (2D relationships): categorical x and y axes
-        
-        IMPORTANT: You MUST select two columns with the exact same score from the available columns.
-        
-        Based on the column details and user query, determine the most appropriate column for x-axis, y-axis, and chart type.
-        IMPORTANT: You MUST ONLY use column names from the available columns list. Do not invent new column names or use misspelled versions from the query.
-        
-        Respond EXACTLY in this format:
-        x_axis: [column name]
-        y_axis: [column name]
-        chart_type: [line/scatter/bar/box/heatmap]"""
+
+        Available Columns:
+        {columns}
+
+        CRITICAL INSTRUCTIONS:
+        1. You MUST respond with EXACTLY 3 lines in this format:
+           x_axis: [column]
+           y_axis: [column]
+           chart_type: [type]
+        2. The columns MUST be from the provided column names
+        3. Chart type MUST be one of: line, bar, scatter, box, heatmap
+        4. DO NOT include any other text, explanation, or formatting
+        5. Each line MUST start with the exact keys: x_axis:, y_axis:, chart_type:
+
+        Example Valid Response:
+        x_axis: date
+        y_axis: sales
+        chart_type: line"""
     )
 
-    column_details = []
-    for col, details in sorted_columns:
-        col_info = [
-            f"Column: {col}",
-            f"Type: {details.type}",
-            f"Match Score: {details.score}",
-            f"Reasons: {'; '.join(details.reasons)}",
+    # Format column information for the prompt
+    columns_str = "\n".join(
+        [
+            f"- {col.name} ({col.dtype})"
+            + (
+                f" [Categories: {', '.join(map(str, col.unique_values))}]"
+                if col.unique_values
+                else ""
+            )
+            for col in metadata
+        ]
+    )
+
+    logger.debug("Preparing prompt for Groq LLM")
+    model = get_groq_llm(CHART_DATA_MODEL)
+    chain = prompt_template | model
+
+    logger.debug("Sending prompt to Groq LLM")
+    response = chain.invoke({"query": query, "columns": columns_str})
+    logger.debug(f"Received response from Groq LLM: {response.content}")
+
+    # Parse the response into chart configuration
+    try:
+        logger.debug("Parsing LLM response into chart configuration")
+        # Split by newlines and clean up
+        lines = [
+            line.strip()
+            for line in response.content.strip().split("\n")
+            if line.strip()
         ]
 
-        stats = details.stats
-        if (
-            details.type == "numeric"
-            and stats.min is not None
-            and stats.mean is not None
-        ):
-            col_info.append(f"Range: {stats.min} to {stats.max}")
-            col_info.append(f"Mean: {stats.mean:.2f}")
-        elif (
-            details.type == "categorical"
-            and stats.unique_count < 10
-            and stats.categories is not None
-        ):
-            categories = ", ".join(list(str(k) for k in stats.categories.keys())[:5])
-            col_info.append(f"Categories: {categories}")
+        if len(lines) != 3:
+            error_msg = f"Expected 3 lines in LLM response, got {len(lines)}"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
 
-        column_details.append("\n".join(col_info))
+        config = {}
+        for line in lines:
+            key, value = line.split(":", 1)
+            key = key.strip()
+            if key not in ["x_axis", "y_axis", "chart_type"]:
+                error_msg = f"Invalid key in LLM response: {key}"
+                logger.error(error_msg)
+                raise ValueError(error_msg)
+            config[key] = value.strip().lower()
+            logger.debug(f"Parsed {key}: {config[key]}")
+
+        chart_info = ChartInfo(
+            x_axis=config["x_axis"],
+            y_axis=config["y_axis"],
+            chart_type=config["chart_type"],
+        )
+        logger.info(
+            f"Selected chart type: {chart_info.chart_type} with x: {chart_info.x_axis}, y: {chart_info.y_axis}"
+        )
+        return chart_info
+    except Exception as e:
+        logger.error(f"Failed to parse LLM response: {response.content}")
+        logger.error(f"Parse error: {str(e)}", exc_info=True)
+        raise ValueError(f"Invalid LLM response format: {str(e)}")
+
+
+def _create_seaborn_plot(df: pd.DataFrame, chart_info: "ChartInfo") -> plt.Figure:
+    """
+    Create a seaborn plot based on the chart configuration.
+
+    This function renders a visualization using seaborn based on the
+    DataFrame and configuration specified in chart_info.
+
+    Args:
+        df: The pandas DataFrame containing the data to visualize
+        chart_info: ChartInfo object specifying the chart configuration
+
+    Returns:
+        Matplotlib Figure object with the rendered chart
+
+    Raises:
+        ValueError: If the chart cannot be created with the given configuration
+    """
+    logger.info(
+        f"Creating {chart_info.chart_type} plot with x_axis: {chart_info.x_axis}, y_axis: {chart_info.y_axis}"
+    )
+
+    # Prepare plotting area
+    plt.clf()
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    # Log data info before plotting for troubleshooting
+    x_count = df[chart_info.x_axis].nunique()
+    y_min = df[chart_info.y_axis].min()
+    y_max = df[chart_info.y_axis].max()
+
+    logger.debug(f"X-axis column '{chart_info.x_axis}' has {x_count} unique values")
+    logger.debug(f"Y-axis column '{chart_info.y_axis}' range: [{y_min}, {y_max}]")
 
     try:
-        logger.debug("Invoking LLM for column selection")
-        model = OllamaLLM(model=DEFAULT_MODEL_NAME)
-        response = (prompt | model).invoke(
-            {
-                "query": query,
-                "available_columns": available_columns,
-                "column_details": "\n\n".join(column_details),
-            }
-        )
-        logger.debug(f"LLM response: {response}")
-
-        parsed = dict(
-            line.split(": ", 1)
-            for line in response.strip().split("\n")
-            if line.strip() and ": " in line
-        )
-
-        available_cols = set(df.columns)
-
-        x_axis = parsed.get("x_axis")
-        if x_axis not in available_cols:
-            logger.error(f"LLM suggested invalid column '{x_axis}'")
-            raise ValueError(
-                f"LLM suggested invalid column '{x_axis}'. Please try a different query."
+        # Choose the appropriate chart type
+        if chart_info.chart_type == "line":
+            logger.debug("Generating line plot")
+            sns.lineplot(data=df, x=chart_info.x_axis, y=chart_info.y_axis, ax=ax)
+        elif chart_info.chart_type == "scatter":
+            logger.debug("Generating scatter plot")
+            sns.scatterplot(data=df, x=chart_info.x_axis, y=chart_info.y_axis, ax=ax)
+        elif chart_info.chart_type == "bar":
+            logger.debug("Generating bar plot")
+            # Aggregate if necessary for bar charts with many unique x values
+            if x_count > 15:
+                logger.debug(
+                    f"Too many unique values ({x_count}) for bar chart, aggregating"
+                )
+                # Sort by mean of y values
+                top_x = (
+                    df.groupby(chart_info.x_axis)[chart_info.y_axis]
+                    .mean()
+                    .nlargest(15)
+                    .index
+                )
+                filtered_df = df[df[chart_info.x_axis].isin(top_x)]
+                sns.barplot(
+                    data=filtered_df, x=chart_info.x_axis, y=chart_info.y_axis, ax=ax
+                )
+            else:
+                sns.barplot(data=df, x=chart_info.x_axis, y=chart_info.y_axis, ax=ax)
+        elif chart_info.chart_type == "box":
+            logger.debug("Generating box plot")
+            sns.boxplot(data=df, x=chart_info.x_axis, y=chart_info.y_axis, ax=ax)
+        elif chart_info.chart_type == "heatmap":
+            logger.debug("Generating heatmap")
+            pivot_data = df.pivot_table(
+                index=chart_info.x_axis,
+                columns=chart_info.y_axis,
+                aggfunc="size",
+                fill_value=0,
             )
-
-        y_axis = parsed.get("y_axis")
-        if y_axis not in available_cols:
-            logger.error(f"LLM suggested invalid column '{y_axis}'")
-            raise ValueError(
-                f"LLM suggested invalid column '{y_axis}'. Please try a different query."
-            )
-
-        chart_type = parsed.get("chart_type", "line")
-        if chart_type not in ["line", "bar", "scatter", "box", "heatmap"]:
-            logger.warning(f"Invalid chart type '{chart_type}', defaulting to 'line'")
-            chart_type = "line"
-
-        logger.info(
-            f"LLM selected x_axis: {x_axis}, y_axis: {y_axis}, chart_type: {chart_type}"
-        )
-        return ChartInfo(x_axis=x_axis, y_axis=y_axis, chart_type=chart_type)
-    except Exception as e:
-        logger.error(f"Error in LLM column selection: {str(e)}", exc_info=True)
-        raise ValueError(f"Failed to select columns: {str(e)}")
-
-
-def _plot_seaborn_chart(df: pd.DataFrame, chart_info: ChartInfo) -> BytesIO:
-    """
-    Plot a chart using Seaborn based on the chart information.
-
-    Args:
-        df: Input DataFrame with the data to visualize
-        chart_info: ChartInfo object with chart configuration
-
-    Returns:
-        BytesIO object containing the chart image
-    """
-    logger.info(f"Plotting {chart_info.chart_type} chart with Seaborn")
-    plt.figure(figsize=(10, 6))
-
-    x_col = chart_info.x_axis
-    y_col = chart_info.y_axis
-    x_type = _get_column_type(df[x_col])
-
-    if chart_info.chart_type == "line":
-        plt.title(f"{y_col} over {x_col}")
-        sns.lineplot(data=df, x=x_col, y=y_col)
-
-    elif chart_info.chart_type == "scatter":
-        plt.title(f"Relationship between {x_col} and {y_col}")
-        sns.scatterplot(data=df, x=x_col, y=y_col)
-
-    elif chart_info.chart_type == "bar":
-        plt.title(f"{y_col} by {x_col}")
-        if x_type == "categorical" or df[x_col].nunique() < 30:
-            sns.barplot(data=df, x=x_col, y=y_col)
+            sns.heatmap(pivot_data, cmap="YlGnBu", ax=ax)
         else:
-            # If x has too many unique values, group by x and take mean of y
-            grouped = df.groupby(x_col)[y_col].mean().reset_index()
-            sns.barplot(data=grouped, x=x_col, y=y_col)
+            error_msg = f"Unsupported chart type: {chart_info.chart_type}"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
 
-    elif chart_info.chart_type == "box":
-        plt.title(f"Distribution of {y_col} by {x_col}")
-        sns.boxplot(data=df, x=x_col, y=y_col)
+        # Enhance chart aesthetics
+        plt.title(f"{chart_info.y_axis} by {chart_info.x_axis}")
+        plt.tight_layout()
 
-    elif chart_info.chart_type == "heatmap":
-        plt.title(f"Heatmap of {x_col} vs {y_col}")
-        crosstab = pd.crosstab(df[x_col], df[y_col])
-        sns.heatmap(crosstab, annot=True, cmap="YlGnBu")
+        # Handle long x-axis labels
+        if x_count > 10:
+            logger.debug("Rotating x-axis labels for better readability")
+            plt.xticks(rotation=45, ha="right")
 
-    plt.tight_layout()
-
-    # Save the plot to a BytesIO object
-    img_data = BytesIO()
-    plt.savefig(img_data, format="png", dpi=300)
-    img_data.seek(0)
-    plt.close()
-
-    return img_data
+        logger.info("Successfully created plot")
+        return fig
+    except Exception as e:
+        logger.error(f"Error creating plot: {str(e)}", exc_info=True)
+        raise ValueError(f"Failed to create {chart_info.chart_type} chart: {str(e)}")
 
 
-def generate_and_upload_chart(df: pd.DataFrame, query: str) -> str:
+def generate_chart(df: pd.DataFrame, query: str) -> bytes:
     """
-    Generate a chart based on query, plot with Seaborn, upload, and return image URL.
-
-    Args:
-        df: Input DataFrame with the data to visualize
-        query: User query string describing the desired visualization
+    Main function to generate a chart based on a user query.
 
     Returns:
-        String with the public URL for the chart image
+        PNG image bytes of the generated chart
     """
-    logger.info(f"Generating and uploading chart for query: '{query}'")
-    chart_info = _select_columns_for_chart(query, df)
+    logger.info(f"Generating chart for query: {query}")
 
-    # Plot the chart and get image data
-    img_data = _plot_seaborn_chart(df, chart_info)
+    try:
+        # Step 1: Extract metadata
+        logger.debug("Extracting column metadata")
+        metadata = extract_column_metadata(df)
 
-    # Generate a unique filename based on timestamp and query
+        # Step 2: Enhance query with metadata context
+        logger.debug("Enhancing query with metadata")
+        enhanced_query = enhance_query_with_metadata(query, metadata)
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    query_hash = hashlib.md5(query.encode()).hexdigest()[:8]
-    filename = f"chart_{timestamp}_{query_hash}.png"
+        # Step 3: Get chart configuration from LLM
+        logger.debug("Getting chart configuration from LLM")
+        chart_info = get_llm_chart_selection(enhanced_query, metadata)
 
-    # Save to the shared directory
-    shared_dir = "../frontend/public/shared"
-    os.makedirs(shared_dir, exist_ok=True)
+        # Step 4: Create the chart
+        logger.debug("Creating the chart visualization")
+        fig = _create_seaborn_plot(df, chart_info)
 
-    file_path = os.path.join(shared_dir, filename)
-    with open(file_path, "wb") as f:
-        f.write(img_data.getvalue())
+        # Step 5: Create in-memory image buffer
+        logger.debug("Creating in-memory image buffer")
+        img_buffer = BytesIO()
+        fig.savefig(
+            img_buffer, format="png", dpi=300, bbox_inches="tight", facecolor="white"
+        )
+        img_buffer.seek(0)
+        image_bytes = img_buffer.getvalue()
+        plt.close(fig)
 
-    logger.info(f"Chart saved to shared volume at: {file_path}")
+        logger.info("Chart generation complete")
+        return image_bytes
 
-    # Return the relative path that can be used by other services
-    return f"/shared/{filename}"
+    except Exception as e:
+        logger.error(f"Chart generation failed: {str(e)}", exc_info=True)
+        raise ValueError(f"Failed to generate chart: {str(e)}")
 
 
 if __name__ == "__main__":
-    # Set up console logging for script execution
+    # Set up console logging for direct script execution
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(
         logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     )
     root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
+    root_logger.setLevel(logging.DEBUG)  # Set to DEBUG for more detailed logging
     root_logger.addHandler(console_handler)
 
-    # Simple test to demonstrate functionality
-    import numpy as np
+    # Test with sample data
+    logger.info("Testing chart generator with sample data")
 
-    test_data = {
-        "date": pd.date_range(start="2023-01-01", periods=100),
-        "sales": np.random.normal(1000, 200, 100),
-        "customers": np.random.randint(50, 200, 100),
-        "category": np.random.choice(["A", "B", "C"], 100),
-    }
-    test_df = pd.DataFrame(test_data)
-    test_query = "Show me sales over time"
+    # Create sample DataFrame
+    df = pd.DataFrame(
+        {
+            "month": ["Jan", "Feb", "Mar", "Apr", "May", "Jun"] * 3,
+            "sales": np.random.randint(1000, 5000, 18),
+            "category": ["Electronics", "Clothing", "Home"] * 6,
+        }
+    )
 
-    logger.info(f"Testing with query: '{test_query}'")
+    # Test query
+    test_query = "Show me monthly sales as a bar chart"
+
     try:
-        image_url = generate_and_upload_chart(test_df, test_query)
-        print(f"Chart image URL: {image_url}")
+        image_bytes = generate_chart(df, test_query)
+        logger.info("Chart generated successfully")
+        print(
+            f"\nChart generated successfully, image bytes length: {len(image_bytes)}\n"
+        )
     except Exception as e:
-        logger.error(f"Error in test: {str(e)}", exc_info=True)
+        logger.error(f"Test failed: {str(e)}", exc_info=True)

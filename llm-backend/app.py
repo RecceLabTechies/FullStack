@@ -1,103 +1,166 @@
+"""
+LLM Backend API Application
+
+This Flask application provides a RESTful API for processing analytical queries
+using a pipeline of LLM-powered components. It serves as the entry point for HTTP
+requests and handles request validation, processing, and response formatting.
+
+The application exposes endpoints for:
+- Processing queries via the main pipeline
+- Health checking the application and its database connection
+
+The API is CORS-enabled for cross-origin requests and uses JSON for all request
+and response data.
+"""
+
+import base64
 from typing import Dict, Union
-from datetime import datetime
+
+from config import CORS_CONFIG, DEBUG, HOST, PORT
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from mypackage.d_report_generator import ReportResults
+from mypackage.utils.database import Database
+from mypackage.utils.logging_config import setup_logging
 from pipeline import main as run_pipeline
-from database.connection import Database, get_queries_collection, get_results_collection
-from config import CORS_CONFIG
 
+logger = setup_logging("llm_backend")
 app = Flask(__name__)
-CORS(app, resources={r"/*": CORS_CONFIG})
 
-# Initialize database connection
+CORS(app, **CORS_CONFIG)
 Database.initialize()
 
 
 @app.route("/api/query", methods=["POST"])
 def process_query():
     """
-    Endpoint to process queries through the pipeline
-    Expects a JSON body with format: {"query": "your query here"}
+    Process an analytical query submitted via POST request.
+
+    This endpoint accepts a JSON payload with a 'query' field containing the
+    user's analytical query. It validates the request format, processes the
+    query through the main pipeline, and returns the results.
+
+    Expected Request Format:
+        {
+            "query": "String containing the user's analytical question"
+        }
+
+    Response Format:
+        {
+            "output": {
+                "type": "chart|description|report|error",
+                "result": <base64-encoded bytes for charts, text, or error message>
+            },
+            "original_query": "The original query string"
+        }
+
+    Returns:
+        JSON response with results or error message
+        HTTP 400 for malformed requests
+        HTTP 500 for server-side errors
     """
+    # Validate that the request contains JSON
     if not request.is_json:
         return jsonify({"error": "Request must be JSON"}), 400
 
+    # Extract and validate the query field
     data = request.get_json()
     if "query" not in data:
         return jsonify({"error": "Query field is required"}), 400
 
     query = data["query"]
-    start_time = datetime.utcnow()
+    logger.info(f"Received query: '{query}'")
 
+    # Process the query through the pipeline
     try:
-        # Store query in database
-        query_doc = {
-            "timestamp": start_time,
-            "query_text": query,
-            "user_id": data.get("user_id", "anonymous"),
-            "status": "processing",
-            "processing_time": None,
-        }
-        query_result = get_queries_collection().insert_one(query_doc)
-        query_id = str(query_result.inserted_id)
+        result: Dict[str, Union[str, bytes, ReportResults]] = run_pipeline(query)
 
-        # Run the pipeline
-        result: Dict[str, Union[str, Dict[str, ReportResults]]] = run_pipeline(query)
-
-        # Calculate processing time
-        processing_time = (datetime.utcnow() - start_time).total_seconds()
-
-        # Store results in database
-        result_doc = {
-            "query_id": query_id,
-            "timestamp": datetime.utcnow(),
-            "output": result,
-            "original_query": query,
-            "metadata": {"processing_time": processing_time, "status": "success"},
-            "status": "completed",
-        }
-        get_results_collection().insert_one(result_doc)
-
-        # Update query status
-        get_queries_collection().update_one(
-            {"_id": query_result.inserted_id},
-            {"$set": {"status": "completed", "processing_time": processing_time}},
-        )
-
-        # Prepare response
-        response = {
-            "output": result,
-            "original_query": query,
-            "query_id": query_id,
-            "processing_time": processing_time,
-        }
-
-        return jsonify(response)
-
-    except Exception as e:
-        # Update query status to failed
-        if "query_result" in locals():
-            get_queries_collection().update_one(
-                {"_id": query_result.inserted_id},
-                {
-                    "$set": {
-                        "status": "failed",
-                        "processing_time": (
-                            datetime.utcnow() - start_time
-                        ).total_seconds(),
-                    }
-                },
+        # Base64 encode binary chart data for JSON compatibility
+        if result["type"] == "chart" and isinstance(result["result"], bytes):
+            logger.debug(
+                f"Encoding chart bytes ({len(result['result'])} bytes) to base64"
             )
+            result["result"] = base64.b64encode(result["result"]).decode("utf-8")
 
+        response = {"output": result, "original_query": query}
+        logger.info(f"Successfully processed query, result type: {result['type']}")
+        return jsonify(response)
+    except Exception as e:
+        logger.error(f"Error processing query: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/health", methods=["GET"])
 def health_check():
-    """Health check endpoint"""
-    return jsonify({"status": "healthy"}), 200
+    """
+    Perform a health check of the application and its dependencies.
+
+    This endpoint checks:
+    1. Database connection status
+    2. Availability of accessible collections
+
+    It returns a JSON response indicating whether the application is healthy
+    and can function properly.
+
+    Response Format:
+        {
+            "status": "ok|error",
+            "message": "Descriptive status message",
+            "healthy": true|false,
+            "collections_count": <number of accessible collections> (if healthy)
+        }
+
+    Returns:
+        JSON response with health status
+        HTTP 200 if healthy
+        HTTP 503 if service is unavailable or unhealthy
+    """
+    # Check database connection
+    if Database.db is None:
+        success = Database.initialize()
+        if not success:
+            logger.error("Health check failed: Database connection failed")
+            return (
+                jsonify(
+                    {
+                        "status": "error",
+                        "message": "Database connection failed",
+                        "healthy": False,
+                    }
+                ),
+                503,
+            )
+
+    # Check for accessible collections
+    collections = Database.list_collections()
+    if not collections:
+        logger.error("Health check failed: No accessible collections found")
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "message": "No accessible collections found",
+                    "healthy": False,
+                }
+            ),
+            503,
+        )
+
+    # All checks passed
+    logger.info(f"Health check successful: {len(collections)} collections available")
+    return (
+        jsonify(
+            {
+                "status": "ok",
+                "message": "Database is healthy and collections exist",
+                "healthy": True,
+                "collections_count": len(collections),
+            }
+        ),
+        200,
+    )
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5152)
+    logger.info(f"Starting Flask application on {HOST}:{PORT} (debug={DEBUG})")
+    app.run(debug=DEBUG, host=HOST, port=PORT)

@@ -1,15 +1,17 @@
 import logging
+
 from flask import Blueprint, jsonify, request
-from marshmallow import Schema, fields, ValidationError, validate, EXCLUDE
+from marshmallow import EXCLUDE, Schema, ValidationError, fields, validate
+
+from app.data_types import UserData
 from app.services.user_service import (
+    add_user,
+    delete_user,
     get_all_users,
     get_user_by_username,
-    add_user,
-    update_user,
-    delete_user,
     patch_user,
+    update_user,
 )
-from app.data_types import UserData
 
 # Create blueprint
 user_bp = Blueprint("user_routes", __name__)

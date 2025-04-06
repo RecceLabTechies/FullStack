@@ -1,86 +1,81 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import { Info, PlayCircle } from 'lucide-react';
+import { useProphetPredictionsContext } from '@/context/prophet-predictions-context';
+import { Crown, Info, Loader2, Play } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardTitle } from '@/components/ui/card';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { Slider } from '@/components/ui/slider';
 
 import { useProphetPipelineStatus, useProphetPipelineTrigger } from '@/hooks/use-backend-api';
 
-export function CardMLTrigger() {
+export function MLTriggerCard() {
+  const [forecastMonths, setForecastMonths] = useState(4);
+  const { fetchPredictions } = useProphetPredictionsContext();
+  const lastProcessedTimestamp = useRef<number | null>(null);
+
   const {
     data: statusData,
     error: statusError,
     isLoading: isStatusLoading,
     checkStatus,
   } = useProphetPipelineStatus();
+
   const {
     error: triggerError,
     isLoading: isTriggerLoading,
     triggerPipeline,
   } = useProphetPipelineTrigger();
 
-  // Function to handle pipeline trigger
   const handleTriggerPipeline = async () => {
-    await triggerPipeline();
-    // Immediately check status after triggering
-    await checkStatus();
+    try {
+      lastProcessedTimestamp.current = null;
+      await triggerPipeline(forecastMonths);
+      toast.info(
+        `Prophet ML prediction started for ${forecastMonths} month${forecastMonths > 1 ? 's' : ''}`
+      );
+      await checkStatus();
+    } catch (error) {
+      console.error('Failed to trigger pipeline:', error);
+      toast.error(
+        `Failed to trigger ML prediction: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
   };
 
-  // Effect for polling status when needed
   useEffect(() => {
-    // Check status immediately on mount
-    void checkStatus();
+    let intervalId: NodeJS.Timeout;
 
-    // Set up polling if status is in_progress or started
-    if (statusData?.status === 'in_progress' || statusData?.status === 'started') {
-      const intervalId = setInterval(() => {
+    if (statusData?.is_running) {
+      intervalId = setInterval(() => {
         void checkStatus();
-      }, 5000); // Poll every 5 seconds
-
-      // Cleanup interval on unmount or when polling should stop
-      return () => clearInterval(intervalId);
-    }
-  }, [checkStatus, statusData?.status]); // Only depend on the status value
-
-  // Determine status display
-  const getStatusDisplay = () => {
-    if (isStatusLoading) {
-      return <p className="text-muted-foreground">Checking status...</p>;
+      }, 2000); // Check status every 2 seconds
     }
 
-    if (statusError) {
-      return <p className="text-destructive">Error checking status</p>;
+    if (statusData?.last_prediction?.status === 'completed') {
+      const currentTimestamp = statusData.last_prediction.timestamp;
+      if (lastProcessedTimestamp.current !== currentTimestamp) {
+        console.log('MLTriggerCard: Prediction completed, fetching new predictions');
+        lastProcessedTimestamp.current = currentTimestamp;
+        toast.success('Prophet ML prediction completed successfully!');
+        void fetchPredictions();
+      }
     }
 
-    if (!statusData) {
-      return <p className="text-muted-foreground">No status available</p>;
-    }
-
-    switch (statusData.status) {
-      case 'in_progress':
-        return <p className="text-blue-500">Prediction in progress...</p>;
-      case 'started':
-        return <p className="text-blue-500">Starting prediction...</p>;
-      case 'success':
-        return <p className="text-green-500">Prediction completed</p>;
-      case 'error':
-        return <p className="text-destructive">Error: {statusData.message}</p>;
-      case 'idle':
-        return <p className="text-muted-foreground">Ready to start prediction</p>;
-      default:
-        return <p className="text-muted-foreground">Unknown status</p>;
-    }
-  };
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [checkStatus, statusData?.is_running, statusData?.last_prediction, fetchPredictions]);
 
   return (
-    <Card>
+    <Card className="col-span-2">
       <CardContent className="pt-6 flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="rounded-full bg-secondary p-3">
-              <PlayCircle className="h-6 w-6" />
+              <Crown size={24} />
             </div>
             <CardTitle>Prophet ML</CardTitle>
           </div>
@@ -101,28 +96,66 @@ export function CardMLTrigger() {
             </HoverCardContent>
           </HoverCard>
         </div>
-        <div className="flex flex-col gap-2 ">
-          <div className="text-sm text-muted-foreground mt-1">{getStatusDisplay()}</div>
-          <Button
-            onClick={handleTriggerPipeline}
-            disabled={
-              isTriggerLoading ||
-              isStatusLoading ||
-              statusData?.status === 'in_progress' ||
-              statusData?.status === 'started'
-            }
-          >
-            <PlayCircle className="mr-2 h-4 w-4" />
-            Run Prediction
-          </Button>
-
-          {triggerError && (
-            <div className="text-sm text-destructive">
-              Error triggering pipeline: {triggerError.message}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Forecast duration: {forecastMonths} month{forecastMonths > 1 ? 's' : ''}
             </div>
-          )}
+            <HoverCard>
+              <HoverCardTrigger asChild>
+                <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+              </HoverCardTrigger>
+              <HoverCardContent className="w-80">
+                <p className="text-sm text-muted-foreground">
+                  Select how many months into the future you want the prediction to forecast. Longer
+                  ranges may take more time to calculate.
+                </p>
+              </HoverCardContent>
+            </HoverCard>
+          </div>
+          <Slider
+            min={1}
+            max={12}
+            step={1}
+            value={[forecastMonths]}
+            onValueChange={(value) => setForecastMonths(value[0] ?? 4)}
+          />
         </div>
       </CardContent>
+      <CardFooter>
+        <Button
+          onClick={handleTriggerPipeline}
+          disabled={isTriggerLoading || isStatusLoading || statusData?.is_running}
+        >
+          {isTriggerLoading ? (
+            <>
+              <Play size={16} className="mr-2" />
+              <p>Starting...</p>
+            </>
+          ) : isStatusLoading ? (
+            <>
+              <Loader2 size={16} className="mr-2 animate-spin" />
+              <p>Checking...</p>
+            </>
+          ) : statusData?.is_running ? (
+            <>
+              <Loader2 size={16} className="mr-2 animate-spin" />
+              <p>Running...</p>
+            </>
+          ) : (
+            <>
+              <Play size={16} className="mr-2" />
+              <p>Run Prediction</p>
+            </>
+          )}
+        </Button>
+
+        {triggerError && (
+          <p className="text-sm text-destructive">
+            Error triggering pipeline: {triggerError.message}
+          </p>
+        )}
+      </CardFooter>
     </Card>
   );
 }

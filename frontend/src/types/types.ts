@@ -2,6 +2,7 @@
  * This module contains all TypeScript type definitions used throughout the application.
  * It includes interfaces for user management, campaign data, analytics, and API responses.
  */
+import { type ReactNode } from 'react';
 
 /**
  * User Management Types
@@ -425,7 +426,108 @@ export interface MonthlyCountryData extends MonthlyBreakdownBase {
  */
 export interface ProphetPipelineResponse {
   /** Current pipeline status */
-  status: 'started' | 'in_progress' | 'success' | 'error' | 'idle';
+  status: 'started' | 'in_progress' | 'success' | 'error' | 'idle' | 'skipped' | 'lock_failed';
   /** Status message */
   message: string;
+  /** Whether prediction is currently running */
+  is_running?: boolean;
+  /** Information about the last prediction run */
+  last_prediction?: {
+    /** Number of months that were forecast */
+    forecast_months: number;
+    /** Timestamp of when the prediction was run */
+    timestamp: number;
+    /** Status of the last prediction run */
+    status:
+      | 'not_run'
+      | 'starting'
+      | 'running'
+      | 'completed'
+      | 'failed'
+      | 'error'
+      | 'skipped'
+      | 'lock_failed'
+      | 'success';
+  };
+}
+
+/**
+ * LLM API Types
+ */
+
+/**
+ * Request object for LLM query API
+ */
+export interface QueryRequest {
+  /** The natural language query string */
+  query: string;
+}
+
+/**
+ * Response types for different query classifications
+ */
+export type QueryResultType = 'chart' | 'description' | 'report' | 'error' | 'unknown';
+
+/**
+ * Report results returned from the API
+ */
+interface ReportResults {
+  /** Array of results that can be either text descriptions or base64-encoded chart data */
+  results: Array<string>;
+}
+
+/**
+ * Processed query result for frontend display
+ */
+export interface ProcessedQueryResult {
+  /** The type of result */
+  type: QueryResultType;
+  /** The processed content ready for display */
+  content: string | Array<string | ReactNode> | null;
+  /** The original query that was sent */
+  originalQuery: string;
+}
+
+/**
+ * Response from the LLM query API
+ */
+export interface QueryResponse {
+  /** The query output with type and result */
+  output: {
+    /** Type of result returned */
+    type: QueryResultType;
+    /** The actual result data, varies based on type */
+    result: string | ReportResults;
+  };
+  /** The original query that was sent */
+  original_query: string;
+}
+
+/**
+ * Response from the LLM API health check
+ */
+export interface HealthResponse {
+  /** Status message */
+  status: 'ok' | 'error';
+  /** Detailed message about the health status */
+  message: string;
+  /** Whether the API is healthy */
+  healthy: boolean;
+  /** Number of available collections (only if healthy) */
+  collections_count?: number;
+}
+
+/**
+ * Database List Response
+ */
+export interface DatabaseListResponse {
+  databases: string[];
+}
+
+/**
+ * Database Delete Response
+ */
+export interface DatabaseDeleteResponse {
+  message: string;
+  database: string;
 }

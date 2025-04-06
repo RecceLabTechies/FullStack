@@ -1,4 +1,5 @@
 import logging
+
 from app.database.connection import get_users_collection
 
 logger = logging.getLogger(__name__)

@@ -1,187 +1,334 @@
 #!/usr/bin/env python
-import json
+"""
+Test module for generate_analysis_queries.py
+
+This module contains unit tests for the analysis queries generation functionality.
+"""
+
 import unittest
-from pathlib import Path
+from unittest.mock import patch, MagicMock, ANY
+import logging
 
 from mypackage.d_report_generator.generate_analysis_queries import (
     QueryType,
-    _extract_headers,
-    _format_schemas_for_prompt,
+    QueryItem,
+    QueryList,
+    _analyze_collections,
+    _format_collections_for_prompt,
     _parse_llm_response,
-    _recursive_json_schema_extractor,
     generate_analysis_queries,
 )
 
 
 class TestGenerateAnalysisQueries(unittest.TestCase):
+    """Test cases for the generate_analysis_queries module."""
+
     def setUp(self):
-        """Set up test data and create temporary test files."""
-        # Create a temporary test directory
-        self.test_dir = Path("test_data")
-        self.test_dir.mkdir(exist_ok=True)
-
-        # Create test JSON files with different structures
-        self.sales_data = {
-            "date": "2023-01-01",
-            "amount": 1000,
-            "customer_id": "C001",
-            "product": "Product A",
+        """Set up test data."""
+        # Sample collection info for testing
+        self.test_collections_info = {
+            "campaign_performance": {
+                "date": {
+                    "type": "datetime",
+                    "stats": {"min": "2023-01-01", "max": "2023-12-31"},
+                },
+                "channel": {
+                    "type": "categorical",
+                    "stats": {
+                        "unique_values": [
+                            "Facebook",
+                            "Google",
+                            "LinkedIn",
+                            "Twitter",
+                            "Email",
+                        ]
+                    },
+                },
+                "leads": {
+                    "type": "numerical",
+                    "stats": {"min": 0, "max": 500, "mean": 120.5},
+                },
+                "revenue": {
+                    "type": "numerical",
+                    "stats": {"min": 0, "max": 50000, "mean": 12500.75},
+                },
+            },
+            "customer_data": {
+                "customer_id": {
+                    "type": "categorical",
+                    "stats": {"unique_values": ["C001", "C002", "C003", "..."]},
+                },
+                "signup_date": {
+                    "type": "datetime",
+                    "stats": {"min": "2022-01-01", "max": "2023-12-31"},
+                },
+                "country": {
+                    "type": "categorical",
+                    "stats": {
+                        "unique_values": [
+                            "USA",
+                            "Canada",
+                            "UK",
+                            "Germany",
+                            "France",
+                            "...",
+                        ]
+                    },
+                },
+                "lifetime_value": {
+                    "type": "numerical",
+                    "stats": {"min": 0, "max": 25000, "mean": 2750.50},
+                },
+            },
         }
-        self.customer_data = [
-            {"id": "C001", "name": "John Doe", "age": 30, "city": "New York"},
-            {"id": "C002", "name": "Jane Smith", "age": 25, "city": "Los Angeles"},
-        ]
-        self.inventory_data = {
-            "products": [
-                {"id": "P001", "name": "Product A", "stock": 100, "price": 50},
-                {"id": "P002", "name": "Product B", "stock": 200, "price": 75},
-            ]
-        }
 
-        # Write test files
-        with open(self.test_dir / "sales.json", "w") as f:
-            json.dump(self.sales_data, f)
-        with open(self.test_dir / "customers.json", "w") as f:
-            json.dump(self.customer_data, f)
-        with open(self.test_dir / "inventory.json", "w") as f:
-            json.dump(self.inventory_data, f)
+        # Sample LLM response
+        self.test_llm_response = """
+Generate a chart of leads by channel | campaign_performance
+Generate a description of revenue trends over time | campaign_performance
+Generate a chart of customer lifetime value by country | customer_data
+"""
 
-    def tearDown(self):
-        """Clean up test files."""
-        # Remove test files
-        for file in self.test_dir.glob("*.json"):
-            file.unlink()
-        # Remove test directory
-        self.test_dir.rmdir()
+    @patch("mypackage.d_report_generator.generate_analysis_queries.Database")
+    def test_analyze_collections(self, mock_database):
+        """Test collection analysis functionality."""
+        # Set up mock database
+        mock_database.db = MagicMock()
+        mock_database.analyze_collections.return_value = self.test_collections_info
 
-    def test_extract_headers(self):
-        """Test header extraction from JSON files."""
-        test_cases = [
-            ("sales.json", ["date", "amount", "customer_id", "product"]),
-            ("customers.json", ["id", "name", "age", "city"]),
-            ("inventory.json", ["products"]),
-        ]
+        # Test successful analysis
+        result = _analyze_collections()
 
-        for file_name, expected_headers in test_cases:
-            with self.subTest(file_name=file_name):
-                file_path = self.test_dir / file_name
-                headers = _extract_headers(str(file_path))
-                self.assertEqual(set(headers), set(expected_headers))
+        # Verify the result
+        self.assertEqual(result, self.test_collections_info)
+        mock_database.analyze_collections.assert_called_once()
 
-    def test_extract_headers_invalid_file(self):
-        """Test header extraction from invalid files."""
-        # Test non-existent file
-        with self.assertRaises(FileNotFoundError):
-            _extract_headers("nonexistent.json")
+        # Test with database initialization
+        mock_database.db = None
+        mock_database.initialize.return_value = True
 
-        # Test invalid JSON file
-        invalid_json_path = self.test_dir / "invalid.json"
-        with open(invalid_json_path, "w") as f:
-            f.write("invalid json content")
-        with self.assertRaises(json.JSONDecodeError):
-            _extract_headers(str(invalid_json_path))
+        result = _analyze_collections()
 
-    def test_recursive_json_schema_extractor(self):
-        """Test recursive schema extraction from directory."""
-        # Create a subdirectory with additional JSON file
-        subdir = self.test_dir / "subdir"
-        subdir.mkdir()
-        with open(subdir / "subdata.json", "w") as f:
-            json.dump({"key": "value"}, f)
+        # Verify the result
+        self.assertEqual(result, self.test_collections_info)
+        mock_database.initialize.assert_called_once()
 
-        schemas = _recursive_json_schema_extractor(str(self.test_dir))
+        # Test with database error
+        mock_database.analyze_collections.side_effect = Exception("Database error")
 
-        # Check that all JSON files are included
-        self.assertEqual(len(schemas), 4)  # 3 in root + 1 in subdir
-        self.assertIn(str(self.test_dir / "sales.json"), schemas)
-        self.assertIn(str(self.test_dir / "customers.json"), schemas)
-        self.assertIn(str(self.test_dir / "inventory.json"), schemas)
-        self.assertIn(str(subdir / "subdata.json"), schemas)
+        with self.assertRaises(Exception):
+            _analyze_collections()
 
-    def test_format_schemas_for_prompt(self):
-        """Test schema formatting for prompt."""
-        schemas = {
-            "sales.json": ["date", "amount", "customer_id"],
-            "customers.json": ["id", "name", "age"],
-        }
-        formatted = _format_schemas_for_prompt(schemas)
+    def test_format_collections_for_prompt(self):
+        """Test formatting collections for LLM prompt."""
+        formatted = _format_collections_for_prompt(self.test_collections_info)
 
-        # Check format
-        self.assertIn("sales.json: [date, amount, customer_id]", formatted)
-        self.assertIn("customers.json: [id, name, age]", formatted)
+        # Check that the formatted string contains key information
+        self.assertIn("campaign_performance:", formatted)
+        self.assertIn("customer_data:", formatted)
+
+        # Check field formatting
+        self.assertIn("date (datetime, range:", formatted)
+        self.assertIn(
+            "channel (categorical, values: Facebook, Google, LinkedIn, Twitter, Email)",
+            formatted,
+        )
+        self.assertIn("leads (numerical, range: 0 to 500)", formatted)
+
+        # Check truncation of long lists
+        self.assertIn("...", formatted)
+
+        # Test with empty collections
+        empty_formatted = _format_collections_for_prompt({})
+        self.assertEqual(empty_formatted, "")
 
     def test_parse_llm_response(self):
-        """Test parsing of LLM response."""
-        test_responses = [
-            """Generate a chart of sales over time | sales.json
-Generate a description of customer demographics | customers.json
-Generate a chart of inventory levels | inventory.json""",
-            """Generate a description of sales trends | sales.json
-Generate a chart of customer age distribution | customers.json""",
+        """Test parsing LLM response into structured queries."""
+        # Test with valid response
+        result = _parse_llm_response(self.test_llm_response)
+
+        # Verify the result
+        self.assertIsInstance(result, QueryList)
+        self.assertEqual(len(result.queries), 3)
+
+        # Check first query
+        self.assertEqual(
+            result.queries[0].query, "Generate a chart of leads by channel"
+        )
+        self.assertEqual(result.queries[0].query_type, QueryType.CHART)
+        self.assertEqual(result.queries[0].collection_name, "campaign_performance")
+
+        # Check second query
+        self.assertEqual(
+            result.queries[1].query,
+            "Generate a description of revenue trends over time",
+        )
+        self.assertEqual(result.queries[1].query_type, QueryType.DESCRIPTION)
+        self.assertEqual(result.queries[1].collection_name, "campaign_performance")
+
+        # Test with response object that has content attribute
+        mock_response = MagicMock()
+        mock_response.content = self.test_llm_response
+
+        result = _parse_llm_response(mock_response)
+        self.assertEqual(len(result.queries), 3)
+
+        # Test with invalid format (missing separator)
+        invalid_response = """
+Generate a chart of leads by channel for campaign_performance
+Generate a description of revenue trends
+Invalid line
+"""
+        with patch(
+            "mypackage.d_report_generator.generate_analysis_queries.is_collection_accessible",
+            return_value=True,
+        ):
+            result = _parse_llm_response(invalid_response)
+            self.assertEqual(len(result.queries), 0)
+
+        # Test with duplicate queries
+        duplicate_response = """
+Generate a chart of leads by channel | campaign_performance
+Generate a chart of leads by channel | campaign_performance
+Generate a description of revenue trends | campaign_performance
+"""
+        with patch(
+            "mypackage.d_report_generator.generate_analysis_queries.is_collection_accessible",
+            return_value=True,
+        ):
+            result = _parse_llm_response(duplicate_response)
+            self.assertEqual(len(result.queries), 2)  # Should deduplicate
+
+        # Test with inaccessible collection
+        with patch(
+            "mypackage.d_report_generator.generate_analysis_queries.is_collection_accessible",
+            return_value=False,
+        ):
+            result = _parse_llm_response(self.test_llm_response)
+            self.assertEqual(len(result.queries), 0)  # All collections inaccessible
+
+    @patch(
+        "mypackage.d_report_generator.generate_analysis_queries._analyze_collections"
+    )
+    @patch("mypackage.d_report_generator.generate_analysis_queries.get_groq_llm")
+    def test_generate_analysis_queries(
+        self, mock_get_groq_llm, mock_analyze_collections
+    ):
+        """Test the main generate_analysis_queries function."""
+        # Set up mocks
+        mock_analyze_collections.return_value = self.test_collections_info
+
+        # Set up mock LLM
+        mock_llm = MagicMock()
+        mock_get_groq_llm.return_value = mock_llm
+        mock_chain = MagicMock()
+        mock_llm.__or__.return_value = mock_chain
+        mock_chain.__or__.return_value = mock_chain
+
+        # Mock the chain invoke to return a QueryList
+        expected_result = QueryList(
+            queries=[
+                QueryItem(
+                    query="Generate a chart of leads by channel",
+                    query_type=QueryType.CHART,
+                    collection_name="campaign_performance",
+                ),
+                QueryItem(
+                    query="Generate a description of revenue trends over time",
+                    query_type=QueryType.DESCRIPTION,
+                    collection_name="campaign_performance",
+                ),
+            ]
+        )
+        mock_chain.invoke.return_value = expected_result
+
+        # Test successful query generation
+        result = generate_analysis_queries(
+            "What is the performance of our marketing campaigns?"
+        )
+
+        # Verify the result
+        self.assertEqual(result, expected_result)
+
+        # Verify all the mocks were called correctly
+        mock_analyze_collections.assert_called_once()
+        mock_get_groq_llm.assert_called_once()
+        mock_chain.invoke.assert_called_once()
+
+        # Test with empty user query
+        with self.assertRaises(ValueError):
+            generate_analysis_queries("")
+
+        # Test with no collections
+        mock_analyze_collections.return_value = {}
+
+        with self.assertRaises(ValueError):
+            generate_analysis_queries(
+                "What is the performance of our marketing campaigns?"
+            )
+
+        # Test with LLM error
+        mock_analyze_collections.return_value = self.test_collections_info
+        mock_chain.invoke.side_effect = Exception("LLM error")
+
+        with self.assertRaises(ValueError):
+            generate_analysis_queries(
+                "What is the performance of our marketing campaigns?"
+            )
+
+    def test_query_type_enum(self):
+        """Test the QueryType enum."""
+        self.assertEqual(QueryType.CHART.value, "chart")
+        self.assertEqual(QueryType.DESCRIPTION.value, "description")
+
+        # Test string comparison
+        self.assertEqual(QueryType.CHART, QueryType("chart"))
+        self.assertEqual(QueryType.DESCRIPTION, QueryType("description"))
+
+    def test_query_item_model(self):
+        """Test the QueryItem pydantic model."""
+        # Test valid creation
+        item = QueryItem(
+            query="Generate a chart of leads by channel",
+            query_type=QueryType.CHART,
+            collection_name="campaign_performance",
+        )
+
+        self.assertEqual(item.query, "Generate a chart of leads by channel")
+        self.assertEqual(item.query_type, QueryType.CHART)
+        self.assertEqual(item.collection_name, "campaign_performance")
+
+        # Test with string for query_type
+        item = QueryItem(
+            query="Generate a chart of leads by channel",
+            query_type="chart",
+            collection_name="campaign_performance",
+        )
+
+        self.assertEqual(item.query_type, QueryType.CHART)
+
+    def test_query_list_model(self):
+        """Test the QueryList pydantic model."""
+        # Test valid creation
+        items = [
+            QueryItem(
+                query="Generate a chart of leads by channel",
+                query_type=QueryType.CHART,
+                collection_name="campaign_performance",
+            ),
+            QueryItem(
+                query="Generate a description of revenue trends",
+                query_type=QueryType.DESCRIPTION,
+                collection_name="campaign_performance",
+            ),
         ]
 
-        for response in test_responses:
-            with self.subTest(response=response):
-                result = _parse_llm_response(response)
-                self.assertIsNotNone(result)
-                self.assertTrue(len(result.queries) > 0)
+        query_list = QueryList(queries=items)
 
-                # Check query types
-                for query in result.queries:
-                    self.assertIn(
-                        query.query_type, [QueryType.CHART, QueryType.DESCRIPTION]
-                    )
-                    self.assertTrue(query.file_name.endswith(".json"))
-
-    def test_parse_llm_response_invalid(self):
-        """Test parsing of invalid LLM responses."""
-        invalid_responses = [
-            "",  # Empty response
-            "Invalid format",  # Missing separator
-            "Generate a chart of sales |",  # Missing file name
-            "Invalid type of sales | sales.json",  # Invalid query type
-        ]
-
-        for response in invalid_responses:
-            with self.subTest(response=response):
-                result = _parse_llm_response(response)
-                self.assertEqual(len(result.queries), 0)
-
-    def test_generate_analysis_queries(self):
-        """Test generation of analysis queries."""
-        test_queries = [
-            "What is the average sales amount?",
-            "Show customer demographics",
-            "Analyze inventory levels",
-        ]
-
-        for query in test_queries:
-            with self.subTest(query=query):
-                result = generate_analysis_queries(query)
-                self.assertIsNotNone(result)
-                self.assertTrue(len(result.queries) > 0)
-
-                # Check query structure
-                for query_item in result.queries:
-                    self.assertIsInstance(query_item.query, str)
-                    self.assertIn(
-                        query_item.query_type, [QueryType.CHART, QueryType.DESCRIPTION]
-                    )
-                    self.assertTrue(query_item.file_name.endswith(".json"))
-
-    def test_generate_analysis_queries_invalid(self):
-        """Test handling of invalid queries."""
-        invalid_queries = [
-            "",  # Empty query
-            "   ",  # Whitespace only
-            None,  # None value
-        ]
-
-        for query in invalid_queries:
-            with self.subTest(query=query):
-                with self.assertRaises(ValueError):
-                    generate_analysis_queries(query)
+        self.assertEqual(len(query_list.queries), 2)
+        self.assertEqual(query_list.queries[0].query_type, QueryType.CHART)
+        self.assertEqual(query_list.queries[1].query_type, QueryType.DESCRIPTION)
 
 
 if __name__ == "__main__":
-    unittest.main(verbosity=2)
+    unittest.main()

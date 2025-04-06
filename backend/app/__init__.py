@@ -1,11 +1,13 @@
 import os
+
 from flask import Flask
 from flask_cors import CORS
-from app.utils.logging_config import setup_logging
+
+from app.config import CORS_CONFIG, MAX_CONTENT_LENGTH
 from app.database.connection import Database
-from app.routes.user_routes import user_bp
 from app.routes.data_routes import data_bp
-from app.config import MAX_CONTENT_LENGTH, CORS_CONFIG
+from app.routes.user_routes import user_bp
+from app.utils.logging_config import setup_logging
 
 logger = setup_logging()
 

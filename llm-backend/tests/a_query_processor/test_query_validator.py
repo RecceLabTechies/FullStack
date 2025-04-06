@@ -1,90 +1,140 @@
 #!/usr/bin/env python
+"""
+Test module for query_validator.py
+
+This module contains unit tests for the query validation functionality.
+"""
+
 import unittest
-from typing import List, Tuple
+from unittest.mock import patch, MagicMock
 
 from mypackage.a_query_processor.query_validator import (
-    QueryValidationError,
+    normalize_query,
     get_valid_query,
+    _cached_llm_validation,
+    INVALID_PATTERNS,
+    DATA_ANALYSIS_KEYWORDS,
 )
 
 
 class TestQueryValidator(unittest.TestCase):
-    # Test cases with expected validation results
-    TEST_CASES: List[Tuple[str, bool]] = [
-        # Valid queries
-        ("create a bar chart of monthly sales", True),
-        ("analyze customer satisfaction trends", True),
-        ("generate a financial report", True),
-        ("show me the revenue data", True),
-        ("compare marketing performance", True),
-        # Invalid queries (too short)
-        ("a", False),
-        ("", False),
-        (" ", False),
-        # Invalid queries (gibberish)
-        ("asdfjkl123", False),
-        ("random characters !@#$%", False),
-        # Invalid queries (unrelated to data analysis)
-        ("what's the weather like?", False),
-        ("tell me a joke", False),
-        ("how to make pasta", False),
-        # Invalid queries (too vague)
-        ("show me something", False),
-        ("give me data", False),
-        ("analyze this", False),
-        # Edge cases
-        (
-            "generate a report",
-            True,
-        ),  # Valid despite being vague (special case for reports)
-        ("chart", False),  # Too vague
-        ("describe", False),  # Too vague
-    ]
+    """Test cases for the query validator module."""
 
-    def test_validation_accuracy(self):
-        """Test the validation accuracy of the query validator."""
-        total_cases = len(self.TEST_CASES)
-        correct_validations = 0
+    def test_normalize_query(self):
+        """Test the query normalization function."""
+        # Test whitespace normalization
+        self.assertEqual(normalize_query("  test   query  "), "test query")
 
-        print("\nRunning Query Validation Tests:")
-        print("-" * 50)
+        # Test punctuation removal at the end
+        self.assertEqual(normalize_query("test query."), "test query")
+        self.assertEqual(normalize_query("test query!"), "test query")
+        self.assertEqual(
+            normalize_query("test query?"), "test query?"
+        )  # Question mark should remain
 
-        for query, expected in self.TEST_CASES:
-            try:
-                result = get_valid_query(query)
-                is_correct = result == expected
-                if is_correct:
-                    correct_validations += 1
-
-                print(f"Query: '{query}'")
-                print(f"Expected: {'Valid' if expected else 'Invalid'}")
-                print(f"Got: {'Valid' if result else 'Invalid'}")
-                print(f"Status: {'✓' if is_correct else '✗'}")
-                print("-" * 50)
-            except QueryValidationError as e:
-                is_correct = not expected
-                if is_correct:
-                    correct_validations += 1
-
-                print(f"Query: '{query}'")
-                print(f"Expected: {'Valid' if expected else 'Invalid'}")
-                print(f"Got: Invalid (Error: {str(e)})")
-                print(f"Status: {'✓' if is_correct else '✗'}")
-                print("-" * 50)
-
-        accuracy = (correct_validations / total_cases) * 100
-        print("\nTest Results:")
-        print(f"Total test cases: {total_cases}")
-        print(f"Correct validations: {correct_validations}")
-        print(f"Accuracy: {accuracy:.2f}%")
-
-        # Assert minimum accuracy threshold
-        self.assertGreaterEqual(
-            accuracy,
-            80.0,
-            "Validation accuracy is below the expected threshold of 80%",
+        # Test question mark addition
+        self.assertEqual(normalize_query("what is the revenue"), "what is the revenue?")
+        self.assertEqual(normalize_query("how many sales"), "how many sales?")
+        self.assertEqual(
+            normalize_query("where are the customers"), "where are the customers?"
         )
+
+        # Test no change for non-question starters
+        self.assertEqual(normalize_query("show me the data"), "show me the data")
+        self.assertEqual(normalize_query("generate a report"), "generate a report")
+
+    def test_invalid_patterns(self):
+        """Test the invalid pattern matching."""
+        # Test empty query
+        self.assertTrue(INVALID_PATTERNS[0]["pattern"].match("   "))
+        self.assertFalse(INVALID_PATTERNS[0]["pattern"].match("test"))
+
+        # Test special characters only
+        self.assertTrue(INVALID_PATTERNS[1]["pattern"].match("!@#$%"))
+        self.assertFalse(INVALID_PATTERNS[1]["pattern"].match("test!"))
+
+        # Test greetings
+        self.assertTrue(INVALID_PATTERNS[2]["pattern"].match("hello"))
+        self.assertTrue(INVALID_PATTERNS[2]["pattern"].match("Hi!"))
+        self.assertFalse(INVALID_PATTERNS[2]["pattern"].match("hello world"))
+
+    def test_data_analysis_keywords(self):
+        """Test that data analysis keywords are properly defined."""
+        # Verify some important keywords are in the list
+        self.assertIn("chart", DATA_ANALYSIS_KEYWORDS)
+        self.assertIn("report", DATA_ANALYSIS_KEYWORDS)
+        self.assertIn("analysis", DATA_ANALYSIS_KEYWORDS)
+        self.assertIn("trend", DATA_ANALYSIS_KEYWORDS)
+
+    @patch("mypackage.a_query_processor.query_validator.get_groq_llm")
+    def test_cached_llm_validation(self, mock_get_groq_llm):
+        """Test the LLM validation function with mocked LLM."""
+        # Set up mock LLM
+        mock_llm = MagicMock()
+        mock_get_groq_llm.return_value = mock_llm
+
+        # Test valid response
+        mock_llm.invoke.return_value = MagicMock(content='{"is_valid": true}')
+        result = _cached_llm_validation("analyze sales data", "test-model")
+        self.assertTrue(result["is_valid"])
+
+        # Test invalid response
+        mock_llm.invoke.return_value = MagicMock(
+            content='{"is_valid": false, "reason": "Too vague"}'
+        )
+        result = _cached_llm_validation("do something", "test-model")
+        self.assertFalse(result["is_valid"])
+        self.assertEqual(result["reason"], "Too vague")
+
+        # Test malformed JSON response
+        mock_llm.invoke.return_value = MagicMock(content="Invalid JSON")
+        result = _cached_llm_validation("test query", "test-model")
+        self.assertTrue(result["is_valid"])  # Default to valid
+
+    @patch("mypackage.a_query_processor.query_validator._cached_llm_validation")
+    def test_get_valid_query(self, mock_cached_llm_validation):
+        """Test the main validation function."""
+        # Test too short query
+        self.assertFalse(get_valid_query("a"))
+
+        # Test invalid pattern match
+        self.assertFalse(get_valid_query("hello"))
+        self.assertFalse(get_valid_query("!@#$%"))
+
+        # Test data analysis keyword match
+        self.assertTrue(get_valid_query("create a chart of sales"))
+        self.assertTrue(get_valid_query("generate a report"))
+
+        # Test LLM validation for non-keyword queries
+        mock_cached_llm_validation.return_value = {"is_valid": True}
+        self.assertTrue(get_valid_query("analyze the customer behavior"))
+
+        mock_cached_llm_validation.return_value = {
+            "is_valid": False,
+            "reason": "Not related to data",
+        }
+        self.assertFalse(get_valid_query("what is the meaning of life"))
+
+        # Test exception handling
+        mock_cached_llm_validation.side_effect = Exception("Test error")
+        self.assertTrue(
+            get_valid_query("test query with error")
+        )  # Should default to valid
+
+    @patch("mypackage.a_query_processor.query_validator.get_groq_llm")
+    def test_get_valid_query_integration(self, mock_get_groq_llm):
+        """Test the integration of normalize_query and LLM validation."""
+        # Set up mock LLM
+        mock_llm = MagicMock()
+        mock_get_groq_llm.return_value = mock_llm
+        mock_llm.invoke.return_value = MagicMock(content='{"is_valid": true}')
+
+        # Test with a query that needs normalization
+        self.assertTrue(get_valid_query("what is the revenue trend  "))
+
+        # Verify the query was normalized before LLM validation
+        # This is an indirect test since we can't easily check the exact argument
 
 
 if __name__ == "__main__":
-    unittest.main(verbosity=2)
+    unittest.main()

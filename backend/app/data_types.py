@@ -1,13 +1,6 @@
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import (
-    Any,
-    Callable,
-    ClassVar,
-    Dict,
-    get_type_hints,
-    Union,
-)
+from typing import Any, Callable, ClassVar, Dict, Union, get_type_hints
 
 
 class DataTypeConverter:

@@ -1,6 +1,6 @@
 /**
  * This module provides React hooks for interacting with the backend API.
- * It includes hooks for managing users, campaigns, analytics, and data processing.
+ * It incudes hooks for managing users, campaigns, analytics, and data processing.
  * Each hook handles its own state management and error handling.
  */
 import { useCallback, useState } from 'react';
@@ -12,6 +12,7 @@ import {
   type ChannelContributionData,
   type CostMetricsHeatmapData,
   type CsvUploadResponse,
+  type DatabaseDeleteResponse,
   type DbStructure,
   type FilterResponse,
   type LatestMonthRevenue,
@@ -349,7 +350,11 @@ export const useCsvUpload = () => {
     }
   }, []);
 
-  return { ...state, uploadCsv };
+  const resetData = useCallback(() => {
+    setState((prev) => ({ ...prev, data: null }));
+  }, []);
+
+  return { ...state, uploadCsv, resetData };
 };
 
 /**
@@ -489,9 +494,9 @@ export const useLatestMonthRevenue = () => {
 export const useProphetPipelineTrigger = () => {
   const [state, setState] = useState<HookState<ProphetPipelineResponse>>(createInitialState());
 
-  const triggerPipeline = useCallback(async () => {
+  const triggerPipeline = useCallback(async (forecastMonths = 4) => {
     setState((prev) => ({ ...prev, isLoading: true }));
-    const result = await backendApi.triggerProphetPipeline();
+    const result = await backendApi.triggerProphetPipeline(forecastMonths);
 
     if (result instanceof Error) {
       handleError(setState, result);
@@ -651,4 +656,52 @@ export const useLatestTwelveMonths = () => {
   }, []);
 
   return { ...state, fetchLatestTwelveMonths };
+};
+
+/**
+ * Databases hooks
+ */
+export const useDatabases = () => {
+  const [state, setState] = useState<HookState<string[]>>(createInitialState());
+
+  const fetchDatabases = useCallback(async () => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.fetchDatabases();
+
+    if (result instanceof Error) {
+      handleError(setState, result);
+    } else {
+      handleSuccess(setState, result.databases);
+    }
+  }, []);
+
+  return { ...state, fetchDatabases };
+};
+
+export const useDeleteDatabase = () => {
+  const [state, setState] = useState<HookState<DatabaseDeleteResponse>>({
+    data: null,
+    isLoading: false,
+    error: null,
+  });
+
+  const deleteDatabase = useCallback(async (databaseName: string) => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.deleteDatabase(databaseName);
+
+    if (result instanceof Error) {
+      setState({ data: null, isLoading: false, error: result });
+    } else {
+      setState({
+        data: {
+          message: result.message,
+          database: result.database,
+        },
+        isLoading: false,
+        error: null,
+      });
+    }
+  }, []);
+
+  return { ...state, deleteDatabase };
 };

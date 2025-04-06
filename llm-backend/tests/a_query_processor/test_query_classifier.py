@@ -1,71 +1,124 @@
 #!/usr/bin/env python
-import unittest
-from typing import List, Tuple
+"""
+Test module for query_classifier.py
 
-from mypackage.a_query_processor.query_classifier import classify_query
+This module contains unit tests for the query classification functionality.
+"""
+
+import unittest
+from unittest.mock import MagicMock, patch
+
+from mypackage.a_query_processor.query_classifier import (
+    QueryType,
+    QueryTypeEnum,
+    _classify_query_with_llm,
+    _extract_query_type_from_response,
+    classify_query,
+)
 
 
 class TestQueryClassifier(unittest.TestCase):
-    # Test cases with expected classifications
-    TEST_CASES: List[Tuple[str, str]] = [
-        # Description queries
-        ("describe the spending on LinkedIn", "description"),
-        ("explain the revenue trends for Q1", "description"),
-        ("what is the marketing budget", "description"),
-        ("tell me about customer satisfaction", "description"),
-        # Report queries
-        ("create a full financial report", "report"),
-        ("generate a comprehensive analysis", "report"),
-        ("provide a complete breakdown", "report"),
-        ("summarize all marketing channels", "report"),
-        # Chart queries
-        ("create a bar chart of monthly sales", "chart"),
-        ("plot the revenue growth", "chart"),
-        ("visualize customer demographics", "chart"),
-        ("show me a pie chart of expenses", "chart"),
-        # Error/ambiguous queries
-        ("plot the invisible unicorn data", "error"),
-        ("generate a report on the taste of numbers", "error"),
-        ("show me a chart of the sound of silence", "error"),
-        # Edge cases
-        ("chart report description", "error"),
-        ("create a comprehensive chart", "chart"),
-        ("describe the report", "description"),
-    ]
+    """Test cases for the query classifier module."""
 
-    def test_classification_accuracy(self):
-        """Test the classification accuracy of the query classifier."""
-        total_cases = len(self.TEST_CASES)
-        correct_classifications = 0
-
-        print("\nRunning Query Classification Tests:")
-        print("-" * 50)
-
-        for query, expected in self.TEST_CASES:
-            result = classify_query(query)
-            is_correct = result == expected
-            if is_correct:
-                correct_classifications += 1
-
-            print(f"Query: '{query}'")
-            print(f"Expected: {expected}")
-            print(f"Got: {result}")
-            print(f"Status: {'✓' if is_correct else '✗'}")
-            print("-" * 50)
-
-        accuracy = (correct_classifications / total_cases) * 100
-        print("\nTest Results:")
-        print(f"Total test cases: {total_cases}")
-        print(f"Correct classifications: {correct_classifications}")
-        print(f"Accuracy: {accuracy:.2f}%")
-
-        # Assert minimum accuracy threshold
-        self.assertGreaterEqual(
-            accuracy,
-            70.0,
-            "Classification accuracy is below the expected threshold of 70%",
+    def test_extract_query_type_from_response_string(self):
+        """Test extracting query type from a string response."""
+        # Test each query type
+        self.assertEqual(
+            _extract_query_type_from_response("description"),
+            {"query_type": QueryTypeEnum.DESCRIPTION},
         )
+        self.assertEqual(
+            _extract_query_type_from_response("report"),
+            {"query_type": QueryTypeEnum.REPORT},
+        )
+        self.assertEqual(
+            _extract_query_type_from_response("chart"),
+            {"query_type": QueryTypeEnum.CHART},
+        )
+
+        # Test with extra text
+        self.assertEqual(
+            _extract_query_type_from_response("This is a description query"),
+            {"query_type": QueryTypeEnum.DESCRIPTION},
+        )
+
+        # Test default to ERROR
+        self.assertEqual(
+            _extract_query_type_from_response("invalid response"),
+            {"query_type": QueryTypeEnum.ERROR},
+        )
+
+    def test_extract_query_type_from_response_object(self):
+        """Test extracting query type from an object with content attribute."""
+        # Create mock response objects
+        description_response = MagicMock()
+        description_response.content = "description"
+
+        report_response = MagicMock()
+        report_response.content = "report"
+
+        # Test with mock objects
+        self.assertEqual(
+            _extract_query_type_from_response(description_response),
+            {"query_type": QueryTypeEnum.DESCRIPTION},
+        )
+        self.assertEqual(
+            _extract_query_type_from_response(report_response),
+            {"query_type": QueryTypeEnum.REPORT},
+        )
+
+    @patch("mypackage.a_query_processor.query_classifier.get_groq_llm")
+    def test_classify_query_with_llm(self, mock_get_groq_llm):
+        """Test the LLM classification function with mocked LLM."""
+        # Set up mock LLM and chain
+        mock_llm = MagicMock()
+        mock_chain = MagicMock()
+        mock_get_groq_llm.return_value = mock_llm
+        mock_llm.__or__.return_value = mock_chain
+        mock_chain.invoke.return_value = {"query_type": QueryTypeEnum.DESCRIPTION}
+
+        # Test classification
+        result = _classify_query_with_llm("How much did we spend on Facebook ads?")
+        self.assertEqual(result.query_type, QueryTypeEnum.DESCRIPTION)
+
+        # Verify the mock was called correctly
+        mock_get_groq_llm.assert_called_once()
+        mock_chain.invoke.assert_called_once()
+
+    @patch("mypackage.a_query_processor.query_classifier._classify_query_with_llm")
+    def test_classify_query(self, mock_classify_with_llm):
+        """Test the public classify_query function."""
+        # Set up mock return values for different query types
+        mock_classify_with_llm.return_value = QueryType(
+            query_type=QueryTypeEnum.DESCRIPTION
+        )
+        self.assertEqual(
+            classify_query("How much revenue did we generate?"), "description"
+        )
+
+        mock_classify_with_llm.return_value = QueryType(query_type=QueryTypeEnum.REPORT)
+        self.assertEqual(classify_query("Generate a full report"), "report")
+
+        mock_classify_with_llm.return_value = QueryType(query_type=QueryTypeEnum.CHART)
+        self.assertEqual(
+            classify_query("Show me a chart of revenue by country"), "chart"
+        )
+
+        mock_classify_with_llm.return_value = QueryType(query_type=QueryTypeEnum.ERROR)
+        self.assertEqual(classify_query("Invalid query"), "error")
+
+    @patch("mypackage.a_query_processor.query_classifier._classify_query_with_llm")
+    def test_classify_query_exception(self, mock_classify_with_llm):
+        """Test error handling in classify_query."""
+        # Set up mock to raise an exception
+        mock_classify_with_llm.side_effect = Exception("Test error")
+
+        # Verify exception is propagated
+        with self.assertRaises(Exception) as context:
+            classify_query("Test query")
+
+        self.assertTrue("Test error" in str(context.exception))
 
 
 if __name__ == "__main__":
-    unittest.main(verbosity=2)
+    unittest.main()

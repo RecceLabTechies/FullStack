@@ -1,35 +1,31 @@
 import logging
+import threading
 from functools import wraps
+
 from flask import Blueprint, jsonify, make_response, request
-from marshmallow import (
-    Schema,
-    fields,
-    ValidationError,
-    validate,
-    EXCLUDE,
-    validates,
-)
+from marshmallow import EXCLUDE, Schema, ValidationError, fields, validate, validates
+
+from app.data_types import CampaignData
 from app.services.campaign_service import (
     filter_campaigns,
     get_campaign_filter_options,
-    get_monthly_aggregated_data,
     get_channel_contribution_data,
     get_cost_metrics_heatmap,
-    get_latest_month_roi,
     get_latest_month_revenue,
+    get_latest_month_roi,
+    get_latest_twelve_months_data,
     get_monthly_age_data,
+    get_monthly_aggregated_data,
     get_monthly_channel_data,
     get_monthly_country_data,
-    get_latest_twelve_months_data,
 )
+from app.services.prophet_service import get_prediction_status, run_prophet_prediction
 from app.utils.data_processing import (
     find_matching_collection,
     get_db_structure,
     process_csv_data,
 )
-from app.data_types import CampaignData
-import threading
-from app.services.prophet_service import run_prophet_prediction, get_prediction_status
+from app.database.connection import Database
 
 # Create blueprint
 data_bp = Blueprint("data_routes", __name__)
@@ -328,6 +324,45 @@ def get_database_structures_data():
     return format_response(structure)
 
 
+@data_bp.route("/api/v1/database", methods=["GET"])
+@handle_exceptions
+def get_database():
+    """
+    List all databases in the database
+    Returns:
+        JSON array of database names
+    """
+    databases = Database.list_collections()
+    return format_response({"databases": databases})
+
+
+@data_bp.route("/api/v1/database/delete", methods=["POST"])
+@handle_exceptions
+def delete_database():
+    """
+    Delete a database by name
+    Request body:
+        - database_name: string (required)
+    """
+    request_data = request.get_json() or {}
+    
+    if not request_data.get("database_name"):
+        raise ValueError("database_name parameter is required")
+    
+    database_name = request_data["database_name"]
+    
+    # Add protection for system collections
+    if database_name == "user":
+        return error_response(400, "Cannot delete protected 'user' collection", "protected_collection")
+    
+    Database.delete_collection(database_name)
+    
+    return format_response({
+        "message": f"Database '{database_name}' processed successfully",
+        "database": database_name
+    })
+
+
 # ----------------------------------------------------------------
 # Campaign data endpoints
 # ----------------------------------------------------------------
@@ -603,7 +638,6 @@ def get_monthly_channel_data_route():
         - ad_spend: Dictionary with channel keys and monthly ad spend arrays
     """
     try:
-
         data = get_monthly_channel_data()
         return format_response(data)
 
@@ -627,7 +661,6 @@ def get_monthly_age_data_route():
         - ad_spend: Dictionary with age group keys and monthly ad spend arrays
     """
     try:
-
         data = get_monthly_age_data()
         return format_response(data)
 
@@ -772,6 +805,9 @@ def trigger_prophet_pipeline():
     3. Delete existing data in prophet_predictions collection
     4. Insert new prediction data
 
+    Request body:
+        forecast_months (int, optional): Number of months to forecast (1-12), defaults to 4
+
     The task runs asynchronously, so this endpoint returns immediately.
 
     Returns:
@@ -780,9 +816,28 @@ def trigger_prophet_pipeline():
     try:
         logger.info("Received request to trigger Prophet pipeline")
 
+        # Get forecast_months from request json, default to 4 if not provided
+        request_data = request.get_json() or {}
+        forecast_months = request_data.get("forecast_months", 4)
+
+        # Validate forecast_months
+        try:
+            forecast_months = int(forecast_months)
+            if forecast_months < 1 or forecast_months > 12:
+                return jsonify(
+                    {
+                        "status": "error",
+                        "message": "forecast_months must be between 1 and 12",
+                    }
+                ), 400
+        except (ValueError, TypeError):
+            return jsonify(
+                {"status": "error", "message": "forecast_months must be an integer"}
+            ), 400
+
         # Start prediction in a background thread
         def run_prediction_thread():
-            run_prophet_prediction()
+            run_prophet_prediction(forecast_months)
 
         thread = threading.Thread(target=run_prediction_thread)
         thread.daemon = True  # Thread will exit when main thread exits
@@ -792,7 +847,7 @@ def trigger_prophet_pipeline():
             jsonify(
                 {
                     "status": "started",
-                    "message": "Prophet prediction pipeline started in background",
+                    "message": f"Prophet prediction pipeline started in background with {forecast_months} month(s) forecast",
                 }
             ),
             202,

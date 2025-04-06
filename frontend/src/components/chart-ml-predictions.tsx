@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
+import { useDatabaseOperations } from '@/context/database-operations-context';
 import { useProphetPredictionsContext } from '@/context/prophet-predictions-context';
 import {
   CartesianGrid,
@@ -15,7 +16,6 @@ import {
 } from 'recharts';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -23,7 +23,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Slider } from '@/components/ui/slider';
 
 import { useLatestTwelveMonths } from '@/hooks/use-backend-api';
 
@@ -35,32 +34,25 @@ export function MLPredictionsChart() {
     fetchLatestTwelveMonths,
   } = useLatestTwelveMonths();
 
+  const { lastUpdated: dbLastUpdated } = useDatabaseOperations();
+
   const {
     data: prophetData,
     isLoading: isLoadingProphet,
     error: prophetError,
+    lastUpdated: predictionLastUpdated,
   } = useProphetPredictionsContext();
 
-  // State for prediction months slider
-  const [predictionMonths, setPredictionMonths] = useState<number>(0);
   const [selectedMetric, setSelectedMetric] = useState<'revenue' | 'accounts'>('revenue');
 
-  const maxPredictionMonths = useMemo(
-    () => (Array.isArray(prophetData) ? prophetData.length : 0),
-    [prophetData]
-  );
-
-  // Effect to fetch latest twelve months data
+  // Effect to fetch latest twelve months data when database or predictions update
   useEffect(() => {
+    console.log('MLPredictionsChart: Fetching latest data due to update', {
+      dbLastUpdated,
+      predictionLastUpdated,
+    });
     void fetchLatestTwelveMonths();
-  }, [fetchLatestTwelveMonths]);
-
-  // Effect to reset prediction months when data changes
-  useEffect(() => {
-    if (maxPredictionMonths > 0 && predictionMonths === 0) {
-      setPredictionMonths(maxPredictionMonths);
-    }
-  }, [maxPredictionMonths, predictionMonths]);
+  }, [fetchLatestTwelveMonths, dbLastUpdated, predictionLastUpdated]);
 
   // Transform and combine latest twelve months data and prophet predictions for the chart
   const combinedChartData = useMemo(() => {
@@ -92,12 +84,10 @@ export function MLPredictionsChart() {
       });
     });
 
-    // Add prophet predictions based on slider value
-    if (Array.isArray(prophetData) && predictionMonths > 0) {
-      // Sort prophet data by date and take only the number of months specified by the slider
-      const sortedProphetData = [...prophetData]
-        .sort((a, b) => a.date - b.date)
-        .slice(0, predictionMonths);
+    // Add all prophet predictions
+    if (Array.isArray(prophetData) && prophetData.length > 0) {
+      // Sort prophet data by date
+      const sortedProphetData = [...prophetData].sort((a, b) => a.date - b.date);
 
       sortedProphetData.forEach((item) => {
         const existingData = allData.get(item.date) ?? {
@@ -120,11 +110,7 @@ export function MLPredictionsChart() {
     return Array.from(allData.entries())
       .sort(([dateA], [dateB]) => dateA - dateB)
       .map(([_, data]) => data);
-  }, [latestTwelveMonthsData, prophetData, predictionMonths]);
-
-  const handleSliderChange = (value: number[]) => {
-    setPredictionMonths(value[0] ?? 0);
-  };
+  }, [latestTwelveMonthsData, prophetData]);
 
   const renderChart = () => {
     if (selectedMetric === 'revenue') {
@@ -201,12 +187,14 @@ export function MLPredictionsChart() {
             dataKey="new_accounts"
             stroke="hsl(var(--chart-3))"
             activeDot={{ r: 8 }}
+            strokeWidth={3}
             name="New Accounts"
           />
           <Line
             type="monotone"
             dataKey="predicted_new_accounts"
             stroke="hsl(var(--chart-3))"
+            strokeWidth={5}
             strokeDasharray="5 5"
             name="Predicted New Accounts"
           />
@@ -217,26 +205,24 @@ export function MLPredictionsChart() {
 
   return (
     <Card className="w-full">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>ML Predictions</CardTitle>
-            <CardDescription>Monthly comparison of actual and predicted metrics</CardDescription>
-          </div>
-          <Select
-            value={selectedMetric}
-            onValueChange={(value: 'revenue' | 'accounts') => setSelectedMetric(value)}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select metrics" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="revenue">Revenue & Ad Spend</SelectItem>
-              <SelectItem value="accounts">New Accounts</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </CardHeader>
+      <div className="flex items-center justify-between pr-6">
+        <CardHeader>
+          <CardTitle>ML Predictions</CardTitle>
+          <CardDescription>Monthly comparison of actual and predicted metrics</CardDescription>
+        </CardHeader>
+        <Select
+          value={selectedMetric}
+          onValueChange={(value: 'revenue' | 'accounts') => setSelectedMetric(value)}
+        >
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Select metrics" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="revenue">Revenue & Ad Spend</SelectItem>
+            <SelectItem value="accounts">New Accounts</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
       <CardContent>
         {(latestTwelveMonthsError ?? prophetError) ? (
           <div className="flex h-[400px] w-full items-center justify-center text-muted-foreground">
@@ -251,29 +237,7 @@ export function MLPredictionsChart() {
             No data available
           </div>
         ) : (
-          <>
-            <div className="h-[400px] w-full">{renderChart()}</div>
-            <div className="mt-6 space-y-2">
-              <div className="flex justify-between">
-                <Label htmlFor="prediction-months">Prediction Months: {predictionMonths}</Label>
-                <span className="text-sm text-muted-foreground">
-                  {predictionMonths === 0
-                    ? 'No predictions'
-                    : `Showing ${predictionMonths} month${predictionMonths === 1 ? '' : 's'}`}
-                </span>
-              </div>
-              <Slider
-                id="prediction-months"
-                min={0}
-                max={maxPredictionMonths}
-                step={1}
-                value={[predictionMonths]}
-                onValueChange={handleSliderChange}
-                className="w-full"
-                disabled={isLoadingProphet || maxPredictionMonths === 0}
-              />
-            </div>
-          </>
+          <div className="h-[400px] w-full">{renderChart()}</div>
         )}
       </CardContent>
     </Card>

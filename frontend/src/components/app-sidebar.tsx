@@ -7,14 +7,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import { type UserData } from '@/types/types';
-import {
-  Building,
-  Clipboard,
-  DatabaseBackup,
-  LayoutDashboard,
-  Settings,
-  ShieldEllipsis,
-} from 'lucide-react';
+import { Building, Clipboard, LayoutDashboard, Settings, ShieldEllipsis } from 'lucide-react';
 
 import { NavUser } from '@/components/nav-user';
 import {
@@ -56,12 +49,6 @@ const navigationItems = [
     name: 'Settings',
     url: '/dashboard/settings',
     icon: Settings,
-    requiresPermission: false,
-  },
-  {
-    name: 'Mongo Manager',
-    url: '/dashboard/mongo_manager',
-    icon: DatabaseBackup,
     requiresPermission: false,
   },
 ] as const;

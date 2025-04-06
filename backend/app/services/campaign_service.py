@@ -1,10 +1,12 @@
 import logging
 from datetime import datetime
-from typing import Dict, List, Any, Optional, TypedDict
-import pandas as pd
-import numpy as np
-from app.models.campaign import CampaignModel
+from typing import Dict, List, Optional
 
+import numpy as np
+import pandas as pd
+from typing_extensions import TypedDict
+
+from app.models.campaign import CampaignModel
 
 logger = logging.getLogger(__name__)
 

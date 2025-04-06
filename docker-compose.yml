@@ -20,6 +20,17 @@ services:
             - MONGO_URI=mongodb://root:example@mongodb:27017/
             - PORT=5000
 
+    llm-backend:
+        build: ./llm-backend
+        ports:
+            - "5002:5000"
+        depends_on:
+            - mongodb
+        environment:
+            - MONGO_URI=mongodb://root:example@mongodb:27017/
+            - PORT=5000
+            - PYTHONUNBUFFERED=1
+
     frontend:
         build: ./frontend
         ports:
@@ -33,7 +44,9 @@ services:
             - /app/.next
         depends_on:
             - backend
+            - llm-backend
         extra_hosts:
             - "host.docker.internal:host-gateway"
+
 volumes:
     mongodb_data:

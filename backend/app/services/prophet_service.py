@@ -1,13 +1,11 @@
 import logging
 import threading
+
 import pandas as pd
 from prophet import Prophet
-from app.database.connection import (
-    get_campaign_performance_collection,
-    get_prophet_prediction_collection,
-)
+
+from app.database.connection import get_campaign_performance_collection
 from app.models.prophet_prediction import ProphetPredictionModel
-from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -15,9 +13,11 @@ logger = logging.getLogger(__name__)
 prediction_lock = threading.Lock()
 # Global flag to track if a prediction is already running
 is_prediction_running = False
+# Global variable to track the details of the last prediction
+last_prediction = {"forecast_months": None, "timestamp": None, "status": "not_run"}
 
 
-def run_prophet_prediction():
+def run_prophet_prediction(forecast_months=4):
     """
     Run the Prophet prediction pipeline.
     This is a long-running task that:
@@ -26,14 +26,23 @@ def run_prophet_prediction():
     3. Deletes existing data in prophet_predictions collection
     4. Inserts new prediction data
 
+    Args:
+        forecast_months (int): Number of months to forecast (1-12), defaults to 4
+
     Returns:
         dict: Status of the prediction run
     """
-    global is_prediction_running
+    global is_prediction_running, last_prediction
+
+    # Update last prediction details
+    last_prediction["forecast_months"] = forecast_months
+    last_prediction["timestamp"] = pd.Timestamp.now().timestamp()
+    last_prediction["status"] = "starting"
 
     # Check if prediction is already running
     if is_prediction_running:
         logger.info("A prediction is already running, skipping this request")
+        last_prediction["status"] = "skipped"
         return {"status": "in_progress", "message": "A prediction is already running"}
 
     # Try to acquire the lock, return immediately if unable
@@ -41,6 +50,7 @@ def run_prophet_prediction():
         logger.info(
             "Unable to acquire prediction lock, another prediction may be starting"
         )
+        last_prediction["status"] = "lock_failed"
         return {
             "status": "error",
             "message": "Unable to start prediction, another task may be starting",
@@ -49,7 +59,8 @@ def run_prophet_prediction():
     try:
         # Set flag to indicate prediction is running
         is_prediction_running = True
-        logger.info("Starting Prophet prediction task")
+        last_prediction["status"] = "running"
+        logger.info(f"Starting Prophet prediction task for {forecast_months} months")
 
         # Get data from MongoDB
         campaign_collection = get_campaign_performance_collection()
@@ -100,10 +111,10 @@ def run_prophet_prediction():
 
             return forecast_snippet
 
-        # Get individual forecasts (4 months ahead)
-        future_rev = prophet_forecast(df_grouped, "revenue", 4)
-        future_ad = prophet_forecast(df_grouped, "ad_spend", 4)
-        future_accounts = prophet_forecast(df_grouped, "new_accounts", 4)
+        # Get individual forecasts with user-specified forecast months
+        future_rev = prophet_forecast(df_grouped, "revenue", forecast_months)
+        future_ad = prophet_forecast(df_grouped, "ad_spend", forecast_months)
+        future_accounts = prophet_forecast(df_grouped, "new_accounts", forecast_months)
 
         # Combine the forecasts
         predictions = pd.DataFrame()
@@ -134,16 +145,19 @@ def run_prophet_prediction():
             inserted_count = ProphetPredictionModel.create_many(predictions_list)
             logger.info(f"Inserted {inserted_count} new prophet predictions")
 
+            last_prediction["status"] = "completed"
             return {
                 "status": "success",
                 "message": f"Prediction completed successfully. Deleted {deleted_count} records and inserted {inserted_count} new predictions.",
             }
         else:
             logger.error("No predictions were generated")
+            last_prediction["status"] = "failed"
             return {"status": "error", "message": "No predictions were generated"}
 
     except Exception as e:
         logger.exception(f"Error running prophet prediction: {e}")
+        last_prediction["status"] = "error"
         return {"status": "error", "message": f"Error running prediction: {str(e)}"}
     finally:
         # Reset flag and release lock
@@ -153,12 +167,27 @@ def run_prophet_prediction():
 
 def get_prediction_status():
     """
-    Check if a prediction is currently running
+    Check if a prediction is currently running and return information about the last prediction
 
     Returns:
-        dict: The current status of the prediction task
+        dict: The current status of the prediction task and details about the last prediction
     """
+    global last_prediction
+
+    status = {
+        "is_running": is_prediction_running,
+        "last_prediction": {
+            "forecast_months": last_prediction["forecast_months"],
+            "timestamp": last_prediction["timestamp"],
+            "status": last_prediction["status"],
+        },
+    }
+
     if is_prediction_running:
-        return {"status": "in_progress", "message": "Prediction is currently running"}
+        status["status"] = "in_progress"
+        status["message"] = "Prediction is currently running"
     else:
-        return {"status": "idle", "message": "No prediction is currently running"}
+        status["status"] = "idle"
+        status["message"] = "No prediction is currently running"
+
+    return status

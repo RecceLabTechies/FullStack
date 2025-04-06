@@ -35,7 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           disableTransitionOnChange
         >
           <div className="relative min-h-screen bg-background antialiased">{children}</div>
-          <Toaster />
+          <Toaster richColors expand={true} />
         </ThemeProvider>
       </body>
     </html>

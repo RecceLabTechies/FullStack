@@ -1,6 +1,8 @@
 import logging
+
 from pymongo import MongoClient
-from app.config import MONGO_URI, DB_NAME
+
+from app.config import DB_NAME, MONGO_URI
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +40,25 @@ class Database:
         if cls.db is None:
             cls.initialize()
         return cls.db.list_collection_names()
+
+
+    @classmethod
+    def delete_collection(cls, collection_name):
+        """Safely delete or clear a collection based on its type"""
+        if collection_name == "users":
+            raise ValueError("User collection cannot be deleted")
+            
+        collection = cls.get_collection(collection_name)
+        
+        if collection_name in ["campaign_performance", "prophet_predictions"]:
+            # Clear documents but keep collection structure
+            result = collection.delete_many({})
+            logger.info(f"Cleared {result.deleted_count} documents from {collection_name}")
+        else:
+            # Permanently delete the collection
+            collection.drop()
+            logger.info(f"Deleted collection {collection_name}")
+
 
 
 # Initialize common collection references
