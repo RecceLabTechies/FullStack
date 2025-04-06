@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 
 import * as z from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Bot, LoaderCircle, TrendingUp } from 'lucide-react';
+import { Bot, Loader2, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -101,7 +101,7 @@ export default function AuthPage() {
         role="status"
         aria-live="polite"
       >
-        <LoaderCircle size={48} className="animate-spin text-primary mb-4" aria-hidden="true" />
+        <Loader2 size={48} className="animate-spin text-primary mb-4" aria-hidden="true" />
         <h2 className="text-xl font-medium">Loading your dashboard...</h2>
         <p className="text-muted-foreground mt-2">Please wait while we prepare your experience</p>
       </div>
@@ -228,7 +228,7 @@ export default function AuthPage() {
               <Button type="submit" className="w-full" disabled={isLoading} aria-busy={isLoading}>
                 {isLoading ? (
                   <>
-                    <LoaderCircle size={24} className="mr-2 animate-spin" aria-hidden="true" />
+                    <Loader2 size={24} className="mr-2 animate-spin" aria-hidden="true" />
                     Authenticating...
                   </>
                 ) : (
