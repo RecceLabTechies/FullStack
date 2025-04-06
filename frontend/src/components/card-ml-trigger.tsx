@@ -70,18 +70,21 @@ export function MLTriggerCard() {
   }, [checkStatus, statusData?.is_running, statusData?.last_prediction, fetchPredictions]);
 
   return (
-    <Card className="col-span-2">
+    <Card className="col-span-2" aria-labelledby="prophet-ml-title">
       <CardContent className="pt-6 flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="rounded-full bg-secondary p-3">
-              <Crown size={24} />
+              <Crown size={24} aria-hidden="true" />
             </div>
-            <CardTitle>Prophet ML</CardTitle>
+            <CardTitle id="prophet-ml-title">Prophet ML</CardTitle>
           </div>
           <HoverCard>
             <HoverCardTrigger asChild>
-              <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+              <Info
+                className="h-4 w-4 text-muted-foreground cursor-help"
+                aria-label="About Prophet ML Model"
+              />
             </HoverCardTrigger>
             <HoverCardContent className="w-80">
               <div className="space-y-2">
@@ -103,7 +106,10 @@ export function MLTriggerCard() {
             </div>
             <HoverCard>
               <HoverCardTrigger asChild>
-                <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                <Info
+                  className="h-4 w-4 text-muted-foreground cursor-help"
+                  aria-label="About forecast duration"
+                />
               </HoverCardTrigger>
               <HoverCardContent className="w-80">
                 <p className="text-sm text-muted-foreground">
@@ -119,6 +125,10 @@ export function MLTriggerCard() {
             step={1}
             value={[forecastMonths]}
             onValueChange={(value) => setForecastMonths(value[0] ?? 4)}
+            aria-label={`Forecast duration: ${forecastMonths} months`}
+            aria-valuemin={1}
+            aria-valuemax={12}
+            aria-valuenow={forecastMonths}
           />
         </div>
       </CardContent>
@@ -126,32 +136,33 @@ export function MLTriggerCard() {
         <Button
           onClick={handleTriggerPipeline}
           disabled={isTriggerLoading || isStatusLoading || statusData?.is_running}
+          aria-busy={isTriggerLoading || isStatusLoading || statusData?.is_running}
         >
           {isTriggerLoading ? (
             <>
-              <Play size={16} className="mr-2" />
+              <Play size={16} className="mr-2" aria-hidden="true" />
               <p>Starting...</p>
             </>
           ) : isStatusLoading ? (
             <>
-              <Loader2 size={16} className="mr-2 animate-spin" />
+              <Loader2 size={16} className="mr-2 animate-spin" aria-hidden="true" />
               <p>Checking...</p>
             </>
           ) : statusData?.is_running ? (
             <>
-              <Loader2 size={16} className="mr-2 animate-spin" />
+              <Loader2 size={16} className="mr-2 animate-spin" aria-hidden="true" />
               <p>Running...</p>
             </>
           ) : (
             <>
-              <Play size={16} className="mr-2" />
+              <Play size={16} className="mr-2" aria-hidden="true" />
               <p>Run Prediction</p>
             </>
           )}
         </Button>
 
         {triggerError && (
-          <p className="text-sm text-destructive">
+          <p className="text-sm text-destructive" role="alert">
             Error triggering pipeline: {triggerError.message}
           </p>
         )}

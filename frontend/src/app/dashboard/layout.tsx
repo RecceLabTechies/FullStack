@@ -35,9 +35,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Show loading state while checking authentication
   if (isAuthenticated === null) {
     return (
-      <div className="flex h-screen w-full items-center justify-center">
+      <div
+        className="flex h-screen w-full items-center justify-center"
+        role="status"
+        aria-live="polite"
+      >
         <div className="text-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
+          <div
+            className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary"
+            aria-hidden="true"
+          ></div>
           <p className="mt-2">Loading...</p>
         </div>
       </div>

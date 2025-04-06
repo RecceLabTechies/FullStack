@@ -56,6 +56,11 @@ export default function DatabaseEditorCard({ onEditSuccess }: DatabaseEditorCard
               variant="outline"
               className="w-full justify-between"
               disabled={isFetching || !databases?.length}
+              aria-label={
+                isFetching
+                  ? 'Loading databases...'
+                  : `Select a database to clean (${databases?.length ?? 0} available)`
+              }
             >
               Select a database
               {isFetching ? (
@@ -75,9 +80,10 @@ export default function DatabaseEditorCard({ onEditSuccess }: DatabaseEditorCard
                   e.stopPropagation();
                   void handleDelete(db);
                 }}
+                aria-label={`Delete database ${db}`}
               >
                 {db}
-                <Trash2 size={18} />
+                <Trash2 size={18} aria-hidden="true" />
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>

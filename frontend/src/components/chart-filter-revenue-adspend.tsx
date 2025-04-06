@@ -127,11 +127,15 @@ export function RevenueAdSpendChart() {
   }
 
   if (isLoadingOptions) {
-    return <div>Loading...</div>;
+    return (
+      <div role="status" aria-live="polite">
+        Loading...
+      </div>
+    );
   }
 
   if (filterOptionsError) {
-    return <div>Error loading filter options</div>;
+    return <div role="alert">Error loading filter options</div>;
   }
 
   if (!filterOptions) {
@@ -177,14 +181,17 @@ export function RevenueAdSpendChart() {
       <Card className="w-full">
         <div className="flex items-center justify-between pr-6">
           <CardHeader>
-            <CardTitle>Revenue & Ad Spend Filter Chart</CardTitle>
+            <CardTitle id="revenue-adspend-chart-title">Revenue & Ad Spend Filter Chart</CardTitle>
             <CardDescription>
               Monthly comparison of revenue generated versus advertising expenditure
             </CardDescription>
           </CardHeader>
           <HoverCard>
             <HoverCardTrigger asChild>
-              <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+              <Info
+                className="h-4 w-4 text-muted-foreground cursor-help"
+                aria-label="About revenue and ad spend analysis"
+              />
             </HoverCardTrigger>
             <HoverCardContent className="w-80">
               <div className="space-y-2">
@@ -202,20 +209,34 @@ export function RevenueAdSpendChart() {
 
         <CardContent>
           {monthlyDataError ? (
-            <div className="flex h-[400px] w-full items-center justify-center text-muted-foreground">
+            <div
+              className="flex h-[400px] w-full items-center justify-center text-muted-foreground"
+              role="alert"
+            >
               {monthlyDataError.message}
             </div>
           ) : isLoadingMonthlyData ? (
-            <div className="flex h-[400px] w-full items-center justify-center text-muted-foreground">
+            <div
+              className="flex h-[400px] w-full items-center justify-center text-muted-foreground"
+              role="status"
+              aria-live="polite"
+            >
               Loading...
             </div>
           ) : chartData.length === 0 ? (
-            <div className="flex h-[400px] w-full items-center justify-center text-muted-foreground">
+            <div
+              className="flex h-[400px] w-full items-center justify-center text-muted-foreground"
+              aria-label="No data available"
+            >
               No data available for the selected filters
             </div>
           ) : (
             <div className="h-[400px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer
+                width="100%"
+                height="100%"
+                aria-labelledby="revenue-adspend-chart-title"
+              >
                 <LineChart
                   data={chartData}
                   margin={{
@@ -254,6 +275,7 @@ export function RevenueAdSpendChart() {
 
       <Card className="w-1/4">
         <CardHeader>
+          <CardTitle id="filter-controls-title">Filters</CardTitle>
           <CardDescription>
             Filter Revenue & Ad Spend Chart by date range, age groups, channels, countries, and
             campaign IDs
@@ -261,19 +283,24 @@ export function RevenueAdSpendChart() {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-2">
+            <form
+              onSubmit={form.handleSubmit(onSubmit)}
+              className="grid gap-2"
+              aria-labelledby="filter-controls-title"
+            >
               {/* Date Range Filter */}
               <FormField
                 control={form.control}
                 name="dateRange"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Date Range</FormLabel>
+                    <FormLabel htmlFor="date-range">Date Range</FormLabel>
                     <FormControl>
                       <DatePickerWithRange
                         onRangeChange={field.onChange}
                         minDate={moment.unix(filterOptions.date_range.min_date).toDate()}
                         maxDate={moment.unix(filterOptions.date_range.max_date).toDate()}
+                        id="date-range"
                       />
                     </FormControl>
                     <FormMessage />
@@ -287,7 +314,7 @@ export function RevenueAdSpendChart() {
                 name="ageGroups"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Age Groups</FormLabel>
+                    <FormLabel htmlFor="age-groups">Age Groups</FormLabel>
                     <FormControl>
                       <MultiSelect
                         options={filterOptions.categorical.age_groups.map((group) => ({
@@ -296,6 +323,8 @@ export function RevenueAdSpendChart() {
                         }))}
                         onValueChange={field.onChange}
                         placeholder="Select age groups"
+                        id="age-groups"
+                        aria-label="Select age groups"
                       />
                     </FormControl>
                     <FormMessage />
@@ -309,7 +338,7 @@ export function RevenueAdSpendChart() {
                 name="channels"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Channels</FormLabel>
+                    <FormLabel htmlFor="channels">Channels</FormLabel>
                     <FormControl>
                       <MultiSelect
                         options={filterOptions.categorical.channels.map((channel) => ({
@@ -318,6 +347,8 @@ export function RevenueAdSpendChart() {
                         }))}
                         onValueChange={field.onChange}
                         placeholder="Select channels"
+                        id="channels"
+                        aria-label="Select channels"
                       />
                     </FormControl>
                     <FormMessage />
@@ -331,7 +362,7 @@ export function RevenueAdSpendChart() {
                 name="countries"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Countries</FormLabel>
+                    <FormLabel htmlFor="countries">Countries</FormLabel>
                     <FormControl>
                       <MultiSelect
                         options={filterOptions.categorical.countries.map((country) => ({
@@ -340,6 +371,8 @@ export function RevenueAdSpendChart() {
                         }))}
                         onValueChange={field.onChange}
                         placeholder="Select countries"
+                        id="countries"
+                        aria-label="Select countries"
                       />
                     </FormControl>
                     <FormMessage />
@@ -353,7 +386,7 @@ export function RevenueAdSpendChart() {
                 name="campaignIds"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Campaigns</FormLabel>
+                    <FormLabel htmlFor="campaigns">Campaigns</FormLabel>
                     <FormControl>
                       <MultiSelect
                         options={filterOptions.categorical.campaign_ids.map((id) => ({
@@ -362,13 +395,17 @@ export function RevenueAdSpendChart() {
                         }))}
                         onValueChange={field.onChange}
                         placeholder="Select campaigns"
+                        id="campaigns"
+                        aria-label="Select campaigns"
                       />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <Button type="submit">Apply Filters</Button>
+              <Button type="submit" aria-label="Apply filters to chart">
+                Apply Filters
+              </Button>
             </form>
           </Form>
         </CardContent>

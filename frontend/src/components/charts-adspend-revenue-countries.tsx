@@ -43,7 +43,11 @@ const CountryPerformanceCharts = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex h-[400px] w-full items-center justify-center text-muted-foreground">
+          <div
+            className="flex h-[400px] w-full items-center justify-center text-muted-foreground"
+            role="status"
+            aria-live="polite"
+          >
             Loading...
           </div>
         </CardContent>
@@ -61,7 +65,10 @@ const CountryPerformanceCharts = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex h-[400px] w-full items-center justify-center text-muted-foreground">
+          <div
+            className="flex h-[400px] w-full items-center justify-center text-muted-foreground"
+            role="alert"
+          >
             {error.message}
           </div>
         </CardContent>
@@ -79,7 +86,10 @@ const CountryPerformanceCharts = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex h-[400px] w-full items-center justify-center text-muted-foreground">
+          <div
+            className="flex h-[400px] w-full items-center justify-center text-muted-foreground"
+            aria-label="No country data available"
+          >
             No data available
           </div>
         </CardContent>
@@ -109,13 +119,19 @@ const CountryPerformanceCharts = () => {
     return (
       <Card key={country}>
         <CardHeader>
-          <CardTitle>{country} Performance</CardTitle>
+          <CardTitle id={`country-${country.replace(/\s+/g, '-').toLowerCase()}-title`}>
+            {country} Performance
+          </CardTitle>
           <CardDescription>
             Monthly comparison of revenue generated versus advertising expenditure for {country}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer
+            width="100%"
+            height={300}
+            aria-labelledby={`country-${country.replace(/\s+/g, '-').toLowerCase()}-title`}
+          >
             <LineChart
               data={chartData}
               margin={{
@@ -177,7 +193,11 @@ const CountryPerformanceCharts = () => {
     );
   });
 
-  return <div className="grid grid-cols-3 gap-2">{countryCharts}</div>;
+  return (
+    <div className="grid grid-cols-3 gap-2" aria-label="Country performance charts">
+      {countryCharts}
+    </div>
+  );
 };
 
 export default CountryPerformanceCharts;

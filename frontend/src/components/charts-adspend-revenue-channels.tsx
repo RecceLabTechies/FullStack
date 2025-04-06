@@ -43,7 +43,11 @@ const ChannelPerformanceCharts = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex h-[400px] w-full items-center justify-center text-muted-foreground">
+          <div
+            className="flex h-[400px] w-full items-center justify-center text-muted-foreground"
+            role="status"
+            aria-live="polite"
+          >
             Loading...
           </div>
         </CardContent>
@@ -61,7 +65,10 @@ const ChannelPerformanceCharts = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex h-[400px] w-full items-center justify-center text-muted-foreground">
+          <div
+            className="flex h-[400px] w-full items-center justify-center text-muted-foreground"
+            role="alert"
+          >
             {error.message}
           </div>
         </CardContent>
@@ -79,7 +86,10 @@ const ChannelPerformanceCharts = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex h-[400px] w-full items-center justify-center text-muted-foreground">
+          <div
+            className="flex h-[400px] w-full items-center justify-center text-muted-foreground"
+            aria-label="No channel data available"
+          >
             No data available
           </div>
         </CardContent>
@@ -109,13 +119,19 @@ const ChannelPerformanceCharts = () => {
     return (
       <Card key={channel}>
         <CardHeader>
-          <CardTitle>{channel} Performance</CardTitle>
+          <CardTitle id={`channel-${channel.replace(/\s+/g, '-').toLowerCase()}-title`}>
+            {channel} Performance
+          </CardTitle>
           <CardDescription>
             Monthly comparison of revenue generated versus advertising expenditure for {channel}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer
+            width="100%"
+            height={300}
+            aria-labelledby={`channel-${channel.replace(/\s+/g, '-').toLowerCase()}-title`}
+          >
             <LineChart
               data={chartData}
               margin={{
@@ -172,7 +188,11 @@ const ChannelPerformanceCharts = () => {
     );
   });
 
-  return <div className="grid grid-cols-3 gap-2">{channelCharts}</div>;
+  return (
+    <div className="grid grid-cols-3 gap-2" aria-label="Channel performance charts">
+      {channelCharts}
+    </div>
+  );
 };
 
 export default ChannelPerformanceCharts;

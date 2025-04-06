@@ -28,15 +28,25 @@ export default function GlobalError({
           enableSystem
           disableTransitionOnChange
         >
-          <main className="flex min-h-screen flex-col items-center justify-center bg-muted/40 p-8 text-center">
+          <main
+            className="flex min-h-screen flex-col items-center justify-center bg-muted/40 p-8 text-center"
+            role="alert"
+            aria-labelledby="global-error-heading"
+          >
             <div className="space-y-6">
-              <h1 className="text-6xl font-bold">Oops!</h1>
+              <h1 className="text-6xl font-bold" id="global-error-heading">
+                Oops!
+              </h1>
               <h2 className="text-2xl font-semibold">Critical Error</h2>
               <p className="mx-auto max-w-md text-muted-foreground">
                 We&apos;ve encountered a critical error that prevents the app from running properly.
               </p>
-              <Button onClick={reset} className="inline-flex items-center gap-2">
-                <RefreshCcw className="h-4 w-4" />
+              <Button
+                onClick={reset}
+                className="inline-flex items-center gap-2"
+                aria-label="Try again"
+              >
+                <RefreshCcw className="h-4 w-4" aria-hidden="true" />
                 Try again
               </Button>
             </div>

@@ -8,10 +8,16 @@ export default function DatabaseUploaderEditorCard() {
   const { triggerRefresh } = useDatabaseOperations();
 
   return (
-    <Card className="w-full max-w-md row-span-2">
+    <Card
+      className="w-full max-w-md row-span-2"
+      aria-labelledby="mongo-manager-title"
+      aria-describedby="mongo-manager-desc"
+    >
       <CardHeader>
-        <CardTitle>Mongo Manager</CardTitle>
-        <CardDescription>Upload new CSV files or manage existing tables</CardDescription>
+        <CardTitle id="mongo-manager-title">Mongo Manager</CardTitle>
+        <CardDescription id="mongo-manager-desc">
+          Upload new CSV files or manage existing tables
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <DatabaseUploaderCard onUploadSuccess={triggerRefresh} />

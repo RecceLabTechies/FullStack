@@ -6,6 +6,7 @@ import { type ProcessedQueryResult, type QueryResultType } from '@/types/types';
 import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
 import {
   Bot,
+  CirclePlus,
   Clock,
   FileDown,
   GripVertical,
@@ -23,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 
 import { useLLMQuery } from '@/hooks/use-llm-api';
 
@@ -32,6 +34,7 @@ export default function ReportPage() {
   const [query, setQuery] = useState('');
   const [reportTitle, setReportTitle] = useState('Report Title');
   const [reportAuthor, setReportAuthor] = useState('Report Author');
+  const [companyName, setCompanyName] = useState('');
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingAuthor, setEditingAuthor] = useState(false);
   const [resultHistory, setResultHistory] = useState<
@@ -51,8 +54,30 @@ export default function ReportPage() {
   const [editingDescriptionId, setEditingDescriptionId] = useState<string | null>(null);
   const [editedDescription, setEditedDescription] = useState('');
   const [isPdfReady, setIsPdfReady] = useState(false);
+  const [isAddingNewDescription, setIsAddingNewDescription] = useState(false);
+  const [newDescription, setNewDescription] = useState('');
 
   const { executeQuery, processedResult, loading, error } = useLLMQuery();
+
+  // Load user data from localStorage on component mount
+  useEffect(() => {
+    try {
+      const userData = localStorage.getItem('user');
+      if (userData) {
+        // Use explicit type assertion with validation
+        try {
+          const parsedUser = JSON.parse(userData) as Record<string, unknown>;
+          if (parsedUser && typeof parsedUser.company === 'string') {
+            setCompanyName(parsedUser.company);
+          }
+        } catch (parseError) {
+          console.error('Error parsing user data:', parseError);
+        }
+      }
+    } catch (error) {
+      console.error('Error retrieving user data:', error);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,6 +194,38 @@ export default function ReportPage() {
     setEditingDescriptionId(null);
   };
 
+  const handleAddNewDescription = () => {
+    setIsAddingNewDescription(true);
+    setNewDescription('');
+  };
+
+  const handleSaveNewDescription = () => {
+    if (newDescription.trim()) {
+      const newItemId =
+        new Date().getTime().toString() + '-' + Math.random().toString(36).substring(2, 9);
+
+      setReportItems((prev) => [
+        ...prev,
+        {
+          id: newItemId,
+          result: {
+            type: 'description',
+            content: newDescription,
+            originalQuery: 'User created',
+          } as ProcessedQueryResult,
+        },
+      ]);
+    }
+
+    setIsAddingNewDescription(false);
+    setNewDescription('');
+  };
+
+  const handleCancelNewDescription = () => {
+    setIsAddingNewDescription(false);
+    setNewDescription('');
+  };
+
   const renderSingleResult = (
     result: ProcessedQueryResult,
     id: string,
@@ -199,7 +256,7 @@ export default function ReportPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                          className="h-6 w-6 text-muted-foreground "
                           onClick={() => setEditingDescriptionId(null)}
                           aria-label="Cancel editing"
                         >
@@ -208,7 +265,7 @@ export default function ReportPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-6 w-6 text-muted-foreground hover:text-primary"
+                          className="h-6 w-6 text-muted-foreground "
                           onClick={() => handleSaveDescription(id)}
                           aria-label="Save description"
                         >
@@ -219,7 +276,7 @@ export default function ReportPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                        className="h-6 w-6 text-muted-foreground "
                         onClick={() => handleEditDescription(id, result.content as string)}
                         aria-label="Edit description"
                       >
@@ -232,7 +289,7 @@ export default function ReportPage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                    className="h-6 w-6 text-muted-foreground "
                     onClick={() => handleDeleteItem(id)}
                     aria-label="Delete item"
                   >
@@ -387,13 +444,14 @@ export default function ReportPage() {
         },
         author: {
           fontSize: 12,
+          marginBottom: 5,
+        },
+        company: {
+          fontSize: 12,
           marginBottom: 20,
         },
         section: {
           marginBottom: 15,
-          padding: 10,
-          borderRadius: 4,
-          backgroundColor: '#F9F9F9',
         },
         text: {
           fontSize: 12,
@@ -402,6 +460,15 @@ export default function ReportPage() {
         image: {
           width: '100%',
           marginVertical: 10,
+        },
+        footer: {
+          position: 'absolute',
+          bottom: 30,
+          left: 0,
+          right: 0,
+          textAlign: 'center',
+          fontSize: 10,
+          color: '#666',
         },
       });
 
@@ -437,6 +504,10 @@ export default function ReportPage() {
                 );
               }
             })}
+
+            <Text style={pdfStyles.footer} fixed>
+              {companyName && <Text style={pdfStyles.company}>© {companyName}</Text>}
+            </Text>
           </Page>
         </Document>
       );
@@ -731,6 +802,55 @@ export default function ReportPage() {
                 <div className="loader"></div>
               </CardContent>
             </Card>
+          )}
+
+          {/* Add new description section */}
+          {isAddingNewDescription ? (
+            <Card className="mt-4 relative">
+              <div className="absolute top-2 right-2 flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-muted-foreground"
+                  onClick={handleCancelNewDescription}
+                  aria-label="Cancel new description"
+                >
+                  <XCircle size={14} />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-muted-foreground"
+                  onClick={handleSaveNewDescription}
+                  aria-label="Save new description"
+                >
+                  <Save size={14} />
+                </Button>
+              </div>
+              <CardContent className="pt-6">
+                <div className="flex flex-col gap-2 mt-4">
+                  <Textarea
+                    value={newDescription}
+                    onChange={(e) => setNewDescription(e.target.value)}
+                    placeholder="Enter your custom description..."
+                    autoFocus
+                    className="min-h-[100px]"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              <Card
+                onClick={handleAddNewDescription}
+                className="group cursor-pointer hover:bg-muted duration-200"
+              >
+                <CardContent className="pt-6 flex justify-center text-muted-foreground items-center">
+                  <CirclePlus size={16} className="mr-2" />
+                  <span>Add custom description</span>
+                </CardContent>
+              </Card>
+            </>
           )}
         </article>
       </main>

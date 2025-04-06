@@ -21,21 +21,23 @@ export function MetricsPredictedRevenueCard() {
   };
 
   return (
-    <Card className="bg-neutral-100">
+    <Card className="bg-neutral-100" aria-labelledby="predicted-revenue-title">
       <CardContent className="pt-6">
         <div className="flex items-center gap-4">
           <div className="rounded-full bg-orange-200 p-3">
-            <BrainCircuit className="h-6 w-6" />
+            <BrainCircuit className="h-6 w-6" aria-hidden="true" />
           </div>
         </div>
         <div className="mt-4">
           {isLoading ? (
-            <Skeleton className="h-8 w-32" />
+            <Skeleton className="h-8 w-32" aria-label="Loading predicted revenue data" />
           ) : error ? (
-            <div className="text-sm text-destructive">Failed to load prediction data</div>
+            <div className="text-sm text-destructive" role="alert">
+              Failed to load prediction data
+            </div>
           ) : (
             <>
-              <h2 className="text-3xl font-bold">
+              <h2 id="predicted-revenue-title" className="text-3xl font-bold">
                 {earliestPrediction ? formatRevenue(earliestPrediction.revenue) : '$0'}
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
