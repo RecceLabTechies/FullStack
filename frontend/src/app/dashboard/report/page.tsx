@@ -346,33 +346,33 @@ export default function ReportPage() {
             resultHistory.map((item) => (
               <div className="flex flex-col w-full gap-3" key={item.id}>
                 {/* User query message */}
-                <div className="flex gap-2 items-start">
-                  <div className="bg-primary text-primary-foreground rounded-full p-1.5 mt-0.5">
-                    <User size={14} />
-                  </div>
+                <div className="flex gap-2 items-start ml-auto">
                   <div className="flex-1">
-                    <div className="bg-primary/10 w-fit rounded-lg p-3 rounded-tl-none">
+                    <div className="bg-primary/10 w-fit rounded-lg p-3 rounded-tr-none ml-auto">
                       <p className="text-sm">{item.query}</p>
                     </div>
-                    <div className="flex items-center mt-1 ml-1">
+                    <div className="flex items-center mt-1 mr-1 justify-end">
                       <Clock size={12} className="text-muted-foreground mr-1" />
                       <p className="text-xs text-muted-foreground">{item.timestamp}</p>
                     </div>
                   </div>
+                  <div className="bg-primary text-primary-foreground rounded-full p-1.5 mt-0.5">
+                    <User size={14} />
+                  </div>
                 </div>
 
                 {/* AI response message */}
-                <div className="flex gap-2 items-start ml-auto">
+                <div className="flex gap-2 items-start">
+                  <div className="bg-secondary text-secondary-foreground rounded-full p-1.5 mt-0.5">
+                    <Bot size={14} />
+                  </div>
                   <div className="flex-1">
-                    <div className="bg-secondary text-secondary-foreground rounded-lg p-3 rounded-tr-none">
-                      <div className="flex items-center mb-1">
+                    <div className="bg-secondary w-fit  text-secondary-foreground rounded-lg p-3 rounded-tl-none">
+                      <div className="flex  items-center mb-1">
                         <Badge>{item.result.type}</Badge>
                       </div>
                       <p className="text-sm">{getResultSummary(item.result)}</p>
                     </div>
-                  </div>
-                  <div className="bg-secondary text-secondary-foreground rounded-full p-1.5 mt-0.5">
-                    <Bot size={14} />
                   </div>
                 </div>
               </div>
@@ -380,16 +380,16 @@ export default function ReportPage() {
           )}
 
           {loading && (
-            <div className="flex gap-2 items-start ml-auto">
+            <div className="flex gap-2 items-start">
+              <div className="bg-secondary text-secondary-foreground rounded-full p-1.5 mt-0.5">
+                <Bot size={14} />
+              </div>
               <div className="flex-1">
-                <div className="bg-primary text-primary-foreground rounded-lg p-3 rounded-tr-none">
+                <div className="bg-secondary text-secondary-foreground rounded-lg p-3 rounded-tl-none">
                   <div className="flex items-center justify-center">
                     <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
                   </div>
                 </div>
-              </div>
-              <div className="bg-primary text-primary-foreground rounded-full p-1.5 mt-0.5">
-                <Bot size={14} />
               </div>
             </div>
           )}
