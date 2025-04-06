@@ -4,7 +4,18 @@ import React, { useEffect, useState } from 'react';
 
 import { type ProcessedQueryResult, type QueryResultType } from '@/types/types';
 import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
-import { Bot, Clock, GripVertical, Loader2, Pencil, Save, Send, Trash2, User } from 'lucide-react';
+import {
+  Bot,
+  Clock,
+  GripVertical,
+  Loader2,
+  Pencil,
+  Save,
+  Send,
+  Trash2,
+  User,
+  XCircle,
+} from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -36,6 +47,8 @@ export default function ReportPage() {
       result: ProcessedQueryResult;
     }>
   >([]);
+  const [editingDescriptionId, setEditingDescriptionId] = useState<string | null>(null);
+  const [editedDescription, setEditedDescription] = useState('');
 
   const { executeQuery, processedResult, loading, error } = useLLMQuery();
 
@@ -127,6 +140,33 @@ export default function ReportPage() {
     setReportItems(items);
   };
 
+  const handleDeleteItem = (id: string) => {
+    setReportItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const handleEditDescription = (id: string, content: string) => {
+    setEditingDescriptionId(id);
+    setEditedDescription(typeof content === 'string' ? content : '');
+  };
+
+  const handleSaveDescription = (id: string) => {
+    setReportItems((prev) =>
+      prev.map((item) => {
+        if (item.id === id) {
+          return {
+            ...item,
+            result: {
+              ...item.result,
+              content: editedDescription,
+            },
+          };
+        }
+        return item;
+      })
+    );
+    setEditingDescriptionId(null);
+  };
+
   const renderSingleResult = (
     result: ProcessedQueryResult,
     id: string,
@@ -146,19 +186,83 @@ export default function ReportPage() {
               >
                 <GripVertical size={16} />
               </div>
+
+              <div className="absolute top-2 right-2 flex gap-1">
+                {result.type === 'description' && (
+                  <>
+                    {editingDescriptionId === id ? (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                          onClick={() => setEditingDescriptionId(null)}
+                          aria-label="Cancel editing"
+                        >
+                          <XCircle size={14} />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-muted-foreground hover:text-primary"
+                          onClick={() => handleSaveDescription(id)}
+                          aria-label="Save description"
+                        >
+                          <Save size={14} />
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                        onClick={() => handleEditDescription(id, result.content as string)}
+                        aria-label="Edit description"
+                      >
+                        <Pencil size={14} />
+                      </Button>
+                    )}
+                  </>
+                )}
+                {!(result.type === 'description' && editingDescriptionId === id) && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                    onClick={() => handleDeleteItem(id)}
+                    aria-label="Delete item"
+                  >
+                    <Trash2 size={14} />
+                  </Button>
+                )}
+              </div>
+
               <CardContent className="pt-6">
                 {result.type === 'chart' && typeof result.content === 'string' && (
-                  <img src={result.content} alt="Chart result" className="mx-auto" />
+                  <img src={result.content} alt="Chart result" className="mx-auto pt-2" />
                 )}
 
                 {result.type === 'description' && (
-                  <p>
-                    {typeof result.content === 'string'
-                      ? result.content
-                      : React.isValidElement(result.content)
-                        ? 'React element' // Fallback display
-                        : JSON.stringify(result.content)}
-                  </p>
+                  <div className="pt-4">
+                    {editingDescriptionId === id ? (
+                      <div className="flex flex-col gap-2 ">
+                        <textarea
+                          className="w-full min-h-[100px] p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                          value={editedDescription}
+                          onChange={(e) => setEditedDescription(e.target.value)}
+                          autoFocus
+                        />
+                      </div>
+                    ) : (
+                      <p>
+                        {typeof result.content === 'string'
+                          ? result.content
+                          : React.isValidElement(result.content)
+                            ? 'React element' // Fallback display
+                            : JSON.stringify(result.content)}
+                      </p>
+                    )}
+                  </div>
                 )}
 
                 {result.type !== 'chart' &&
@@ -359,14 +463,14 @@ export default function ReportPage() {
                     </div>
                   </div>
                   <div className="bg-primary text-primary-foreground rounded-full p-1.5 mt-0.5">
-                    <User size={14} />
+                    <User size={16} />
                   </div>
                 </div>
 
                 {/* AI response message */}
                 <div className="flex gap-2 items-start">
                   <div className="bg-secondary text-secondary-foreground rounded-full p-1.5 mt-0.5">
-                    <Bot size={14} />
+                    <Bot size={16} />
                   </div>
                   <div className="flex-1">
                     <div className="bg-secondary w-fit  text-secondary-foreground rounded-lg p-3 rounded-tl-none">
@@ -384,13 +488,11 @@ export default function ReportPage() {
           {loading && (
             <div className="flex gap-2 items-start">
               <div className="bg-secondary text-secondary-foreground rounded-full p-1.5 mt-0.5">
-                <Bot size={14} />
+                <Bot size={16} />
               </div>
               <div className="flex-1">
-                <div className="bg-secondary text-secondary-foreground rounded-lg p-3 rounded-tl-none">
-                  <div className="flex items-center justify-center">
-                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                  </div>
+                <div className="bg-secondary text-secondary-foreground rounded-lg p-3 rounded-tl-none w-fit">
+                  <Loader2 size={16} className="animate-spin text-muted-foreground" />
                 </div>
               </div>
             </div>
