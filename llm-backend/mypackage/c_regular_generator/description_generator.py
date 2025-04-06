@@ -161,6 +161,10 @@ def extract_column_metadata(df: pd.DataFrame) -> List[ColumnMetadata]:
     logger.info(
         f"Extracting metadata for DataFrame with {len(df.columns)} columns and {len(df)} rows"
     )
+    df.columns = [
+    "_".join(str(c) for c in col).strip("_") if isinstance(col, tuple) else str(col)
+    for col in df.columns ]
+
     metadata = []
 
     for col in df.columns:
@@ -169,13 +173,7 @@ def extract_column_metadata(df: pd.DataFrame) -> List[ColumnMetadata]:
         stats = {}
 
         # Extract sample values, handling datetime conversion
-        sample_values = series.head(5)
-        if pd.api.types.is_datetime64_any_dtype(series):
-            logger.debug(f"Converting datetime samples to string for column: {col}")
-            sample_values = sample_values.dt.strftime("%Y-%m-%d").tolist()
-        else:
-            sample_values = sample_values.tolist()
-        logger.debug(f"Sample values for {col}: {sample_values}")
+        sample_values = [str(v) for v in series.head(5)]
 
         # Calculate type-specific statistics
         if pd.api.types.is_numeric_dtype(series):
@@ -225,7 +223,7 @@ def extract_column_metadata(df: pd.DataFrame) -> List[ColumnMetadata]:
                 name=col,
                 dtype=str(series.dtype),
                 unique_values=(
-                    series.unique().tolist() if series.nunique() < 20 else None
+                    [str(v) for v in series.unique().tolist()] if series.nunique() < 20 else None
                 ),
                 sample_values=sample_values,
                 stats=stats,
@@ -453,14 +451,20 @@ def _calculate_insights(df: pd.DataFrame, request: AnalysisRequest) -> Dict:
     logger.info(f"Calculating insights using analysis type: {request.analysis_type}")
     logger.debug(f"Selected columns: {request.selected_columns}")
 
-    # Check if columns exist in DataFrame
+    df_col_map = {col.lower(): col for col in df.columns}
+    normalized_selected = []
     for col in request.selected_columns:
-        if col not in df.columns:
-            error_msg = f"Column '{col}' not found in DataFrame"
-            logger.error(error_msg)
-            return {"error": error_msg}
-
+        lower_col = col.lower()
+        if lower_col in df_col_map:
+            normalized_selected.append(df_col_map[lower_col])
+        else:
+            logger.warning(f"Column '{col}' not found (case-insensitive match failed)")
+            return {"error": f"Column '{col}' not found in DataFrame"}
+    request.selected_columns = normalized_selected
     # Filter DataFrame to selected columns
+    time_col = request.parameters.get("time_column")
+    if time_col and time_col.lower() in df_col_map:
+        request.parameters["time_column"] = df_col_map[time_col.lower()]
     selected_df = df[request.selected_columns].copy()
     logger.debug(f"Filtered DataFrame to {len(request.selected_columns)} columns")
 
