@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     default: 'RecceLabs LLM Dashboard',
     template: '%s | RecceLabs LLM Dashboard',
   },
-  description: 'Powerful analytics and AI-driven reports for your marketing needs',
+  description: 'Advanced AI-powered analytics and marketing intelligence platform for businesses',
   keywords: [
     'analytics',
     'marketing',
@@ -21,7 +21,26 @@ export const metadata: Metadata = {
     'reports',
     'LLM',
     'business intelligence',
+    'data visualization',
+    'marketing analytics',
+    'AI reports',
   ],
+  authors: [{ name: 'RecceLabs Team' }],
+  creator: 'RecceLabs',
+  publisher: 'RecceLabs',
+  applicationName: 'RecceLabs LLM Dashboard',
+  formatDetection: {
+    telephone: false,
+  },
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
