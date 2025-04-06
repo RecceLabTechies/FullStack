@@ -61,29 +61,23 @@ export default function DatabaseEditorCard({ onEditSuccess }: DatabaseEditorCard
               {isFetching ? (
                 <span className="animate-pulse">Loading...</span>
               ) : (
-                <span className="text-muted-foreground">{databases?.length ?? 0} available</span>
+                <span>{databases?.length ?? 0} available</span>
               )}
             </Button>
           </DropdownMenuTrigger>
 
-          <DropdownMenuContent className="w-full max-h-60 overflow-y-auto">
+          <DropdownMenuContent className="w-64">
             {databases?.map((db) => (
               <DropdownMenuItem
                 key={db}
-                className="group cursor-pointer flex justify-between items-center w-full"
+                className="group cursor-pointer justify-between"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void handleDelete(db);
+                }}
               >
-                <Button
-                  variant="outline"
-                  type="button"
-                  className="flex w-full justify-between gap-2"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void handleDelete(db);
-                  }}
-                >
-                  {db}
-                  <Trash2 size={18} className="group-hover:text-destructive" />
-                </Button>
+                {db}
+                <Trash2 size={18} />
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
