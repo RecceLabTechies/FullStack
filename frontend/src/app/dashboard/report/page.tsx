@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 
-import { type ProcessedQueryResult } from '@/types/types';
+import { type ProcessedQueryResult, type QueryResultType } from '@/types/types';
+import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
 import { Bot, Clock, Loader2, Pencil, Save, Send, Trash2, User } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -26,6 +27,13 @@ export default function ReportPage() {
       query: string;
       result: ProcessedQueryResult;
       timestamp: string;
+      id: string;
+    }>
+  >([]);
+  const [reportItems, setReportItems] = useState<
+    Array<{
+      id: string;
+      result: ProcessedQueryResult;
     }>
   >([]);
 
@@ -47,29 +55,118 @@ export default function ReportPage() {
   // Update result history when a new result comes in
   useEffect(() => {
     if (processedResult?.content) {
+      const newItemId =
+        new Date().getTime().toString() + '-' + Math.random().toString(36).substring(2, 9);
+
       setResultHistory((prev) => [
         ...prev,
         {
           query: processedResult.originalQuery || 'Unknown query',
           result: processedResult,
           timestamp: new Date().toLocaleTimeString(),
+          id: newItemId,
         },
       ]);
+
+      // Add new item(s) to the report items list for drag and drop
+      if (processedResult.type === 'report') {
+        // Flatten report content items into individual draggable items
+        const reportContentItems = processedResult.content as Array<string | React.ReactNode>;
+
+        if (reportContentItems && reportContentItems.length > 0) {
+          const newItems = reportContentItems.map((content) => {
+            const contentId =
+              new Date().getTime().toString() + '-' + Math.random().toString(36).substring(2, 9);
+            let type: QueryResultType = 'description';
+
+            // Determine the type of content
+            if (typeof content === 'string' && content.startsWith('data:image')) {
+              type = 'chart';
+            }
+
+            return {
+              id: contentId,
+              result: {
+                type: type,
+                content: content,
+                originalQuery: processedResult.originalQuery,
+              } as ProcessedQueryResult,
+            };
+          });
+
+          setReportItems((prev) => [...prev, ...newItems]);
+        }
+      } else {
+        // For non-report types, add as a single item
+        setReportItems((prev) => [
+          ...prev,
+          {
+            id: newItemId,
+            result: processedResult,
+          },
+        ]);
+      }
     }
   }, [processedResult]);
 
   // Function to clear chat history
   const clearHistory = () => {
     setResultHistory([]);
+    setReportItems([]);
   };
 
-  const renderSingleResult = (result: ProcessedQueryResult, index: number): React.ReactNode => {
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination) return;
+
+    const items = Array.from(reportItems);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    if (!reorderedItem) return; // Guard against undefined
+
+    items.splice(result.destination.index, 0, reorderedItem);
+
+    setReportItems(items);
+  };
+
+  const renderSingleResult = (
+    result: ProcessedQueryResult,
+    id: string,
+    index: number
+  ): React.ReactNode => {
     if (!result?.content) return null;
 
     return (
-      <Card key={index}>
-        <CardContent className="pt-6">{renderResultContent(result)}</CardContent>
-      </Card>
+      <Draggable key={id} draggableId={id} index={index}>
+        {(provided) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.draggableProps}
+            {...provided.dragHandleProps}
+            className="mb-4"
+          >
+            <Card>
+              <CardContent className="pt-6">
+                {result.type === 'chart' && typeof result.content === 'string' && (
+                  <img src={result.content} alt="Chart result" className="mx-auto" />
+                )}
+
+                {result.type === 'description' && (
+                  <p>
+                    {typeof result.content === 'string'
+                      ? result.content
+                      : React.isValidElement(result.content)
+                        ? 'React element' // Fallback display
+                        : JSON.stringify(result.content)}
+                  </p>
+                )}
+
+                {result.type !== 'chart' &&
+                  result.type !== 'description' &&
+                  renderResultContent(result)}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </Draggable>
     );
   };
 
@@ -84,9 +181,11 @@ export default function ReportPage() {
       return (
         <div>
           {results.map((content, index) => {
+            const contentId = `${new Date().getTime()}-${index}-${Math.random().toString(36).substring(2, 9)}`;
+
             if (React.isValidElement(content)) {
               return (
-                <Card key={index}>
+                <Card key={contentId}>
                   <CardContent className="pt-6">{content}</CardContent>
                 </Card>
               );
@@ -94,7 +193,7 @@ export default function ReportPage() {
             if (typeof content === 'string') {
               if (content.startsWith('data:image')) {
                 return (
-                  <Card key={index}>
+                  <Card key={contentId}>
                     <CardContent className="pt-6">
                       <img src={content} alt={`Chart ${index + 1}`} />
                     </CardContent>
@@ -102,7 +201,7 @@ export default function ReportPage() {
                 );
               }
               return (
-                <Card key={index}>
+                <Card key={contentId}>
                   <p>{content}</p>
                 </Card>
               );
@@ -244,8 +343,8 @@ export default function ReportPage() {
               <p className="text-sm">No conversation history yet</p>
             </div>
           ) : (
-            resultHistory.map((item, index) => (
-              <div className="flex flex-col w-full gap-3" key={`chat-${index}`}>
+            resultHistory.map((item) => (
+              <div className="flex flex-col w-full gap-3" key={item.id}>
                 {/* User query message */}
                 <div className="flex gap-2 items-start">
                   <div className="bg-primary text-primary-foreground rounded-full p-1.5 mt-0.5">
@@ -319,7 +418,7 @@ export default function ReportPage() {
 
         {error && <div className="text-red-500 mt-2">Error: {error.message}</div>}
       </aside>
-      <main className="w-2/3 ">
+      <main className="w-2/3">
         <nav className="flex justify-between h-9">
           <h2 className="text-xl font-bold mb-4">Report Generator</h2>
           <Button>Export to PDF</Button>
@@ -381,15 +480,27 @@ export default function ReportPage() {
             )}
           </div>
 
-          {resultHistory.length > 0 ? (
-            <>{resultHistory.map((item, index) => renderSingleResult(item.result, index))}</>
-          ) : (
-            <Card>
-              <CardContent className="pt-6 flex justify-center items-center">
-                <p>Submit a query to see results</p>
-              </CardContent>
-            </Card>
-          )}
+          <DragDropContext onDragEnd={handleDragEnd}>
+            <Droppable droppableId="report-items">
+              {(provided) => (
+                <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-4">
+                  {reportItems.length > 0 ? (
+                    reportItems.map((item, index) =>
+                      renderSingleResult(item.result, item.id, index)
+                    )
+                  ) : (
+                    <Card>
+                      <CardContent className="pt-6 flex justify-center items-center">
+                        <p>Submit a query to see results</p>
+                      </CardContent>
+                    </Card>
+                  )}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
+
           {loading && (
             <Card>
               <CardContent className="pt-6 flex justify-center items-center">
