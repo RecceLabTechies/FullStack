@@ -12,10 +12,20 @@ services:
         restart: always
         command: [ "--bind_ip", "0.0.0.0" ]
 
+    nginx:
+        build: ./nginx
+        ports:
+            - "80:80"
+        depends_on:
+            - frontend
+            - backend
+            - llm-backend
+        restart: always
+
     backend:
         build: ./backend
-        ports:
-            - "5001:5000"
+        expose:
+            - "5000"
         depends_on:
             - mongodb
         environment:
@@ -25,21 +35,21 @@ services:
 
     llm-backend:
         build: ./llm-backend
-        ports:
-            - "5002:5000"
+        expose:
+            - "5000"
         depends_on:
             - mongodb
         environment:
             - MONGO_URI=mongodb://root:example@mongodb:27017/
             - PORT=5000
             - PYTHONUNBUFFERED=1
-            - GROQ_API_KEY=${GROQ_LLM_KEY} # Set this in ECS container settings
+            - GROQ_API_KEY=${GROQ_API_KEY} # From .env file
         restart: always
 
     frontend:
         build: ./frontend
-        ports:
-            - "3000:3000"
+        expose:
+            - "3000"
         environment:
             - WATCHPACK_POLLING=true
             - WDS_SOCKET_PORT=0
