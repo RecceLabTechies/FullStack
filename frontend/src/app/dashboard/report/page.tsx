@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 
 import { type ProcessedQueryResult, type QueryResultType } from '@/types/types';
 import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
-import { Bot, Clock, Loader2, Pencil, Save, Send, Trash2, User } from 'lucide-react';
+import { Bot, Clock, GripVertical, Loader2, Pencil, Save, Send, Trash2, User } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -137,13 +137,15 @@ export default function ReportPage() {
     return (
       <Draggable key={id} draggableId={id} index={index}>
         {(provided) => (
-          <div
-            ref={provided.innerRef}
-            {...provided.draggableProps}
-            {...provided.dragHandleProps}
-            className="mb-4"
-          >
+          <div ref={provided.innerRef} {...provided.draggableProps} className="mb-4 relative">
             <Card>
+              <div
+                {...provided.dragHandleProps}
+                className="absolute top-2 left-2 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Drag handle"
+              >
+                <GripVertical size={16} />
+              </div>
               <CardContent className="pt-6">
                 {result.type === 'chart' && typeof result.content === 'string' && (
                   <img src={result.content} alt="Chart result" className="mx-auto" />
