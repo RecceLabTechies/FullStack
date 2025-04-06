@@ -2,14 +2,16 @@ import csv
 import json
 import logging
 from io import StringIO
+
 from bson import json_util
 from werkzeug.utils import secure_filename
+
 from app.data_types import CampaignData, ProphetPredictionData
+from app.database.connection import Database
 from app.database.schema import (
     matches_campaign_schema,
     matches_prophet_prediction_schema,
 )
-from app.database.connection import Database
 
 logger = logging.getLogger(__name__)
 
