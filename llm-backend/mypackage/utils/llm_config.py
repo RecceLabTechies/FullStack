@@ -15,11 +15,9 @@ Key features:
 import logging
 import os
 
-from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 
 # Load environment variables from .env file
-load_dotenv()
 
 logger = logging.getLogger(__name__)
 
