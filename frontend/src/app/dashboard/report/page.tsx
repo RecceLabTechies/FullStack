@@ -179,13 +179,15 @@ export default function ReportPage() {
         {(provided) => (
           <div ref={provided.innerRef} {...provided.draggableProps} className="mb-4 relative">
             <Card>
-              <div
+              <button
                 {...provided.dragHandleProps}
                 className="absolute top-2 left-2 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors"
                 aria-label="Drag handle"
+                type="button"
+                role="button"
               >
                 <GripVertical size={16} />
-              </div>
+              </button>
 
               <div className="absolute top-2 right-2 flex gap-1">
                 {result.type === 'description' && (
@@ -239,7 +241,15 @@ export default function ReportPage() {
 
               <CardContent className="pt-6">
                 {result.type === 'chart' && typeof result.content === 'string' && (
-                  <img src={result.content} alt="Chart result" className="mx-auto pt-2" />
+                  <figure>
+                    <img
+                      src={result.content}
+                      alt={`Data visualization: ${result.originalQuery?.substring(0, 50)}`}
+                      className="mx-auto pt-2"
+                      role="img"
+                    />
+                    <figcaption className="sr-only">Chart: {result.originalQuery}</figcaption>
+                  </figure>
                 )}
 
                 {result.type === 'description' && (
@@ -352,7 +362,11 @@ export default function ReportPage() {
 
   return (
     <div className="container mx-auto flex gap-6 p-4">
-      <aside className="flex flex-col w-1/3 shadow-lg bg-white rounded-md p-4 h-[calc(100vh-6rem)]">
+      <aside
+        role="complementary"
+        aria-label="Report controls"
+        className="flex flex-col w-1/3 shadow-lg bg-white rounded-md p-4 h-[calc(100vh-6rem)]"
+      >
         <h2 className="text-xl font-bold">Report Builder</h2>
 
         <Separator className="my-2" />
@@ -459,7 +473,7 @@ export default function ReportPage() {
                     </div>
                     <div className="flex items-center mt-1 mr-1 justify-end">
                       <Clock size={12} className="text-muted-foreground mr-1" />
-                      <p className="text-xs text-muted-foreground">{item.timestamp}</p>
+                      <time className="text-xs text-muted-foreground">{item.timestamp}</time>
                     </div>
                   </div>
                   <div className="bg-primary text-primary-foreground rounded-full p-1.5 mt-0.5">
@@ -522,7 +536,7 @@ export default function ReportPage() {
 
         {error && <div className="text-red-500 mt-2">Error: {error.message}</div>}
       </aside>
-      <main className="w-2/3">
+      <main role="region" aria-label="Report content" className="w-2/3">
         <nav className="flex justify-between h-9">
           <h2 className="text-xl font-bold mb-4">Report Generator</h2>
           <Button>Export to PDF</Button>
@@ -587,7 +601,12 @@ export default function ReportPage() {
           <DragDropContext onDragEnd={handleDragEnd}>
             <Droppable droppableId="report-items">
               {(provided) => (
-                <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-4">
+                <section
+                  {...provided.droppableProps}
+                  ref={provided.innerRef}
+                  className="space-y-4"
+                  aria-label="Report sections"
+                >
                   {reportItems.length > 0 ? (
                     reportItems.map((item, index) =>
                       renderSingleResult(item.result, item.id, index)
@@ -600,7 +619,7 @@ export default function ReportPage() {
                     </Card>
                   )}
                   {provided.placeholder}
-                </div>
+                </section>
               )}
             </Droppable>
           </DragDropContext>
