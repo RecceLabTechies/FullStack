@@ -9,7 +9,7 @@ import { type HealthResponse, type QueryRequest, type QueryResponse } from '../t
 /**
  * Base URL for all LLM API endpoints
  */
-const LLM_API_BASE_URL = process.env.NEXT_PUBLIC_LLM_API_URL || 'http://llm-backend:5000';
+const LLM_API_BASE_URL = process.env.NEXT_PUBLIC_LLM_API_URL || '';
 
 /**
  * Sends a natural language query to the LLM API for processing
