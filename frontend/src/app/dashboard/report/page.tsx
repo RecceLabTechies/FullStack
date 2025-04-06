@@ -3,8 +3,9 @@
 import React, { useEffect, useState } from 'react';
 
 import { type ProcessedQueryResult } from '@/types/types';
-import { Loader2, Send } from 'lucide-react';
+import { Bot, Clock, Loader2, Pencil, Save, Send, Trash2, User } from 'lucide-react';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -16,10 +17,15 @@ import { useLLMQuery } from '@/hooks/use-llm-api';
 
 export default function ReportPage() {
   const [query, setQuery] = useState('');
+  const [reportTitle, setReportTitle] = useState('Report Title');
+  const [reportAuthor, setReportAuthor] = useState('Report Author');
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [editingAuthor, setEditingAuthor] = useState(false);
   const [resultHistory, setResultHistory] = useState<
     Array<{
       query: string;
       result: ProcessedQueryResult;
+      timestamp: string;
     }>
   >([]);
 
@@ -38,7 +44,7 @@ export default function ReportPage() {
     }
   };
 
-  // Update result history when a new result come s in
+  // Update result history when a new result comes in
   useEffect(() => {
     if (processedResult?.content) {
       setResultHistory((prev) => [
@@ -46,16 +52,18 @@ export default function ReportPage() {
         {
           query: processedResult.originalQuery || 'Unknown query',
           result: processedResult,
+          timestamp: new Date().toLocaleTimeString(),
         },
       ]);
     }
   }, [processedResult]);
 
-  const renderSingleResult = (
-    result: ProcessedQueryResult,
-    queryText: string,
-    index: number
-  ): React.ReactNode => {
+  // Function to clear chat history
+  const clearHistory = () => {
+    setResultHistory([]);
+  };
+
+  const renderSingleResult = (result: ProcessedQueryResult, index: number): React.ReactNode => {
     if (!result?.content) return null;
 
     return (
@@ -121,8 +129,24 @@ export default function ReportPage() {
     );
   };
 
+  // Function to get a summary of the result content
+  const getResultSummary = (result: ProcessedQueryResult): string => {
+    if (!result?.content) return 'No content';
+
+    if (result.type === 'chart') {
+      return 'Chart visualization';
+    } else if (result.type === 'report') {
+      return 'Detailed report';
+    } else if (result.type === 'description') {
+      const content = result.content as string;
+      return content.length > 80 ? content.substring(0, 80) + '...' : content;
+    }
+
+    return result.type || 'Result';
+  };
+
   return (
-    <div className="container  mx-auto flex gap-6 p-4 ">
+    <div className="container mx-auto flex gap-6 p-4">
       <aside className="flex flex-col w-1/3 shadow-lg bg-white rounded-md p-4 h-[calc(100vh-6rem)]">
         <h2 className="text-xl font-bold">Report Builder</h2>
 
@@ -198,18 +222,78 @@ export default function ReportPage() {
         {/* CHAT AREA */}
 
         <Separator className="my-2" />
+        <div className="flex items-center justify-between my-2">
+          <h3 className="text-sm font-semibold">Conversation History</h3>
+          {resultHistory.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-muted-foreground"
+              onClick={clearHistory}
+              aria-label="Clear history"
+            >
+              <Trash2 size={16} className="mr-1" />
+              <span className="text-xs">Clear</span>
+            </Button>
+          )}
+        </div>
 
-        <article className="flex flex-col gap-2  h-full  overflow-scroll">
-          {resultHistory.map((item, index) => (
-            <div className="flex flex-col w-full gap-2" key={`chat-${index}`}>
-              <div className="text-left mr-[25%] bg-accent text-accent-foreground rounded-md p-2 ">
-                {item.query}
+        <article className="flex flex-col gap-3 h-full overflow-y-auto px-1 py-2">
+          {resultHistory.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-muted-foreground">
+              <p className="text-sm">No conversation history yet</p>
+            </div>
+          ) : (
+            resultHistory.map((item, index) => (
+              <div className="flex flex-col w-full gap-3" key={`chat-${index}`}>
+                {/* User query message */}
+                <div className="flex gap-2 items-start">
+                  <div className="bg-primary text-primary-foreground rounded-full p-1.5 mt-0.5">
+                    <User size={14} />
+                  </div>
+                  <div className="flex-1">
+                    <div className="bg-primary/10 w-fit rounded-lg p-3 rounded-tl-none">
+                      <p className="text-sm">{item.query}</p>
+                    </div>
+                    <div className="flex items-center mt-1 ml-1">
+                      <Clock size={12} className="text-muted-foreground mr-1" />
+                      <p className="text-xs text-muted-foreground">{item.timestamp}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* AI response message */}
+                <div className="flex gap-2 items-start ml-auto">
+                  <div className="flex-1">
+                    <div className="bg-secondary text-secondary-foreground rounded-lg p-3 rounded-tr-none">
+                      <div className="flex items-center mb-1">
+                        <Badge>{item.result.type}</Badge>
+                      </div>
+                      <p className="text-sm">{getResultSummary(item.result)}</p>
+                    </div>
+                  </div>
+                  <div className="bg-secondary text-secondary-foreground rounded-full p-1.5 mt-0.5">
+                    <Bot size={14} />
+                  </div>
+                </div>
               </div>
-              <div className="text-right ml-[25%] bg-primary text-primary-foreground rounded-md p-2">
-                {item.result.type}
+            ))
+          )}
+
+          {loading && (
+            <div className="flex gap-2 items-start ml-auto">
+              <div className="flex-1">
+                <div className="bg-primary text-primary-foreground rounded-lg p-3 rounded-tr-none">
+                  <div className="flex items-center justify-center">
+                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                  </div>
+                </div>
+              </div>
+              <div className="bg-primary text-primary-foreground rounded-full p-1.5 mt-0.5">
+                <Bot size={14} />
               </div>
             </div>
-          ))}
+          )}
         </article>
 
         {/* INPUT AREA */}
@@ -221,8 +305,14 @@ export default function ReportPage() {
             placeholder="Enter your query here..."
             disabled={loading}
             className="w-full"
+            aria-label="Query input"
           />
-          <Button type="submit" size="icon" disabled={loading || !query.trim()}>
+          <Button
+            type="submit"
+            size="icon"
+            disabled={loading || !query.trim()}
+            aria-label="Send query"
+          >
             {loading ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
           </Button>
         </form>
@@ -239,19 +329,60 @@ export default function ReportPage() {
 
         <article
           id="report-container"
-          className="space-y-1 h-[calc(100vh-10.3rem)] overflow-scroll"
+          className="space-y-4 h-[calc(100vh-10.3rem)] overflow-scroll"
         >
-          <h4 className="text-lg font-bold">Report Title</h4>
-          <p>
-            <small>Report Author</small>
-          </p>
+          <div className="flex items-center gap-2">
+            {editingTitle ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  type="text"
+                  value={reportTitle}
+                  onChange={(e) => setReportTitle(e.target.value)}
+                  className="text-lg font-bold"
+                  autoFocus
+                />
+                <Button size="icon" variant="ghost" onClick={() => setEditingTitle(false)}>
+                  <Save size={16} />
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <h4 className="text-lg font-bold">{reportTitle}</h4>
+                <Button size="icon" variant="ghost" onClick={() => setEditingTitle(true)}>
+                  <Pencil size={16} />
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 mb-2">
+            {editingAuthor ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  type="text"
+                  value={reportAuthor}
+                  onChange={(e) => setReportAuthor(e.target.value)}
+                  className="text-sm"
+                  autoFocus
+                />
+                <Button size="icon" variant="ghost" onClick={() => setEditingAuthor(false)}>
+                  <Save size={16} />
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <p>
+                  <small>{reportAuthor}</small>
+                </p>
+                <Button size="icon" variant="ghost" onClick={() => setEditingAuthor(true)}>
+                  <Pencil size={16} />
+                </Button>
+              </div>
+            )}
+          </div>
 
           {resultHistory.length > 0 ? (
-            <>
-              {resultHistory.map((item, index) =>
-                renderSingleResult(item.result, item.query, index)
-              )}
-            </>
+            <>{resultHistory.map((item, index) => renderSingleResult(item.result, index))}</>
           ) : (
             <Card>
               <CardContent className="pt-6 flex justify-center items-center">
