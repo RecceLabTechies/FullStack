@@ -115,7 +115,7 @@ export function MLPredictionsChart() {
   const renderChart = () => {
     if (selectedMetric === 'revenue') {
       return (
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" aria-labelledby="ml-predictions-title">
           <LineChart
             data={combinedChartData}
             margin={{
@@ -167,7 +167,7 @@ export function MLPredictionsChart() {
     }
 
     return (
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" aria-labelledby="ml-predictions-title">
         <LineChart
           data={combinedChartData}
           margin={{
@@ -207,12 +207,13 @@ export function MLPredictionsChart() {
     <Card className="w-full">
       <div className="flex items-center justify-between pr-6">
         <CardHeader>
-          <CardTitle>ML Predictions</CardTitle>
+          <CardTitle id="ml-predictions-title">ML Predictions</CardTitle>
           <CardDescription>Monthly comparison of actual and predicted metrics</CardDescription>
         </CardHeader>
         <Select
           value={selectedMetric}
           onValueChange={(value: 'revenue' | 'accounts') => setSelectedMetric(value)}
+          aria-label="Select metrics to display"
         >
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Select metrics" />
@@ -225,15 +226,25 @@ export function MLPredictionsChart() {
       </div>
       <CardContent>
         {(latestTwelveMonthsError ?? prophetError) ? (
-          <div className="flex h-[400px] w-full items-center justify-center text-muted-foreground">
+          <div
+            className="flex h-[400px] w-full items-center justify-center text-muted-foreground"
+            role="alert"
+          >
             {latestTwelveMonthsError?.message ?? prophetError?.message}
           </div>
         ) : isLoadingLatestTwelveMonths || isLoadingProphet ? (
-          <div className="flex h-[400px] w-full items-center justify-center text-muted-foreground">
+          <div
+            className="flex h-[400px] w-full items-center justify-center text-muted-foreground"
+            role="status"
+            aria-live="polite"
+          >
             Loading...
           </div>
         ) : combinedChartData.length === 0 ? (
-          <div className="flex h-[400px] w-full items-center justify-center text-muted-foreground">
+          <div
+            className="flex h-[400px] w-full items-center justify-center text-muted-foreground"
+            aria-label="No data available"
+          >
             No data available
           </div>
         ) : (

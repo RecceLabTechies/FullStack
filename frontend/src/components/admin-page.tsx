@@ -174,10 +174,10 @@ export default function AdminPage() {
     (currentUser.role.toLowerCase() !== 'admin' && currentUser.role.toLowerCase() !== 'root')
   ) {
     return (
-      <section className="container mx-auto p-4">
+      <section className="container mx-auto p-4" aria-labelledby="access-denied-title">
         <Card>
           <CardHeader>
-            <CardTitle>Access Denied</CardTitle>
+            <CardTitle id="access-denied-title">Access Denied</CardTitle>
             <CardDescription>You don&apos;t have permission to access this page.</CardDescription>
           </CardHeader>
         </Card>
@@ -186,12 +186,12 @@ export default function AdminPage() {
   }
 
   return (
-    <section className="container mx-auto p-4">
+    <section className="container mx-auto p-4" aria-labelledby="staff-management-title">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Staff Management</CardTitle>
+              <CardTitle id="staff-management-title">Staff Management</CardTitle>
               <CardDescription>Manage your team&apos;s permissions and access</CardDescription>
             </div>
             <CreateUserModal />

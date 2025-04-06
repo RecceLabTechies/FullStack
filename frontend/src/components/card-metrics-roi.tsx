@@ -28,17 +28,20 @@ export function MetricsROICard() {
   };
 
   return (
-    <Card>
+    <Card aria-labelledby="roi-title">
       <CardContent className="pt-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="rounded-full bg-secondary p-3">
-              <Banknote className="h-6 w-6" />
+              <Banknote className="h-6 w-6" aria-hidden="true" />
             </div>
           </div>
           <HoverCard>
             <HoverCardTrigger asChild>
-              <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+              <Info
+                className="h-4 w-4 text-muted-foreground cursor-help"
+                aria-label="ROI information"
+              />
             </HoverCardTrigger>
             <HoverCardContent className="w-80">
               <div className="space-y-2">
@@ -54,12 +57,16 @@ export function MetricsROICard() {
         </div>
         <div className="mt-4">
           {isLoading ? (
-            <Skeleton className="h-8 w-32" />
+            <Skeleton className="h-8 w-32" aria-label="Loading ROI data" />
           ) : error ? (
-            <div className="text-sm text-destructive">Failed to load ROI data</div>
+            <div className="text-sm text-destructive" role="alert">
+              Failed to load ROI data
+            </div>
           ) : (
             <>
-              <h2 className="text-3xl font-bold">{formatROI(data?.roi ?? 0)}</h2>
+              <h2 id="roi-title" className="text-3xl font-bold">
+                {formatROI(data?.roi ?? 0)}
+              </h2>
               <p className="text-sm text-muted-foreground mt-1">
                 ROI {data?.month && data?.year ? `${getMonthName(data.month)} ${data.year}` : ''}
               </p>

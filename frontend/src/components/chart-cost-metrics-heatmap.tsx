@@ -58,7 +58,11 @@ export function CostMetricsHeatmap() {
           <CardDescription>Loading...</CardDescription>
         </CardHeader>
         <CardContent className="flex justify-center items-center h-48">
-          <div className="animate-spin rounded-full h-8 w-8" />
+          <div
+            className="animate-spin rounded-full h-8 w-8"
+            role="status"
+            aria-label="Loading cost metrics data"
+          />
         </CardContent>
       </Card>
     );
@@ -71,7 +75,10 @@ export function CostMetricsHeatmap() {
           <CardTitle>Cost Metrics by Channel</CardTitle>
           <CardDescription>{error ? 'Error loading data' : 'No data available'}</CardDescription>
         </CardHeader>
-        <CardContent className="flex justify-center items-center h-[350px] text-muted-foreground">
+        <CardContent
+          className="flex justify-center items-center h-[350px] text-muted-foreground"
+          role={error ? 'alert' : undefined}
+        >
           {error ? error.message : 'No data available for cost metrics analysis'}
         </CardContent>
       </Card>
@@ -174,7 +181,7 @@ export function CostMetricsHeatmap() {
     <Card>
       <div className="flex items-center justify-between pr-6">
         <CardHeader>
-          <CardTitle>Cost Metrics by Channel</CardTitle>
+          <CardTitle id="cost-metrics-title">Cost Metrics by Channel</CardTitle>
           <CardDescription>
             {data.time_range?.from_ &&
               data.time_range?.to &&
@@ -183,7 +190,10 @@ export function CostMetricsHeatmap() {
         </CardHeader>
         <HoverCard>
           <HoverCardTrigger asChild>
-            <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+            <Info
+              className="h-4 w-4 text-muted-foreground cursor-help"
+              aria-label="About cost metrics analysis"
+            />
           </HoverCardTrigger>
           <HoverCardContent className="w-80">
             <div className="space-y-2">
@@ -199,7 +209,7 @@ export function CostMetricsHeatmap() {
         </HoverCard>
       </div>
       <CardContent>
-        <div className="w-full">
+        <div className="w-full" aria-labelledby="cost-metrics-title">
           <ReactApexChart options={options} series={series} type="heatmap" height={350} />
         </div>
       </CardContent>

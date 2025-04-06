@@ -53,7 +53,11 @@ const AgeGroupPerformanceCharts = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex h-[400px] w-full items-center justify-center text-muted-foreground">
+          <div
+            className="flex h-[400px] w-full items-center justify-center text-muted-foreground"
+            role="status"
+            aria-live="polite"
+          >
             Loading...
           </div>
         </CardContent>
@@ -71,7 +75,10 @@ const AgeGroupPerformanceCharts = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex h-[400px] w-full items-center justify-center text-muted-foreground">
+          <div
+            className="flex h-[400px] w-full items-center justify-center text-muted-foreground"
+            role="alert"
+          >
             {error.message}
           </div>
         </CardContent>
@@ -89,7 +96,10 @@ const AgeGroupPerformanceCharts = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex h-[400px] w-full items-center justify-center text-muted-foreground">
+          <div
+            className="flex h-[400px] w-full items-center justify-center text-muted-foreground"
+            aria-label="No age group data available"
+          >
             No data available
           </div>
         </CardContent>
@@ -125,14 +135,18 @@ const AgeGroupPerformanceCharts = () => {
     return (
       <Card key={ageGroup}>
         <CardHeader>
-          <CardTitle>Age Group: {ageGroup}</CardTitle>
+          <CardTitle id={`age-group-${ageGroup}-title`}>Age Group: {ageGroup}</CardTitle>
           <CardDescription>
             Monthly comparison of revenue generated versus advertising expenditure for age{' '}
             {ageGroup}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer
+            width="100%"
+            height={300}
+            aria-labelledby={`age-group-${ageGroup}-title`}
+          >
             <LineChart
               data={chartData}
               margin={{
@@ -194,7 +208,11 @@ const AgeGroupPerformanceCharts = () => {
     );
   });
 
-  return <div className="grid grid-cols-3 gap-2">{ageGroupCharts}</div>;
+  return (
+    <div className="grid grid-cols-3 gap-2" aria-label="Age group performance charts">
+      {ageGroupCharts}
+    </div>
+  );
 };
 
 export default AgeGroupPerformanceCharts;

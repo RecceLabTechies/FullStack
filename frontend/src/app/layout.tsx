@@ -53,7 +53,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           enableSystem
           disableTransitionOnChange
         >
-          <div className="relative min-h-screen bg-background antialiased">{children}</div>
+          <div
+            className="relative min-h-screen bg-background antialiased"
+            role="main"
+            aria-label="Main application container"
+          >
+            {children}
+          </div>
           <Toaster richColors expand={true} />
         </ThemeProvider>
       </body>

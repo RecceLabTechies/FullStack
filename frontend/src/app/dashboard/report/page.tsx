@@ -452,9 +452,6 @@ export default function ReportPage() {
         },
         section: {
           marginBottom: 15,
-          padding: 10,
-          borderRadius: 4,
-          backgroundColor: '#F9F9F9',
         },
         text: {
           fontSize: 12,

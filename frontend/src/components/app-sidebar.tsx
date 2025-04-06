@@ -77,6 +77,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     <Sidebar
       collapsible="icon"
       className="bg-sidebar-background text-sidebar-foreground"
+      role="navigation"
+      aria-label="Main navigation"
       {...props}
     >
       <SidebarHeader>
@@ -85,7 +87,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarMenuButton size="lg" asChild>
               <div>
                 <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                  <Building className="size-4" />
+                  <Building className="size-4" aria-hidden="true" />
                 </div>
                 <div className="flex flex-col gap-0.5 leading-none">
                   <span className="font-semibold">{user?.company ?? 'COMPANY NAME'}</span>
@@ -108,8 +110,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   }`}
                   asChild
                 >
-                  <Link href={item.url} prefetch className="flex w-full items-center gap-2">
-                    <item.icon className="size-4" />
+                  <Link
+                    href={item.url}
+                    prefetch
+                    className="flex w-full items-center gap-2"
+                    aria-current={pathname === item.url ? 'page' : undefined}
+                  >
+                    <item.icon className="size-4" aria-hidden="true" />
                     <span>{item.name}</span>
                   </Link>
                 </SidebarMenuButton>

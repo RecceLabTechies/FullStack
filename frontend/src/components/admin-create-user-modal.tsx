@@ -8,6 +8,7 @@ import { useForm } from 'react-hook-form';
 
 import * as z from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { PlusCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -130,13 +131,16 @@ export default function CreateUserModal() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>Create New User</Button>
+        <Button variant="default" size="sm">
+          <PlusCircle className="mr-2 h-4 w-4" />
+          New User
+        </Button>
       </DialogTrigger>
       <DialogContent className="flex max-h-[90vh] flex-col overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create New User</DialogTitle>
           <DialogDescription>
-            Add a new user to the system. Set their role and permissions.
+            Enter user details below to create a new account with appropriate permissions.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -146,12 +150,12 @@ export default function CreateUserModal() {
               name="username"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Username</FormLabel>
+                  <FormLabel htmlFor="username">Username</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="johndoe" />
+                    <Input id="username" {...field} aria-describedby="username-description" />
                   </FormControl>
-                  <FormDescription>
-                    This will be used as the user&apos;s display name.
+                  <FormDescription id="username-description">
+                    This will be their display name in the system.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

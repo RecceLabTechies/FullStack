@@ -69,7 +69,11 @@ export default function DatabaseUploaderCard({ onUploadSuccess }: DatabaseUpload
         <h3 className="text-lg font-medium">Upload Data</h3>
         <HoverCard>
           <HoverCardTrigger asChild>
-            <Info size={16} className="text-muted-foreground cursor-help" />
+            <Info
+              size={16}
+              className="text-muted-foreground cursor-help"
+              aria-label="Upload requirements information"
+            />
           </HoverCardTrigger>
           <HoverCardContent className="w-80">
             <div className="space-y-2">
@@ -105,18 +109,24 @@ export default function DatabaseUploaderCard({ onUploadSuccess }: DatabaseUpload
                         }
                       }}
                       disabled={isUploading}
+                      aria-describedby="csv-file-description"
                       {...field}
                     />
-                    <Button type="submit" disabled={isUploading} size="icon">
+                    <Button
+                      type="submit"
+                      disabled={isUploading}
+                      size="icon"
+                      aria-label="Upload CSV file"
+                    >
                       {isUploading ? (
-                        <LoaderCircle size={24} className="animate-spin" />
+                        <LoaderCircle size={24} className="animate-spin" aria-hidden="true" />
                       ) : (
-                        <Upload size={24} />
+                        <Upload size={24} aria-hidden="true" />
                       )}
                     </Button>
                   </div>
                 </FormControl>
-                <FormMessage />
+                <FormMessage id="csv-file-description" />
               </FormItem>
             )}
           />

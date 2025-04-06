@@ -96,8 +96,12 @@ export default function AuthPage() {
   // If we're in the navigating state, show a fullscreen loading overlay
   if (isNavigating) {
     return (
-      <div className="fixed inset-0 flex flex-col items-center justify-center bg-background">
-        <LoaderCircle size={48} className="animate-spin text-primary mb-4" />
+      <div
+        className="fixed inset-0 flex flex-col items-center justify-center bg-background"
+        role="status"
+        aria-live="polite"
+      >
+        <LoaderCircle size={48} className="animate-spin text-primary mb-4" aria-hidden="true" />
         <h2 className="text-xl font-medium">Loading your dashboard...</h2>
         <p className="text-muted-foreground mt-2">Please wait while we prepare your experience</p>
       </div>
@@ -107,10 +111,13 @@ export default function AuthPage() {
   return (
     <main className="flex min-h-screen flex-col lg:flex-row">
       {/* Product Information Section */}
-      <section className="flex flex-1 flex-col justify-center bg-muted/40 p-8 lg:p-12">
+      <section
+        className="flex flex-1 flex-col justify-center bg-muted/40 p-8 lg:p-12"
+        aria-labelledby="product-heading"
+      >
         <div className="mx-auto w-full max-w-md space-y-8">
           <header className="space-y-3">
-            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+            <h1 id="product-heading" className="text-3xl font-bold tracking-tight sm:text-4xl">
               RecceLabs LLM Dashboard
             </h1>
             <p className="text-lg text-muted-foreground">
@@ -154,16 +161,29 @@ export default function AuthPage() {
       </section>
 
       {/* Auth Form Section */}
-      <section className="flex flex-1 flex-col justify-center p-8 lg:p-12">
+      <section
+        className="flex flex-1 flex-col justify-center p-8 lg:p-12"
+        aria-labelledby="login-heading"
+      >
         <div className="mx-auto w-full max-w-sm space-y-6">
           <header className="space-y-2 text-center">
-            <h1 className="text-3xl font-bold">Login</h1>
+            <h1 id="login-heading" className="text-3xl font-bold">
+              Login
+            </h1>
             <p className="text-muted-foreground">Enter your email below to login to your account</p>
           </header>
           <Form {...loginForm}>
-            <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
+            <form
+              onSubmit={loginForm.handleSubmit(onLoginSubmit)}
+              className="space-y-4"
+              aria-describedby={error ? 'form-error' : undefined}
+            >
               {error && (
-                <div className="flex items-center space-x-2 text-red-600">
+                <div
+                  className="flex items-center space-x-2 text-destructive"
+                  id="form-error"
+                  role="alert"
+                >
                   <span className="text-sm">{error}</span>
                 </div>
               )}
@@ -205,10 +225,10 @@ export default function AuthPage() {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button type="submit" className="w-full" disabled={isLoading} aria-busy={isLoading}>
                 {isLoading ? (
                   <>
-                    <LoaderCircle size={24} className="mr-2 animate-spin" />
+                    <LoaderCircle size={24} className="mr-2 animate-spin" aria-hidden="true" />
                     Authenticating...
                   </>
                 ) : (

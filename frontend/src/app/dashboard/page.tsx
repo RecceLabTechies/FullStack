@@ -25,7 +25,7 @@ export default function DashboardPage() {
       <ProphetPredictionsProvider>
         <div className="flex flex-col container gap-4 mx-auto pb-4">
           {/* Summary Cards */}
-          <section className="grid grid-cols-4 gap-4">
+          <section className="grid grid-cols-4 gap-4" aria-label="Key metrics and actions">
             <MetricsRevenueCard />
             <MetricsROICard />
             <MetricsPredictedRevenueCard />
@@ -37,28 +37,28 @@ export default function DashboardPage() {
           <section className="grid grid-cols-2 gap-4"></section>
 
           {/* ML Predictions Chart */}
-          <section>
+          <section aria-label="Machine learning predictions">
             <MLPredictionsChart />
           </section>
 
           {/* Every Revenue & Ad Spend Chart */}
-          <section>
+          <section aria-label="Performance charts by category">
             <Tabs defaultValue="hidden">
-              <TabsList>
+              <TabsList aria-label="Performance chart categories">
                 <TabsTrigger value="channelcharts" className="flex items-center gap-2">
-                  <BarChart3 size={16} />
+                  <BarChart3 size={16} aria-hidden="true" />
                   Channel Performance Charts
                 </TabsTrigger>
                 <TabsTrigger value="agegroupcharts" className="flex items-center gap-2">
-                  <Users2 size={16} />
+                  <Users2 size={16} aria-hidden="true" />
                   Age Group Performance Charts
                 </TabsTrigger>
                 <TabsTrigger value="countrycharts" className="flex items-center gap-2">
-                  <Globe size={16} />
+                  <Globe size={16} aria-hidden="true" />
                   Country Performance Charts
                 </TabsTrigger>
                 <TabsTrigger value="hidden" className="flex items-center gap-2">
-                  <EyeOff size={16} />
+                  <EyeOff size={16} aria-hidden="true" />
                   Hide Tables
                 </TabsTrigger>
               </TabsList>
@@ -76,11 +76,11 @@ export default function DashboardPage() {
           </section>
 
           {/* Detailed Revenue & Ad Spend Chart */}
-          <section>
+          <section aria-label="Revenue and ad spend analysis">
             <RevenueAdSpendChart />
           </section>
 
-          <section className="grid grid-cols-2 gap-4">
+          <section className="grid grid-cols-2 gap-4" aria-label="Channel and cost metrics">
             <ChannelContributionChart />
             <CostMetricsHeatmap />
           </section>

@@ -60,7 +60,11 @@ export default function ChannelContributionChart() {
     return (
       <Card>
         <CardContent className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+          <div
+            className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"
+            aria-label="Loading chart data"
+            role="status"
+          ></div>
         </CardContent>
       </Card>
     );
@@ -73,7 +77,10 @@ export default function ChannelContributionChart() {
           <CardTitle>Channel Contribution by Metric</CardTitle>
           <CardDescription>Error loading data</CardDescription>
         </CardHeader>
-        <CardContent className="flex justify-center items-center h-[30rem] text-destructive">
+        <CardContent
+          className="flex justify-center items-center h-[30rem] text-destructive"
+          role="alert"
+        >
           <p>{error.message}</p>
         </CardContent>
       </Card>
@@ -91,7 +98,10 @@ export default function ChannelContributionChart() {
               : 'No data available'}
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex justify-center items-center h-[30rem] text-muted-foreground">
+        <CardContent
+          className="flex justify-center items-center h-[30rem] text-muted-foreground"
+          aria-label="No channel contribution data available"
+        >
           No data available for channel contribution analysis
         </CardContent>
       </Card>
@@ -115,7 +125,7 @@ export default function ChannelContributionChart() {
     <Card>
       <div className="flex items-center justify-between pr-6">
         <CardHeader>
-          <CardTitle>Channel Contribution by Metric</CardTitle>
+          <CardTitle id="channel-contribution-title">Channel Contribution by Metric</CardTitle>
           {data.time_range?.from_ && data.time_range?.to && (
             <CardDescription>
               Data from {data.time_range.from_} to {data.time_range.to}
@@ -124,7 +134,10 @@ export default function ChannelContributionChart() {
         </CardHeader>
         <HoverCard>
           <HoverCardTrigger asChild>
-            <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+            <Info
+              className="h-4 w-4 text-muted-foreground cursor-help"
+              aria-label="About channel performance distribution"
+            />
           </HoverCardTrigger>
           <HoverCardContent className="w-80">
             <div className="space-y-2">
@@ -140,7 +153,11 @@ export default function ChannelContributionChart() {
         </HoverCard>
       </div>
       <CardContent className="h-[30rem]">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer
+          width="100%"
+          height="100%"
+          aria-labelledby="channel-contribution-title"
+        >
           <BarChart data={chartData} margin={{ right: 30, left: 20 }} stackOffset="expand">
             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
             <XAxis
