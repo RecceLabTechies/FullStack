@@ -75,12 +75,23 @@ def process_query():
     try:
         result: Dict[str, Union[str, bytes, ReportResults]] = run_pipeline(query)
 
-        # Base64 encode binary chart data for JSON compatibility
         if result["type"] == "chart" and isinstance(result["result"], bytes):
             logger.debug(
                 f"Encoding chart bytes ({len(result['result'])} bytes) to base64"
             )
             result["result"] = base64.b64encode(result["result"]).decode("utf-8")
+
+        elif result["type"] == "report":
+            report_result: ReportResults = result["result"]
+            serialized_results = []
+            for item in report_result.results:
+                if isinstance(item, bytes):
+                    # Add data URL prefix for images in reports
+                    base64_data = base64.b64encode(item).decode("utf-8")
+                    serialized_results.append(f"data:image/png;base64,{base64_data}")
+                else:
+                    serialized_results.append(item)
+            result["result"] = {"results": serialized_results}
 
         response = {"output": result, "original_query": query}
         logger.info(f"Successfully processed query, result type: {result['type']}")

@@ -91,7 +91,7 @@ def main(query: str) -> Dict[str, Union[str, bytes, ReportResults]]:
     if classification_result == "report":
         logger.info("Query identified as report request, initiating report generation")
         try:
-            report_result = report_generator.report_generator(query)
+            report_result = report_generator(query)
             logger.debug(
                 f"Report generation completed with {len(report_result.results)} results"
             )

@@ -204,7 +204,7 @@ def extract_column_metadata(df: pd.DataFrame) -> List[ColumnMetadata]:
                 f"Datetime stats for {col}: range={stats['start']} to {stats['end']}, unique days={stats['unique_days']}"
             )
 
-        elif pd.api.types.is_categorical_dtype(series) or series.nunique() < 20:
+        elif pd.api.types.is_categorical_dtype(series.dtype) or series.nunique() < 20:
             logger.debug(f"Computing categorical statistics for column: {col}")
             value_counts = series.value_counts(normalize=True).head(3)
             stats.update(

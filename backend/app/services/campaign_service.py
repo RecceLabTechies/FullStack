@@ -398,21 +398,10 @@ def get_channel_contribution_data() -> ChannelContributionResponse:
     if df.empty:
         return empty_response
 
-    # Debug numeric columns before conversion
+    # Ensure numeric columns are parsed correctly
     numeric_columns = ["ad_spend", "views", "leads", "new_accounts", "revenue"]
     for col in numeric_columns:
-        logger.debug(f"Column {col} type before conversion: {df[col].dtype}")
-        logger.debug(f"Sample values before conversion: {df[col].head().tolist()}")
-        # Try to identify any problematic values
-        problematic = df[col][df[col].astype(str).str.contains(r'\d+\.\d+\d+\.\d+')]
-        if not problematic.empty:
-            logger.warning(f"Found problematic values in {col}: {problematic.tolist()}")
-
-    # Ensure numeric columns are parsed correctly
-    for col in numeric_columns:
         df[col] = pd.to_numeric(df[col], errors="coerce")
-        logger.debug(f"Column {col} type after conversion: {df[col].dtype}")
-        logger.debug(f"Sample values after conversion: {df[col].head().tolist()}")
 
     # Drop rows with NaN values in numeric columns after conversion
     df = df.dropna(subset=numeric_columns)

@@ -323,13 +323,19 @@ export default function ReportPage() {
                         />
                       </div>
                     ) : (
-                      <p>
+                      <div>
                         {typeof result.content === 'string'
                           ? result.content
                           : React.isValidElement(result.content)
-                            ? 'React element' // Fallback display
-                            : JSON.stringify(result.content)}
-                      </p>
+                            ? result.content  // Render the React element directly
+                            : Array.isArray(result.content)
+                              ? result.content.map((item, index) => (
+                                  <div key={index}>
+                                    {React.isValidElement(item) ? item : String(item)}
+                                  </div>
+                                ))
+                              : JSON.stringify(result.content)}
+                      </div>
                     )}
                   </div>
                 )}

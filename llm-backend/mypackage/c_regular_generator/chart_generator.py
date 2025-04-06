@@ -280,10 +280,14 @@ def get_llm_chart_selection(query: str, metadata: List[ColumnMetadata]) -> Chart
            x_axis: [column]
            y_axis: [column]
            chart_type: [type]
-        2. The columns MUST be from the provided column names
-        3. Chart type MUST be one of: line, bar, scatter, box, heatmap
-        4. DO NOT include any other text, explanation, or formatting
-        5. Each line MUST start with the exact keys: x_axis:, y_axis:, chart_type:
+        2. Use only the provided column names.
+        - If the query explicitly mentions column names, use them.
+        - If the query uses synonyms or related terms (e.g. "income" for "revenue"), choose the **closest matching column** from the list.
+        - Only use a datetime column like "Date" if the query clearly refers to time (e.g. "trend", "over time", "monthly").
+        3. The columns MUST be from the provided column names
+        4. Chart type MUST be one of: line, bar, scatter, box, heatmap
+        5. DO NOT include any other text, explanation, or formatting
+        6. Each line MUST start with the exact keys: x_axis:, y_axis:, chart_type:
 
         Example Valid Response:
         x_axis: date
