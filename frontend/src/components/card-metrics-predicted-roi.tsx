@@ -20,7 +20,7 @@ export function MetricsPredictedROICard() {
     : 0;
 
   return (
-    <Card className="bg-neutral-100" aria-labelledby="predicted-roi-title">
+    <Card className="bg-primary/5" aria-labelledby="predicted-roi-title">
       <CardContent className="pt-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
