@@ -6,13 +6,12 @@ This module contains unit tests for the analysis queries generation functionalit
 """
 
 import unittest
-from unittest.mock import patch, MagicMock, ANY
-import logging
+from unittest.mock import MagicMock, patch
 
 from mypackage.d_report_generator.generate_analysis_queries import (
-    QueryType,
     QueryItem,
     QueryList,
+    QueryType,
     _analyze_collections,
     _format_collections_for_prompt,
     _parse_llm_response,

@@ -1,5 +1,6 @@
 import logging
-from app.config import LOG_LEVEL, LOG_FORMAT
+
+from app.config import LOG_FORMAT, LOG_LEVEL
 
 
 def setup_logging():

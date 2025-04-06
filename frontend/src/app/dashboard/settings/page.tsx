@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { type UserData } from '@/types/types';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { LoaderCircle } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -358,7 +358,7 @@ export default function SettingsPage() {
           <Button type="submit" disabled={isLoading}>
             {isLoading ? (
               <>
-                <LoaderCircle size={16} className="mr-2 animate-spin" />
+                <Loader2 size={16} className="mr-2 animate-spin" />
                 Saving...
               </>
             ) : (

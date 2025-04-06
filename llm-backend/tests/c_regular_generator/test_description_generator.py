@@ -6,8 +6,7 @@ This module contains unit tests for the description generation functionality.
 """
 
 import unittest
-from datetime import datetime
-from unittest.mock import ANY, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd

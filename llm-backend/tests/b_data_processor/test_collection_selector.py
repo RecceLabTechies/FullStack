@@ -6,20 +6,20 @@ This module contains unit tests for the collection selection functionality.
 """
 
 import unittest
-from unittest.mock import patch, MagicMock, ANY
+from unittest.mock import MagicMock, patch
 
 from mypackage.b_data_processor.collection_selector import (
-    _extract_key_terms,
+    CollectionNotFoundError,
+    FieldProcessor,
+    _compare_matches,
     _extract_collection_info,
+    _extract_key_terms,
+    _format_collection_info_for_prompt,
     _match_headers_to_query,
     _match_values_to_query,
-    _compare_matches,
-    _format_collection_info_for_prompt,
     _resolve_ambiguous_matches,
     _select_collection_with_llm,
     select_collection_for_query,
-    CollectionNotFoundError,
-    FieldProcessor,
 )
 
 

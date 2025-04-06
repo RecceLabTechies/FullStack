@@ -9,6 +9,8 @@ services:
         environment:
             - MONGO_INITDB_ROOT_USERNAME=root
             - MONGO_INITDB_ROOT_PASSWORD=example
+        restart: always
+        command: [ "--bind_ip", "0.0.0.0" ]
 
     backend:
         build: ./backend
@@ -19,6 +21,7 @@ services:
         environment:
             - MONGO_URI=mongodb://root:example@mongodb:27017/
             - PORT=5000
+        restart: always
 
     llm-backend:
         build: ./llm-backend
@@ -30,6 +33,8 @@ services:
             - MONGO_URI=mongodb://root:example@mongodb:27017/
             - PORT=5000
             - PYTHONUNBUFFERED=1
+            - GROQ_API_KEY=${GROQ_LLM_KEY} # Set this in ECS container settings
+        restart: always
 
     frontend:
         build: ./frontend
@@ -38,6 +43,8 @@ services:
         environment:
             - WATCHPACK_POLLING=true
             - WDS_SOCKET_PORT=0
+            - NEXT_PUBLIC_API_URL=http://localhost:5001
+            - NEXT_PUBLIC_LLM_API_URL=http://localhost:5002
         volumes:
             - ./frontend:/app
             - /app/node_modules
@@ -45,8 +52,10 @@ services:
         depends_on:
             - backend
             - llm-backend
+        restart: always
         extra_hosts:
             - "host.docker.internal:host-gateway"
 
 volumes:
     mongodb_data:
+        driver: local

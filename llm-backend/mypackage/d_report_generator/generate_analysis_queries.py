@@ -20,10 +20,9 @@ from enum import Enum
 from typing import Dict, List
 
 from langchain_core.prompts import ChatPromptTemplate
-from pydantic import BaseModel
-
 from mypackage.utils.database import Database, is_collection_accessible
 from mypackage.utils.llm_config import ANALYSIS_QUERIES_MODEL, get_groq_llm
+from pydantic import BaseModel
 
 # Set up module-level logger
 logger = logging.getLogger(__name__)

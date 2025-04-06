@@ -6,6 +6,7 @@ from flask import Blueprint, jsonify, make_response, request
 from marshmallow import EXCLUDE, Schema, ValidationError, fields, validate, validates
 
 from app.data_types import CampaignData
+from app.database.connection import Database
 from app.services.campaign_service import (
     filter_campaigns,
     get_campaign_filter_options,
@@ -25,7 +26,6 @@ from app.utils.data_processing import (
     get_db_structure,
     process_csv_data,
 )
-from app.database.connection import Database
 
 # Create blueprint
 data_bp = Blueprint("data_routes", __name__)
@@ -345,22 +345,26 @@ def delete_database():
         - database_name: string (required)
     """
     request_data = request.get_json() or {}
-    
+
     if not request_data.get("database_name"):
         raise ValueError("database_name parameter is required")
-    
+
     database_name = request_data["database_name"]
-    
+
     # Add protection for system collections
     if database_name == "user":
-        return error_response(400, "Cannot delete protected 'user' collection", "protected_collection")
-    
+        return error_response(
+            400, "Cannot delete protected 'user' collection", "protected_collection"
+        )
+
     Database.delete_collection(database_name)
-    
-    return format_response({
-        "message": f"Database '{database_name}' processed successfully",
-        "database": database_name
-    })
+
+    return format_response(
+        {
+            "message": f"Database '{database_name}' processed successfully",
+            "database": database_name,
+        }
+    )
 
 
 # ----------------------------------------------------------------

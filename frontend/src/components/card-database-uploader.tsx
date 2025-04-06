@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 
 import * as z from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Info, LoaderCircle, Upload } from 'lucide-react';
+import { Info, Loader2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -119,7 +119,7 @@ export default function DatabaseUploaderCard({ onUploadSuccess }: DatabaseUpload
                       aria-label="Upload CSV file"
                     >
                       {isUploading ? (
-                        <LoaderCircle size={24} className="animate-spin" aria-hidden="true" />
+                        <Loader2 size={24} className="animate-spin" aria-hidden="true" />
                       ) : (
                         <Upload size={24} aria-hidden="true" />
                       )}

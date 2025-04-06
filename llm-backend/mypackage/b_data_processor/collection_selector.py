@@ -17,10 +17,9 @@ import logging
 from typing import Any, Dict, List, Optional, Protocol, Tuple, TypeAlias, TypedDict
 
 from langchain_core.prompts import ChatPromptTemplate
-from pydantic import BaseModel
-
 from mypackage.utils.database import Database
 from mypackage.utils.llm_config import COLLECTION_SELECTOR_MODEL, get_groq_llm
+from pydantic import BaseModel
 
 # Set up module-level logger
 logger = logging.getLogger(__name__)
