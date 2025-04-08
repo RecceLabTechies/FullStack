@@ -37,7 +37,7 @@ if not logger.handlers:
 logger.debug("truncated_pipeline module initialized")
 
 
-def run_truncated_pipeline(query_item: QueryItem) -> Dict[str, Union[str, List[str]]]:
+def run_truncated_pipeline(query_item: QueryItem) -> Union[str, bytes]:
     """
     Process an individual analysis query through the appropriate pipeline components.
 
@@ -49,8 +49,7 @@ def run_truncated_pipeline(query_item: QueryItem) -> Dict[str, Union[str, List[s
         query_item: A QueryItem object containing the query text, type, and target collection
 
     Returns:
-        Dictionary with keys 'type' (chart, description, or error) and 'result' containing
-        the output of the processing (URL for charts, text for descriptions) or error message
+        Either a string (for descriptions or error messages) or bytes (for chart images)
 
     Raises:
         ValueError: If the query type is invalid
@@ -95,10 +94,7 @@ def run_truncated_pipeline(query_item: QueryItem) -> Dict[str, Union[str, List[s
             logger.warning(
                 f"Query returned empty DataFrame from collection '{collection_name}'"
             )
-            return {
-                "type": "error",
-                "result": f"No data found in collection '{collection_name}' for query: '{query_item.query}'",
-            }
+            return f"No data found in collection '{collection_name}' for query: '{query_item.query}'"
 
         logger.debug(
             f"Successfully processed collection query, received DataFrame with shape: {df.shape}, columns: {list(df.columns)}"
@@ -106,15 +102,15 @@ def run_truncated_pipeline(query_item: QueryItem) -> Dict[str, Union[str, List[s
     except Exception as e:
         error_msg = f"Error processing collection '{collection_name}': {str(e)}"
         logger.error(error_msg, exc_info=True)
-        return {"type": "error", "result": error_msg}
+        return error_msg
 
     # Step 3: Generate appropriate output based on query type
     try:
         if classification_result == "chart":
             logger.info(f"Generating chart for DataFrame with {len(df)} rows")
-            chart_url = chart_generator.generate_chart(df, query_item.query)
-            logger.debug(f"Chart generation successful: {chart_url}")
-            return {"type": "chart", "result": chart_url}
+            chart_bytes = chart_generator.generate_chart(df, query_item.query)
+            logger.debug(f"Chart generation successful, {len(chart_bytes)} bytes")
+            return chart_bytes
 
         elif classification_result == "description":
             logger.info(f"Generating description for DataFrame with {len(df)} rows")
@@ -124,18 +120,19 @@ def run_truncated_pipeline(query_item: QueryItem) -> Dict[str, Union[str, List[s
             logger.debug(
                 f"Description generation successful ({len(description)} chars)"
             )
-            return {"type": "description", "result": description}
+            return description
 
         else:
             # This should never happen given the earlier validation, but included for completeness
             error_msg = f"Unexpected classification result: {classification_result}"
             logger.error(error_msg)
-            return {"type": "error", "result": error_msg}
+            return error_msg
 
     except Exception as e:
         error_msg = f"Error generating {classification_result} output: {str(e)}"
         logger.error(error_msg, exc_info=True)
-        return {"type": "error", "result": error_msg}
+        return error_msg
+
 
 
 if __name__ == "__main__":

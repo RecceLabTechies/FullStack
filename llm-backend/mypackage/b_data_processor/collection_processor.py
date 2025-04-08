@@ -83,7 +83,7 @@ def _get_column_metadata(df: pd.DataFrame) -> Dict:
             # Handle NaN values before getting unique values
             clean_series = df[col].dropna()
             unique_values = clean_series.unique().tolist()
-            metadata["unique_values"][col] = unique_values
+            metadata["unique_values"][col] = unique_values[:20]
             logger.debug(f"Column '{col}': {len(unique_values)} unique string values")
 
         elif is_numeric_dtype(df[col]):

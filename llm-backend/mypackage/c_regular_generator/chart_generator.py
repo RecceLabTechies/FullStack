@@ -145,19 +145,6 @@ def _get_column_type(
 
 
 def extract_column_metadata(df: pd.DataFrame) -> List[ColumnMetadata]:
-    """
-    Extract structured metadata about DataFrame columns.
-
-    This function analyzes each column in the DataFrame to determine its
-    semantic type, extract sample values, and collect unique values for
-    categorical columns.
-
-    Args:
-        df: The pandas DataFrame to analyze
-
-    Returns:
-        List of ColumnMetadata objects describing each column
-    """
     logger.info(f"Extracting column metadata from DataFrame with shape {df.shape}")
     metadata = []
 
@@ -165,22 +152,17 @@ def extract_column_metadata(df: pd.DataFrame) -> List[ColumnMetadata]:
         logger.debug(f"Processing column: {col}")
         col_type = _get_column_type(df[col])
         unique_vals = None
-        sample_vals = df[col].dropna().head(5).tolist()
 
-        # Convert datetime objects to strings
-        if col_type == "datetime":
-            logger.debug(f"Converting datetime values to strings for column: {col}")
-            sample_vals = [str(v) for v in sample_vals]
+        # ✅ Convert sample values to string (including Periods)
+        sample_vals = [str(v) for v in df[col].dropna().head(5).tolist()]
 
-        # Extract unique values for categorical and text columns
-        if col_type in ["categorical", "text"]:
-            logger.debug(f"Extracting unique values for categorical/text column: {col}")
+        if col_type in ["categorical", "text", "datetime"]:
             unique_vals = df[col].dropna().unique().tolist()
             if len(unique_vals) > 20:
-                logger.debug(
-                    f"Limiting unique values to 20 (from {len(unique_vals)}) for column: {col}"
-                )
                 unique_vals = unique_vals[:20]
+
+            # ✅ Convert unique values to strings too
+            unique_vals = [str(v) for v in unique_vals]
 
         metadata.append(
             ColumnMetadata(
@@ -298,10 +280,14 @@ def get_llm_chart_selection(query: str, metadata: List[ColumnMetadata]) -> Chart
            x_axis: [column]
            y_axis: [column]
            chart_type: [type]
-        2. The columns MUST be from the provided column names
-        3. Chart type MUST be one of: line, bar, scatter, box, heatmap
-        4. DO NOT include any other text, explanation, or formatting
-        5. Each line MUST start with the exact keys: x_axis:, y_axis:, chart_type:
+        2. Use only the provided column names.
+        - If the query explicitly mentions column names, use them.
+        - If the query uses synonyms or related terms (e.g. "income" for "revenue"), choose the **closest matching column** from the list.
+        - Only use a datetime column like "Date" if the query clearly refers to time (e.g. "trend", "over time", "monthly").
+        3. The columns MUST be from the provided column names
+        4. Chart type MUST be one of: line, bar, scatter, box, heatmap
+        5. DO NOT include any other text, explanation, or formatting
+        6. Each line MUST start with the exact keys: x_axis:, y_axis:, chart_type:
 
         Example Valid Response:
         x_axis: date
@@ -487,6 +473,25 @@ def generate_chart(df: pd.DataFrame, query: str) -> bytes:
         logger.debug("Getting chart configuration from LLM")
         chart_info = get_llm_chart_selection(enhanced_query, metadata)
 
+        # 🔥 Step 3.5: Match chart_info keys to actual DataFrame columns (case-insensitive)
+        lower_col_map = {col.lower(): col for col in df.columns}
+
+        x_axis = lower_col_map.get(chart_info.x_axis.lower())
+        y_axis = lower_col_map.get(chart_info.y_axis.lower())
+
+        if not x_axis or not y_axis:
+            raise KeyError(
+                f"LLM returned x='{chart_info.x_axis}' and y='{chart_info.y_axis}', "
+                f"but matching columns not found in DataFrame columns: {list(df.columns)}"
+            )
+
+        # Patch chart_info with corrected column names
+        chart_info = ChartInfo(
+            x_axis=x_axis,
+            y_axis=y_axis,
+            chart_type=chart_info.chart_type,
+        )
+
         # Step 4: Create the chart
         logger.debug("Creating the chart visualization")
         fig = _create_seaborn_plot(df, chart_info)
@@ -507,6 +512,7 @@ def generate_chart(df: pd.DataFrame, query: str) -> bytes:
     except Exception as e:
         logger.error(f"Chart generation failed: {str(e)}", exc_info=True)
         raise ValueError(f"Failed to generate chart: {str(e)}")
+
 
 
 if __name__ == "__main__":

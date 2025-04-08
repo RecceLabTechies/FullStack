@@ -323,13 +323,19 @@ export default function ReportPage() {
                         />
                       </div>
                     ) : (
-                      <p>
+                      <div>
                         {typeof result.content === 'string'
                           ? result.content
                           : React.isValidElement(result.content)
-                            ? 'React element' // Fallback display
-                            : JSON.stringify(result.content)}
-                      </p>
+                            ? result.content // Render the React element directly
+                            : Array.isArray(result.content)
+                              ? result.content.map((item, index) => (
+                                  <div key={index}>
+                                    {React.isValidElement(item) ? item : String(item)}
+                                  </div>
+                                ))
+                              : JSON.stringify(result.content)}
+                      </div>
                     )}
                   </div>
                 )}
@@ -600,9 +606,9 @@ export default function ReportPage() {
               variant="link"
               size="free"
               className="justify-start text-wrap text-start text-muted-foreground"
-              onClick={() => setQuery('Visualize regional sales distribution as pie chart')}
+              onClick={() => setQuery('Visualize regional sales distribution')}
             >
-              <small>Visualize regional sales distribution as pie chart</small>
+              <small>Visualize regional sales distribution</small>
             </Button>
           </div>
         </div>
@@ -690,7 +696,7 @@ export default function ReportPage() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Enter your query here..."
             disabled={loading}
-            className="w-full"
+            className="w-full h-fit text-wrap"
             aria-label="Query input"
           />
           <Button
