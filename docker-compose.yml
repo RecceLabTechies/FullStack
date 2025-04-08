@@ -9,36 +9,52 @@ services:
         environment:
             - MONGO_INITDB_ROOT_USERNAME=root
             - MONGO_INITDB_ROOT_PASSWORD=example
+        restart: always
+        command: [ "--bind_ip", "0.0.0.0" ]
+
+    nginx:
+        build: ./nginx
+        ports:
+            - "80:80"
+        depends_on:
+            - frontend
+            - backend
+            - llm-backend
+        restart: always
 
     backend:
         build: ./backend
-        ports:
-            - "5001:5000"
+        expose:
+            - "5000"
         depends_on:
             - mongodb
         environment:
             - MONGO_URI=mongodb://root:example@mongodb:27017/
             - PORT=5000
+        restart: always
 
     llm-backend:
         build: ./llm-backend
-        ports:
-            - "5002:5000"
+        expose:
+            - "5000"
         depends_on:
             - mongodb
         environment:
             - MONGO_URI=mongodb://root:example@mongodb:27017/
             - PORT=5000
             - PYTHONUNBUFFERED=1
-            - GROQ_API_KEY=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
+            - GROQ_API_KEY=${GROQ_API_KEY} # From .env file
+        restart: always
 
     frontend:
         build: ./frontend
-        ports:
-            - "3000:3000"
+        expose:
+            - "3000"
         environment:
             - WATCHPACK_POLLING=true
             - WDS_SOCKET_PORT=0
+            - NEXT_PUBLIC_API_URL=/api
+            - NEXT_PUBLIC_LLM_API_URL=/llm-api
         volumes:
             - ./frontend:/app
             - /app/node_modules
@@ -46,8 +62,10 @@ services:
         depends_on:
             - backend
             - llm-backend
+        restart: always
         extra_hosts:
             - "host.docker.internal:host-gateway"
 
 volumes:
     mongodb_data:
+        driver: local

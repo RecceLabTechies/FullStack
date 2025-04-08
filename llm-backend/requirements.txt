@@ -43,6 +43,7 @@ langsmith==0.3.23
 MarkupSafe==3.0.2
 marshmallow==3.26.1
 matplotlib==3.10.1
+minio==7.2.15
 multidict==6.2.0
 mypy-extensions==1.0.0
 numpy==2.2.4
@@ -75,7 +76,7 @@ tenacity==9.1.2
 typing==3.7.4.3
 typing-inspect==0.9.0
 typing-inspection==0.4.0
-typing_extensions==4.13.0
+typing_extensions==4.13.1
 tzdata==2025.2
 urllib3==2.3.0
 Werkzeug==3.1.3

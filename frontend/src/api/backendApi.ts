@@ -28,7 +28,7 @@ import {
 import axios from 'axios';
 
 /** Base URL for all API endpoints */
-const API_BASE_URL = 'http://localhost:5001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 /**
  * Standard API response interface used across endpoints

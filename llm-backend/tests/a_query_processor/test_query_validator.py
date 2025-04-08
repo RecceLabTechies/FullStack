@@ -6,14 +6,14 @@ This module contains unit tests for the query validation functionality.
 """
 
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from mypackage.a_query_processor.query_validator import (
-    normalize_query,
-    get_valid_query,
-    _cached_llm_validation,
-    INVALID_PATTERNS,
     DATA_ANALYSIS_KEYWORDS,
+    INVALID_PATTERNS,
+    _cached_llm_validation,
+    get_valid_query,
+    normalize_query,
 )
 
 

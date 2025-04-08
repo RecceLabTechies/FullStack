@@ -540,7 +540,7 @@ export default function ReportPage() {
       <aside
         role="complementary"
         aria-label="Report controls"
-        className="flex flex-col w-1/3 shadow-lg bg-white rounded-md p-4 h-[calc(100vh-6rem)]"
+        className="flex flex-col w-1/3 shadow-lg bg-card rounded-md p-4 h-[calc(100vh-6rem)]"
       >
         <h2 className="text-xl font-bold">Report Builder</h2>
 
@@ -709,7 +709,7 @@ export default function ReportPage() {
           </Button>
         </form>
 
-        {error && <div className="text-red-500 mt-2">Error: {error.message}</div>}
+        {error && <div className="text-destructive mt-2">Error: {error.message}</div>}
       </aside>
       <main role="region" aria-label="Report content" className="w-2/3">
         <nav className="flex justify-between h-9">
