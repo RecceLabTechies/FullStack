@@ -19,12 +19,13 @@ from typing import Any, Dict, List, Literal, Optional, Union
 import numpy as np
 import pandas as pd
 from langchain_core.prompts import ChatPromptTemplate
+from pydantic import BaseModel, field_validator
+
 from mypackage.utils.llm_config import (
     DESCRIPTION_GENERATOR_MODEL,
     DESCRIPTION_GENERATOR_SELECTOR_MODEL,
     get_groq_llm,
 )
-from pydantic import BaseModel, field_validator
 
 # Set up module-level logger
 logger = logging.getLogger(__name__)
@@ -162,8 +163,9 @@ def extract_column_metadata(df: pd.DataFrame) -> List[ColumnMetadata]:
         f"Extracting metadata for DataFrame with {len(df.columns)} columns and {len(df)} rows"
     )
     df.columns = [
-    "_".join(str(c) for c in col).strip("_") if isinstance(col, tuple) else str(col)
-    for col in df.columns ]
+        "_".join(str(c) for c in col).strip("_") if isinstance(col, tuple) else str(col)
+        for col in df.columns
+    ]
 
     metadata = []
 
@@ -223,7 +225,9 @@ def extract_column_metadata(df: pd.DataFrame) -> List[ColumnMetadata]:
                 name=col,
                 dtype=str(series.dtype),
                 unique_values=(
-                    [str(v) for v in series.unique().tolist()] if series.nunique() < 20 else None
+                    [str(v) for v in series.unique().tolist()]
+                    if series.nunique() < 20
+                    else None
                 ),
                 sample_values=sample_values,
                 stats=stats,

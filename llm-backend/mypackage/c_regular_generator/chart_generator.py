@@ -21,7 +21,6 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 from langchain_core.prompts import ChatPromptTemplate
-from mypackage.utils.llm_config import CHART_DATA_MODEL, get_groq_llm
 from pandas.api.types import (
     is_bool_dtype,
     is_datetime64_any_dtype,
@@ -29,6 +28,8 @@ from pandas.api.types import (
     is_object_dtype,
 )
 from pydantic import BaseModel, field_validator
+
+from mypackage.utils.llm_config import CHART_DATA_MODEL, get_groq_llm
 
 # Set up module-level logger
 logger = logging.getLogger(__name__)
@@ -512,7 +513,6 @@ def generate_chart(df: pd.DataFrame, query: str) -> bytes:
     except Exception as e:
         logger.error(f"Chart generation failed: {str(e)}", exc_info=True)
         raise ValueError(f"Failed to generate chart: {str(e)}")
-
 
 
 if __name__ == "__main__":

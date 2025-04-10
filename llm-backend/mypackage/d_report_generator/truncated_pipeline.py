@@ -14,7 +14,7 @@ Key components:
 """
 
 import logging
-from typing import Dict, List, Union
+from typing import Union
 
 from mypackage.b_data_processor import collection_processor
 from mypackage.c_regular_generator import chart_generator, description_generator
@@ -132,7 +132,6 @@ def run_truncated_pipeline(query_item: QueryItem) -> Union[str, bytes]:
         error_msg = f"Error generating {classification_result} output: {str(e)}"
         logger.error(error_msg, exc_info=True)
         return error_msg
-
 
 
 if __name__ == "__main__":

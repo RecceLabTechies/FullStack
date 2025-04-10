@@ -22,9 +22,10 @@ import pandas as pd
 from langchain_core.messages import AIMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_experimental.utilities import PythonREPL
+from pandas.api.types import is_numeric_dtype, is_string_dtype
+
 from mypackage.utils.database import Database
 from mypackage.utils.llm_config import COLLECTION_PROCESSOR_MODEL, get_groq_llm
-from pandas.api.types import is_numeric_dtype, is_string_dtype
 
 # Set up module-level logger
 logger = logging.getLogger(__name__)

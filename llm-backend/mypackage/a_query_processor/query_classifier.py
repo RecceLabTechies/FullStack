@@ -12,8 +12,9 @@ from enum import Enum
 from typing import Dict, Protocol, Union
 
 from langchain_core.prompts import ChatPromptTemplate
-from mypackage.utils.llm_config import CLASSIFIER_MODEL, get_groq_llm
 from pydantic import BaseModel
+
+from mypackage.utils.llm_config import CLASSIFIER_MODEL, get_groq_llm
 
 # Set up module-level logger
 logger = logging.getLogger(__name__)

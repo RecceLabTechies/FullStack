@@ -16,12 +16,13 @@ Key components:
 import logging
 from typing import List, Protocol, Union
 
+from pydantic import BaseModel
+
 from mypackage.d_report_generator import truncated_pipeline
 from mypackage.d_report_generator.generate_analysis_queries import (
     QueryList,
     generate_analysis_queries,
 )
-from pydantic import BaseModel
 
 # Set up module-level logger
 logger = logging.getLogger(__name__)

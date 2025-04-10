@@ -16,9 +16,10 @@ and response data.
 import base64
 from typing import Dict, Union
 
-from config import CORS_CONFIG, DEBUG, HOST, PORT
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+
+from config import CORS_CONFIG, DEBUG, HOST, PORT
 from mypackage.d_report_generator import ReportResults
 from mypackage.utils.database import Database
 from mypackage.utils.logging_config import setup_logging

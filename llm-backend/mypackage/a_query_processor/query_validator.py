@@ -20,6 +20,7 @@ import re
 from typing import List, Optional, Pattern, Protocol, TypedDict, Union
 
 from langchain_core.prompts import ChatPromptTemplate
+
 from mypackage.utils.llm_config import VALIDATOR_MODEL, get_groq_llm
 
 # Set up module-level logger
