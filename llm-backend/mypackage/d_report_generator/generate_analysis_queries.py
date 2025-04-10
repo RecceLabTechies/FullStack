@@ -204,22 +204,21 @@ def _format_collections_for_prompt(collections_info: Dict[str, Dict[str, Dict]])
 
 # LLM prompt template for generating analysis queries
 template = """
-Given the following MongoDB collections and their fields, generate comprehensive analytical sub-queries.
+Given the following MongoDB collections and their fields, generate comprehensive analytical sub-queries based on the user's query. Assume the role of a marketing data analyst. You are to come up with a very comprehensive analysis of the data and report. Generate as many charts and descriptions that makes sense as possible.
 
 Available Collections and their fields:
 {collections_info}
 
-User Query: {query}
+The user wants to :{query}
 
 STRICT FORMAT REQUIREMENTS:
-1. Output EXACTLY 3 queries
-2. Each query MUST be on its own line
-3. Each query MUST use EXACTLY this format:
+1. Each query MUST be on its own line
+2. Each query MUST use EXACTLY this format:
    Generate a [chart/description] of [query content] | [single_collection_name]
-4. Use ONLY ONE collection per query
-5. The | symbol MUST separate the query from the collection name
-6. DO NOT add any other text, explanations, or formatting
-7. DO NOT use phrases like "using collection" - use the | symbol instead
+3. Use ONLY ONE collection per query
+4. The | symbol MUST separate the query from the collection name
+5. DO NOT add any other text, explanations, or formatting
+6. DO NOT use phrases like "using collection" - use the | symbol instead
 
 VALID EXAMPLES:
 Generate a chart of leads by source | campaign_performance
@@ -227,7 +226,6 @@ Generate a description of conversion trends | campaign_performance
 Generate a chart of revenue by channel | campaign_performance
 
 INVALID EXAMPLES:
-- Here are 3 queries:  <-- NO INTRODUCTORY TEXT
 - Generate a chart using campaign_performance  <-- MISSING | SYMBOL
 - Generate a chart of performance using collection campaign_performance  <-- WRONG FORMAT
 - Generate a chart from multiple collections  <-- ONLY ONE COLLECTION ALLOWED
