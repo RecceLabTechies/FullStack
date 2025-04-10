@@ -47,14 +47,14 @@ export const useLLMQuery = () => {
       if ('results' in reportObj) {
         // Process each report item
         processed.content = reportObj.results.map((item, index) => {
-          if (!item.startsWith('data:image')) {
+          if (typeof item === 'string') {
             // Text content
             return item;
           } else {
-            // Already a data URL or base64 encoded chart
+            // Binary data for chart - convert from base64
             const imgElement: ReactNode = React.createElement('img', {
               key: index.toString(),
-              src: item,
+              src: base64ChartToDataUrl(item),
               alt: `Chart ${index + 1}`,
             });
             return imgElement;

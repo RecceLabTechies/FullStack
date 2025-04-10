@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 
+import { base64ChartToDataUrl } from '@/api/llmApi';
 import { type ProcessedQueryResult, type QueryResultType } from '@/types/types';
 import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
 import {
@@ -110,25 +111,55 @@ export default function ReportPage() {
 
       // Add new item(s) to the report items list for drag and drop
       if (processedResult.type === 'report') {
-        // Flatten report content items into individual draggable items
+        // Get report content items - could be an array of strings and binary data
         const reportContentItems = processedResult.content as Array<string | React.ReactNode>;
 
         if (reportContentItems && reportContentItems.length > 0) {
+          // Process each item in the report
           const newItems = reportContentItems.map((content) => {
             const contentId =
               new Date().getTime().toString() + '-' + Math.random().toString(36).substring(2, 9);
             let type: QueryResultType = 'description';
+            let processedContent = content;
 
-            // Determine the type of content
-            if (typeof content === 'string' && content.startsWith('data:image')) {
+            // Determine the type of content and process it
+            if (React.isValidElement(content)) {
+              // If it's a React element (likely an image from a chart)
               type = 'chart';
+            } else if (typeof content === 'string') {
+              // If it's a string that starts with data:image, it's a chart
+              if (content.startsWith('data:image')) {
+                type = 'chart';
+              }
+              // Otherwise it's a description (default)
+            } else if (typeof Buffer !== 'undefined' && Buffer?.isBuffer?.(content)) {
+              // Handle Node.js Buffer (for server-side rendering)
+              type = 'chart';
+              const base64String = Buffer.from(content as unknown as ArrayBuffer).toString(
+                'base64'
+              );
+              processedContent = base64ChartToDataUrl(base64String);
+            } else if (typeof content === 'object' && content !== null) {
+              // Handle binary data or other objects
+              type = 'chart';
+
+              // Try to detect binary data that's already base64-encoded
+              const contentStr = JSON.stringify(content);
+              // Check if it might be base64 encoded
+              if (typeof content === 'string' && /^[A-Za-z0-9+/=]+$/.test(content)) {
+                // Likely already base64-encoded
+                processedContent = base64ChartToDataUrl(content);
+              } else {
+                // For other objects, convert to string representation
+                processedContent = contentStr;
+              }
             }
 
             return {
               id: contentId,
               result: {
                 type: type,
-                content: content,
+                content: processedContent,
                 originalQuery: processedResult.originalQuery,
               } as ProcessedQueryResult,
             };
@@ -331,10 +362,16 @@ export default function ReportPage() {
                             : Array.isArray(result.content)
                               ? result.content.map((item, index) => (
                                   <div key={index}>
-                                    {React.isValidElement(item) ? item : String(item)}
+                                    {React.isValidElement(item)
+                                      ? item
+                                      : typeof item === 'object' && item !== null
+                                        ? JSON.stringify(item)
+                                        : String(item)}
                                   </div>
                                 ))
-                              : JSON.stringify(result.content)}
+                              : typeof result.content === 'object' && result.content !== null
+                                ? JSON.stringify(result.content)
+                                : String(result.content)}
                       </div>
                     )}
                   </div>
@@ -365,13 +402,16 @@ export default function ReportPage() {
             const contentId = `${new Date().getTime()}-${index}-${Math.random().toString(36).substring(2, 9)}`;
 
             if (React.isValidElement(content)) {
+              // If it's a React element (already rendered component)
               return (
                 <Card key={contentId}>
                   <CardContent className="pt-6">{content}</CardContent>
                 </Card>
               );
             }
+
             if (typeof content === 'string') {
+              // Handle string content (either text description or data URL for chart)
               if (content.startsWith('data:image')) {
                 return (
                   <Card key={contentId}>
@@ -383,11 +423,25 @@ export default function ReportPage() {
               }
               return (
                 <Card key={contentId}>
-                  <p>{content}</p>
+                  <CardContent className="pt-6">
+                    <p>{content}</p>
+                  </CardContent>
                 </Card>
               );
             }
-            return null;
+
+            // For other types of content (possibly non-stringified objects)
+            return (
+              <Card key={contentId}>
+                <CardContent className="pt-6">
+                  <p>
+                    {typeof content === 'object' && content !== null
+                      ? JSON.stringify(content)
+                      : String(content)}
+                  </p>
+                </CardContent>
+              </Card>
+            );
           })}
         </div>
       );
@@ -397,7 +451,7 @@ export default function ReportPage() {
       return <p>{result.content as string}</p>;
     }
 
-    // For unknown types or error results, just display as string
+    // For unknown types or error results, display safely
     return (
       <p>
         {result.content
