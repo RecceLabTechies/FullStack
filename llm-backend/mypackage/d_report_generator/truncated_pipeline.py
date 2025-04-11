@@ -11,10 +11,11 @@ Key components:
 - Data retrieval and processing from MongoDB collections
 - Result generation via specialized generators
 - Error handling and standardized response format
+- Vector-based semantic matching for improved results
 """
 
 import logging
-from typing import Union
+from typing import List, Optional, Union
 
 from mypackage.b_data_processor import collection_processor
 from mypackage.c_regular_generator import chart_generator, description_generator
@@ -37,7 +38,9 @@ if not logger.handlers:
 logger.debug("truncated_pipeline module initialized")
 
 
-def run_truncated_pipeline(query_item: QueryItem) -> Union[str, bytes]:
+def run_truncated_pipeline(
+    query_item: QueryItem, query_vector: Optional[List[float]] = None
+) -> Union[str, bytes]:
     """
     Process an individual analysis query through the appropriate pipeline components.
 
@@ -47,6 +50,7 @@ def run_truncated_pipeline(query_item: QueryItem) -> Union[str, bytes]:
 
     Args:
         query_item: A QueryItem object containing the query text, type, and target collection
+        query_vector: Pre-computed vector embedding for the query (optional)
 
     Returns:
         Either a string (for descriptions or error messages) or bytes (for chart images)
@@ -87,9 +91,19 @@ def run_truncated_pipeline(query_item: QueryItem) -> Union[str, bytes]:
         logger.debug(
             f"Querying collection '{collection_name}' with: '{query_item.query}'"
         )
-        df = collection_processor.process_collection_query(
-            collection_name, query_item.query
-        )
+
+        # Pass the query vector to collection processor if available
+        if query_vector:
+            logger.debug("Using pre-computed query vector for collection processing")
+            df = collection_processor.process_collection_query(
+                collection_name, query_item.query, query_vector=query_vector
+            )
+        else:
+            logger.debug("No query vector available, processing without vector")
+            df = collection_processor.process_collection_query(
+                collection_name, query_item.query
+            )
+
         if df.empty:
             logger.warning(
                 f"Query returned empty DataFrame from collection '{collection_name}'"
@@ -108,15 +122,41 @@ def run_truncated_pipeline(query_item: QueryItem) -> Union[str, bytes]:
     try:
         if classification_result == "chart":
             logger.info(f"Generating chart for DataFrame with {len(df)} rows")
-            chart_bytes = chart_generator.generate_chart(df, query_item.query)
+
+            # Pass the query vector to chart generator if available
+            if query_vector:
+                logger.debug("Using pre-computed query vector for chart generation")
+                chart_bytes = chart_generator.generate_chart(
+                    df, query_item.query, query_vector=query_vector
+                )
+            else:
+                logger.debug(
+                    "No query vector available, generating chart without vector"
+                )
+                chart_bytes = chart_generator.generate_chart(df, query_item.query)
+
             logger.debug(f"Chart generation successful, {len(chart_bytes)} bytes")
             return chart_bytes
 
         elif classification_result == "description":
             logger.info(f"Generating description for DataFrame with {len(df)} rows")
-            description = description_generator.generate_description(
-                df, query_item.query
-            )
+
+            # Pass the query vector to description generator if available
+            if query_vector:
+                logger.debug(
+                    "Using pre-computed query vector for description generation"
+                )
+                description = description_generator.generate_description(
+                    df, query_item.query, query_vector=query_vector
+                )
+            else:
+                logger.debug(
+                    "No query vector available, generating description without vector"
+                )
+                description = description_generator.generate_description(
+                    df, query_item.query
+                )
+
             logger.debug(
                 f"Description generation successful ({len(description)} chars)"
             )

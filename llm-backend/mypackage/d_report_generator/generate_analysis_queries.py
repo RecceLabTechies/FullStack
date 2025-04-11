@@ -13,15 +13,17 @@ Key components:
 - LLM-driven decomposition of complex analytical requests
 - Query validation and normalization
 - Structured output via Pydantic models
+- Vector-based semantic understanding of queries
 """
 
 import logging
 from enum import Enum
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel
 
+from mypackage.utils.chroma_db import ChromaDBManager
 from mypackage.utils.database import Database, is_collection_accessible
 from mypackage.utils.llm_config import ANALYSIS_QUERIES_MODEL, get_groq_llm
 
@@ -137,28 +139,82 @@ def _analyze_collections() -> Dict[str, Dict[str, Dict]]:
         raise
 
 
-def _format_collections_for_prompt(collections_info: Dict[str, Dict[str, Dict]]) -> str:
+def _format_collections_for_prompt(
+    collections_info: Dict[str, Dict[str, Dict]],
+    query: str,
+    query_vector: Optional[List[float]] = None,
+) -> str:
     """
     Format collection information into a string suitable for the LLM prompt.
 
     This function transforms the structured collection metadata into a human-readable
     text format that can be included in the LLM prompt to provide context about
-    available data.
+    available data. It can also use vector similarity to identify and prioritize
+    collections most relevant to the query.
 
     Args:
         collections_info: Dictionary of collection information from _analyze_collections
+        query: The original user query to find relevant collections for
+        query_vector: Pre-computed vector embedding for the query (optional)
 
     Returns:
         Formatted string containing collection and field information, with each
         collection on a new line and fields described with their type and properties
     """
     logger.debug(f"Formatting {len(collections_info)} collections for LLM prompt")
+
+    # If we have a query vector, prioritize collections by relevance
+    prioritized_collections = []
+    if query_vector:
+        try:
+            logger.debug("Using vector embeddings to prioritize collections")
+
+            # Try to find relevant collections using vector similarity
+            collections = ChromaDBManager.list_collections()
+            collection_exists = any(
+                c.name == "collection_embeddings" for c in collections
+            )
+
+            if collection_exists:
+                # Perform similarity search
+                search_results = ChromaDBManager.find_similar(
+                    collection_name="collection_embeddings",
+                    query=query,
+                    n_results=min(5, len(collections_info)),
+                )
+
+                if search_results["ids"] and search_results["ids"][0]:
+                    # Get the most similar collections
+                    for collection_id in search_results["ids"][0]:
+                        if collection_id in collections_info:
+                            prioritized_collections.append(collection_id)
+                            logger.debug(f"Prioritized collection: {collection_id}")
+        except Exception as e:
+            logger.warning(f"Error using vectors to prioritize collections: {str(e)}")
+
+    # Sort collections with prioritized ones first
+    sorted_collections = []
+
+    # Add prioritized collections first
+    for coll_name in prioritized_collections:
+        if coll_name in collections_info:
+            sorted_collections.append(coll_name)
+
+    # Add remaining collections
+    for coll_name in collections_info:
+        if coll_name not in sorted_collections:
+            sorted_collections.append(coll_name)
+
     formatted_str = ""
 
-    # Process each collection
-    for collection_name, fields in collections_info.items():
+    # Process each collection in the sorted order
+    for collection_name in sorted_collections:
+        fields = collections_info[collection_name]
         field_info = []
         logger.debug(f"Formatting fields for collection '{collection_name}'")
+
+        # Add a marker for prioritized collections
+        collection_prefix = "⭐ " if collection_name in prioritized_collections else ""
 
         # Process each field in the collection
         for field_name, info in fields.items():
@@ -192,7 +248,9 @@ def _format_collections_for_prompt(collections_info: Dict[str, Dict[str, Dict]])
                 logger.debug(f"Added generic field: {field_desc}")
 
         # Add collection with its fields to the formatted string
-        formatted_str += f"{collection_name}: [{', '.join(field_info)}]\n"
+        formatted_str += (
+            f"{collection_prefix}{collection_name}: [{', '.join(field_info)}]\n"
+        )
         logger.debug(
             f"Added collection '{collection_name}' with {len(field_info)} fields"
         )
@@ -344,7 +402,9 @@ def _parse_llm_response(response) -> QueryList:
     return QueryList(queries=queries)
 
 
-def generate_analysis_queries(user_query: str) -> QueryList:
+def generate_analysis_queries(
+    user_query: str, query_vector: Optional[List[float]] = None
+) -> QueryList:
     """
     Main function to generate analysis queries from a user query.
 
@@ -357,6 +417,7 @@ def generate_analysis_queries(user_query: str) -> QueryList:
 
     Args:
         user_query: The original user query for which to generate analysis queries
+        query_vector: Pre-computed vector embedding for the query (optional)
 
     Returns:
         QueryList containing the generated and validated queries
@@ -380,9 +441,11 @@ def generate_analysis_queries(user_query: str) -> QueryList:
             logger.error("No accessible collections available in the database")
             raise ValueError("No accessible collections available in the database")
 
-        # Step 2: Format collection information for the prompt
+        # Step 2: Format collection information for the prompt, using vector if available
         logger.debug("Formatting collection information for LLM prompt")
-        formatted_collections = _format_collections_for_prompt(collections_info)
+        formatted_collections = _format_collections_for_prompt(
+            collections_info, user_query, query_vector
+        )
         logger.debug(
             f"Formatted collection information for prompt ({len(formatted_collections)} chars)"
         )

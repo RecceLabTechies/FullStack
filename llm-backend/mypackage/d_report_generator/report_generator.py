@@ -11,6 +11,7 @@ Key components:
 - Execution of individual analysis tasks via the truncated pipeline
 - Result aggregation from multiple analyses
 - Structured output via Pydantic models
+- Vector-based semantic understanding for improved analysis
 """
 
 import logging
@@ -23,6 +24,7 @@ from mypackage.d_report_generator.generate_analysis_queries import (
     QueryList,
     generate_analysis_queries,
 )
+from mypackage.utils.chroma_db import ChromaDBManager
 
 # Set up module-level logger
 logger = logging.getLogger(__name__)
@@ -93,10 +95,19 @@ def report_generator(user_query: str) -> ReportResults:
     """
     logger.info(f"Starting report generation for query: '{user_query}'")
 
+    # Generate a vector embedding for the query to improve analysis quality
+    query_vector = None
+    try:
+        logger.debug("Generating vector embedding for query")
+        query_vector = ChromaDBManager.generate_embedding(user_query)
+        logger.debug(f"Generated query vector with {len(query_vector)} dimensions")
+    except Exception as e:
+        logger.warning(f"Failed to generate query vector: {str(e)}")
+
     # Step 1: Generate analysis queries from the user query
     logger.debug("Generating analysis queries from user query")
     try:
-        queryList: QueryList = generate_analysis_queries(user_query)
+        queryList: QueryList = generate_analysis_queries(user_query, query_vector)
         logger.info(f"Generated {len(queryList.queries)} analysis queries")
         logger.debug(f"Analysis queries: {queryList.queries}")
     except Exception as e:
@@ -111,10 +122,10 @@ def report_generator(user_query: str) -> ReportResults:
         logger.info(f"Processing query {i + 1}/{len(queryList.queries)}: '{queryItem}'")
 
         try:
-            # Execute the query through the truncated pipeline
+            # Execute the query through the truncated pipeline, passing the query vector
             logger.debug(f"Sending query to truncated pipeline: '{queryItem}'")
             result: Union[str, bytes] = truncated_pipeline.run_truncated_pipeline(
-                queryItem
+                queryItem, query_vector
             )
 
             # Add result to our collection
