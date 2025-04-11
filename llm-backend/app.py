@@ -8,6 +8,7 @@ requests and handles request validation, processing, and response formatting.
 The application exposes endpoints for:
 - Processing queries via the main pipeline
 - Health checking the application and its database connection
+- Checking the health of ChromaDB and its collections
 
 The API is CORS-enabled for cross-origin requests and uses JSON for all request
 and response data.
@@ -15,9 +16,12 @@ and response data.
 
 import base64
 from typing import Dict, Union
+import os
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+import chromadb
+from chromadb.config import Settings
 
 from config import CORS_CONFIG, DEBUG, HOST, PORT
 from mypackage.d_report_generator import ReportResults
@@ -30,6 +34,12 @@ app = Flask(__name__)
 
 CORS(app, **CORS_CONFIG)
 Database.initialize()
+
+# Initialize ChromaDB client
+chroma_client = chromadb.HttpClient(
+    host=os.getenv("CHROMA_SERVER_HOST", "chromadb"),
+    port=int(os.getenv("CHROMA_SERVER_PORT", "8000"))
+)
 
 
 @app.route("/api/query", methods=["POST"])
@@ -171,6 +181,49 @@ def health_check():
         ),
         200,
     )
+
+
+@app.route("/api/chroma/health", methods=["GET"])
+def chroma_health_check():
+    """
+    Check the health status of ChromaDB and its collections.
+    
+    Returns:
+        JSON response with:
+        - status: "ok" or "error"
+        - message: Descriptive status message
+        - healthy: boolean indicating if ChromaDB is healthy
+        - collections: List of available collections and their details
+    """
+    try:
+        # Check if we can connect to ChromaDB
+        collections = chroma_client.list_collections()
+        
+        # Get details for each collection
+        collections_info = []
+        for collection in collections:
+            collection_info = {
+                "name": collection.name,
+                "count": collection.count(),
+                "metadata": collection.metadata
+            }
+            collections_info.append(collection_info)
+        
+        return jsonify({
+            "status": "ok",
+            "message": "ChromaDB is healthy and accessible",
+            "healthy": True,
+            "collections": collections_info
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"ChromaDB health check failed: {str(e)}", exc_info=True)
+        return jsonify({
+            "status": "error",
+            "message": f"ChromaDB health check failed: {str(e)}",
+            "healthy": False,
+            "collections": []
+        }), 503
 
 
 if __name__ == "__main__":
