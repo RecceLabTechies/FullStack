@@ -10,6 +10,7 @@ Key components:
 - Data analysis to extract column metadata
 - LLM-based selection of appropriate visualization type and axes
 - Chart rendering with matplotlib/seaborn
+- Vector-based query understanding
 """
 
 import logging
@@ -29,6 +30,7 @@ from pandas.api.types import (
 )
 from pydantic import BaseModel, field_validator
 
+from mypackage.utils.chroma_db import ChromaDBManager
 from mypackage.utils.llm_config import CHART_DATA_MODEL, get_groq_llm
 
 # Set up module-level logger
@@ -180,7 +182,9 @@ def extract_column_metadata(df: pd.DataFrame) -> List[ColumnMetadata]:
 
 
 def enhance_query_with_metadata(
-    original_query: str, metadata: List[ColumnMetadata]
+    original_query: str,
+    metadata: List[ColumnMetadata],
+    query_vector: Optional[List[float]] = None,
 ) -> str:
     """
     Enhance user query with column metadata to guide LLM interpretation.
@@ -191,6 +195,7 @@ def enhance_query_with_metadata(
     Args:
         original_query: The user's raw query text
         metadata: List of ColumnMetadata objects from the DataFrame
+        query_vector: Pre-computed vector embedding for the query (optional)
 
     Returns:
         Enhanced query string with added context
@@ -199,7 +204,39 @@ def enhance_query_with_metadata(
     emphasized = []
     query_lower = original_query.lower()
 
-    # Identify columns referenced in the query
+    # Use vector similarity for semantic matching if available
+    semantic_matches = []
+    if query_vector:
+        try:
+            # Generate vector embeddings for column names and find semantic matches
+            logger.debug("Using vector embedding for semantic column matching")
+            for col in metadata:
+                # Skip if already an exact match
+                if col.name.lower() in query_lower:
+                    continue
+
+                # Compute semantic similarity between query and column name
+                col_embedding = ChromaDBManager.generate_embedding(col.name)
+                # Use dot product for simple similarity (assumes normalized vectors)
+                similarity = sum(a * b for a, b in zip(query_vector, col_embedding))
+
+                # Columns with high similarity are semantically related to the query
+                if similarity > 0.7:  # Threshold can be adjusted
+                    semantic_matches.append((col.name, similarity))
+                    logger.debug(
+                        f"Semantic match for column {col.name}: {similarity:.4f}"
+                    )
+
+            # Sort by similarity and get top matches
+            semantic_matches.sort(key=lambda x: x[1], reverse=True)
+            for col_name, similarity in semantic_matches[:3]:  # Top 3 semantic matches
+                for col in metadata:
+                    if col.name == col_name and col.name.lower() not in query_lower:
+                        emphasized.append(f"'{col.name}' ({col.dtype}, semantic match)")
+        except Exception as e:
+            logger.warning(f"Error using vector for semantic matching: {str(e)}")
+
+    # Identify columns referenced in the query (traditional approach)
     for col in metadata:
         # Check if column name appears in query
         if col.name.lower() in query_lower:
@@ -452,9 +489,16 @@ def _create_seaborn_plot(df: pd.DataFrame, chart_info: "ChartInfo") -> plt.Figur
         raise ValueError(f"Failed to create {chart_info.chart_type} chart: {str(e)}")
 
 
-def generate_chart(df: pd.DataFrame, query: str) -> bytes:
+def generate_chart(
+    df: pd.DataFrame, query: str, query_vector: Optional[List[float]] = None
+) -> bytes:
     """
     Main function to generate a chart based on a user query.
+
+    Args:
+        df: The pandas DataFrame containing the data to visualize
+        query: The user's query describing the desired visualization
+        query_vector: Pre-computed vector embedding for the query (optional)
 
     Returns:
         PNG image bytes of the generated chart
@@ -468,7 +512,7 @@ def generate_chart(df: pd.DataFrame, query: str) -> bytes:
 
         # Step 2: Enhance query with metadata context
         logger.debug("Enhancing query with metadata")
-        enhanced_query = enhance_query_with_metadata(query, metadata)
+        enhanced_query = enhance_query_with_metadata(query, metadata, query_vector)
 
         # Step 3: Get chart configuration from LLM
         logger.debug("Getting chart configuration from LLM")

@@ -11,6 +11,7 @@ Key components:
 - LLM-based analysis type selection based on query intent
 - Specialized analytical functions for different types of data insights
 - Natural language description generation from analytical results
+- Vector-based semantic understanding of queries
 """
 
 import logging
@@ -21,6 +22,7 @@ import pandas as pd
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, field_validator
 
+from mypackage.utils.chroma_db import ChromaDBManager
 from mypackage.utils.llm_config import (
     DESCRIPTION_GENERATOR_MODEL,
     DESCRIPTION_GENERATOR_SELECTOR_MODEL,
@@ -238,7 +240,11 @@ def extract_column_metadata(df: pd.DataFrame) -> List[ColumnMetadata]:
     return metadata
 
 
-def enhance_query_with_metadata(query: str, metadata: List[ColumnMetadata]) -> str:
+def enhance_query_with_metadata(
+    query: str,
+    metadata: List[ColumnMetadata],
+    query_vector: Optional[List[float]] = None,
+) -> str:
     """
     Enhance the user query with statistical highlights from the data.
 
@@ -249,6 +255,7 @@ def enhance_query_with_metadata(query: str, metadata: List[ColumnMetadata]) -> s
     Args:
         query: The original user query
         metadata: List of ColumnMetadata objects from the DataFrame
+        query_vector: Pre-computed vector embedding for the query (optional)
 
     Returns:
         Enhanced query with statistical highlights
@@ -258,7 +265,48 @@ def enhance_query_with_metadata(query: str, metadata: List[ColumnMetadata]) -> s
 
     # Extract statistical highlights for each column
     enhancements = []
-    for col in metadata:
+
+    # Use vector embedding to prioritize columns most relevant to the query
+    prioritized_columns = []
+    if query_vector:
+        try:
+            logger.debug("Using vector embeddings to prioritize columns")
+            column_similarities = []
+
+            # Calculate similarity between query and each column name
+            for col in metadata:
+                col_embedding = ChromaDBManager.generate_embedding(col.name)
+                similarity = sum(a * b for a, b in zip(query_vector, col_embedding))
+                column_similarities.append((col, similarity))
+                logger.debug(f"Column '{col.name}' similarity: {similarity:.4f}")
+
+            # Sort columns by similarity score (descending)
+            column_similarities.sort(key=lambda x: x[1], reverse=True)
+
+            # Prioritize top N columns
+            for col, _ in column_similarities[:5]:  # Top 5 most relevant columns
+                prioritized_columns.append(col.name)
+                logger.debug(f"Prioritized column: {col.name}")
+        except Exception as e:
+            logger.warning(f"Error using vector for column prioritization: {str(e)}")
+
+    # Process each column, giving priority to semantically relevant ones
+    sorted_metadata = (
+        sorted(
+            metadata,
+            key=lambda col: (
+                col.name in prioritized_columns,
+                prioritized_columns.index(col.name)
+                if col.name in prioritized_columns
+                else 999,
+            ),
+            reverse=True,
+        )
+        if prioritized_columns
+        else metadata
+    )
+
+    for col in sorted_metadata:
         if col.stats:
             highlights = []
 
@@ -282,7 +330,9 @@ def enhance_query_with_metadata(query: str, metadata: List[ColumnMetadata]) -> s
 
             # Compile highlights for this column if any exist
             if highlights:
-                enhancements.append(f"{col.name}: {', '.join(highlights)}")
+                # Mark prioritized columns
+                col_prefix = "✓ " if col.name in prioritized_columns else ""
+                enhancements.append(f"{col_prefix}{col.name}: {', '.join(highlights)}")
 
     # Create enhanced query with metadata appended
     enhanced_query = query
@@ -295,7 +345,9 @@ def enhance_query_with_metadata(query: str, metadata: List[ColumnMetadata]) -> s
 
 
 def get_llm_analysis_plan(
-    query: str, metadata: List[ColumnMetadata]
+    query: str,
+    metadata: List[ColumnMetadata],
+    query_vector: Optional[List[float]] = None,
 ) -> AnalysisRequest:
     """
     Use an LLM to determine the most appropriate analysis approach for the query.
@@ -306,6 +358,7 @@ def get_llm_analysis_plan(
     Args:
         query: The user's query (possibly enhanced with metadata)
         metadata: List of ColumnMetadata objects from the DataFrame
+        query_vector: Pre-computed vector embedding for the query (optional)
 
     Returns:
         AnalysisRequest object containing the analysis plan
@@ -316,9 +369,21 @@ def get_llm_analysis_plan(
     logger.info("Getting analysis plan from LLM")
     logger.debug(f"Input query: {query}")
 
+    # Use vector similarity to find similar past analyses (if available)
+    similar_analysis_context = ""
+    if query_vector:
+        try:
+            logger.debug("Looking for similar past analyses using vector similarity")
+            # This is where you would implement a lookup for similar past analyses
+            # This would require storing past analysis requests and their results in ChromaDB
+            # For now, we'll leave this as a placeholder
+            pass
+        except Exception as e:
+            logger.warning(f"Error finding similar analyses: {str(e)}")
+
     # Define prompt template for LLM
     prompt_template = ChatPromptTemplate.from_template(
-        """Analyze this data request and select analysis parameters:
+        """Analyze this data request and select analysis parameters:{similar_context}
 
 Query: {query}
 
@@ -362,7 +427,13 @@ parameters: group_by:category, metric:price"""
     chain = prompt_template | model
 
     logger.debug("Sending request to Groq LLM")
-    response = chain.invoke({"query": query, "columns": columns_str})
+    response = chain.invoke(
+        {
+            "query": query,
+            "columns": columns_str,
+            "similar_context": similar_analysis_context,
+        }
+    )
     logger.debug(f"Received response from Groq LLM: {response.content}")
 
     # Parse LLM response into structured format
@@ -799,7 +870,9 @@ def _analyze_time_series(
         return {"error": f"Time series analysis failed: {str(e)}"}
 
 
-def generate_description(df: pd.DataFrame, query: str) -> str:
+def generate_description(
+    df: pd.DataFrame, query: str, query_vector: Optional[List[float]] = None
+) -> str:
     """
     Main function to generate a natural language description based on a user query.
 
@@ -813,6 +886,7 @@ def generate_description(df: pd.DataFrame, query: str) -> str:
     Args:
         df: The pandas DataFrame containing the data to analyze
         query: The user's query requesting a description
+        query_vector: Pre-computed vector embedding for the query (optional)
 
     Returns:
         Natural language description of the data insights
@@ -829,11 +903,11 @@ def generate_description(df: pd.DataFrame, query: str) -> str:
 
         # Step 2: Enhance query with statistical context
         logger.debug("Enhancing query with metadata")
-        enhanced_query = enhance_query_with_metadata(query, metadata)
+        enhanced_query = enhance_query_with_metadata(query, metadata, query_vector)
 
         # Step 3: Get analysis plan from LLM
         logger.debug("Getting analysis plan from LLM")
-        analysis_request = get_llm_analysis_plan(enhanced_query, metadata)
+        analysis_request = get_llm_analysis_plan(enhanced_query, metadata, query_vector)
 
         # Step 4: Calculate insights based on analysis plan
         logger.debug(

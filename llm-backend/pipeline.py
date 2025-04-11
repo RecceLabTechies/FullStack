@@ -18,12 +18,13 @@ taking a user query and returning structured analysis results.
 """
 
 import logging
-from typing import Dict, Union
+from typing import Dict, List, Tuple, Union
 
 from mypackage.a_query_processor import query_classifier, query_validator
 from mypackage.b_data_processor import collection_processor, collection_selector
 from mypackage.c_regular_generator import chart_generator, description_generator
 from mypackage.d_report_generator import ReportResults, report_generator
+from mypackage.utils.chroma_db import ChromaDBManager
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -36,6 +37,32 @@ if not logger.handlers:
     )
     handler.setFormatter(formatter)
     logger.addHandler(handler)
+
+
+def vectorize_query(query: str) -> Tuple[List[float], bool]:
+    """
+    Vectorize the user query for semantic processing.
+
+    This function converts the text query into a vector embedding that can be used
+    for semantic matching and understanding throughout the pipeline.
+
+    Args:
+        query (str): The user query to vectorize
+
+    Returns:
+        Tuple containing:
+        - The vector embedding as a list of floats
+        - Boolean indicating success (True) or failure (False)
+    """
+    try:
+        logger.debug(f"Vectorizing query: '{query}'")
+        query_vector = ChromaDBManager.generate_embedding(query)
+        vector_dim = len(query_vector)
+        logger.debug(f"Successfully vectorized query to {vector_dim} dimensions")
+        return query_vector, True
+    except Exception as e:
+        logger.error(f"Failed to vectorize query: {str(e)}")
+        return [], False
 
 
 def main(query: str) -> Dict[str, Union[str, bytes, ReportResults]]:
@@ -71,6 +98,9 @@ def main(query: str) -> Dict[str, Union[str, bytes, ReportResults]]:
     query = query.strip()
     logger.info(f"Starting pipeline processing for query: '{query}'")
 
+    # Step 0: Generate vector embedding for the query
+    query_vector, vectorization_success = vectorize_query(query)
+
     # Step 1: Validate the query
     try:
         query_validator.get_valid_query(query)
@@ -104,25 +134,46 @@ def main(query: str) -> Dict[str, Union[str, bytes, ReportResults]]:
 
     # Step 4: Select and process the appropriate collection for chart/description
     try:
-        # Step 4a: Select the appropriate collection
-        collection_name = collection_selector.select_collection_for_query(query)
+        # Step 4a: Select the appropriate collection using query vector if available
+        if vectorization_success:
+            collection_name = collection_selector.select_collection_for_query(
+                query, query_vector=query_vector
+            )
+        else:
+            collection_name = collection_selector.select_collection_for_query(query)
+
         logger.debug(f"Selected collection: {collection_name}")
     except Exception as e:
         logger.error(f"Collection selection failed: {str(e)}", exc_info=True)
         return {"type": "error", "result": f"Error selecting collection: {str(e)}"}
 
     # Step 4b: Process the collection to get a DataFrame
-    df = collection_processor.process_collection_query(collection_name, query)
+    try:
+        if vectorization_success:
+            df = collection_processor.process_collection_query(
+                collection_name, query, query_vector=query_vector
+            )
+        else:
+            df = collection_processor.process_collection_query(collection_name, query)
+    except Exception as e:
+        logger.error(f"Collection processing failed: {str(e)}", exc_info=True)
+        return {"type": "error", "result": f"Error processing collection: {str(e)}"}
 
     # Step 5: Generate the appropriate output based on classification
     try:
         if classification_result == "chart":
             logger.info("Generating chart visualization")
-            result = chart_generator.generate_chart(df, query)
+            if vectorization_success:
+                result = chart_generator.generate_chart(df, query, query_vector=query_vector)
+            else:
+                result = chart_generator.generate_chart(df, query)
             return {"type": "chart", "result": result}
         elif classification_result == "description":
             logger.info("Generating data description")
-            result = description_generator.generate_description(df, query)
+            if vectorization_success:
+                result = description_generator.generate_description(df, query, query_vector=query_vector)
+            else:
+                result = description_generator.generate_description(df, query)
             return {"type": "description", "result": result}
         else:
             logger.warning(f"Unknown classification result: {classification_result}")

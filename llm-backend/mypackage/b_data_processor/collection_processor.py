@@ -11,11 +11,13 @@ Key components:
 - LLM-based code generation for data processing
 - Safe code execution in a sandboxed environment
 - Error handling and code correction
+- Vector-based schema understanding
 """
 
+import json
 import logging
 import re
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -24,6 +26,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_experimental.utilities import PythonREPL
 from pandas.api.types import is_numeric_dtype, is_string_dtype
 
+from mypackage.utils.chroma_db import ChromaDBManager
 from mypackage.utils.database import Database
 from mypackage.utils.llm_config import COLLECTION_PROCESSOR_MODEL, get_groq_llm
 
@@ -141,7 +144,91 @@ def _extract_code_block(response: str) -> str:
     return extracted_code
 
 
-def _generate_processing_code(query: str, metadata: Dict) -> str:
+def _get_collection_vector_info(collection_name: str) -> Dict:
+    """
+    Retrieve vector-based metadata for a collection from ChromaDB.
+
+    Args:
+        collection_name: Name of the collection to get metadata for
+
+    Returns:
+        Dictionary containing vector-based metadata or empty dict if not found
+    """
+    logger.info(f"Retrieving vector metadata for collection: {collection_name}")
+
+    try:
+        # Check if the collection_embeddings collection exists
+        collections = ChromaDBManager.list_collections()
+        if not any(c.name == "collection_embeddings" for c in collections):
+            logger.warning("collection_embeddings not found in ChromaDB")
+            return {}
+
+        # Get the embeddings collection
+        chroma_collection = ChromaDBManager.get_or_create_collection(
+            "collection_embeddings"
+        )
+
+        # Try to get the specific collection metadata
+        results = chroma_collection.get(
+            ids=[collection_name], include=["metadatas", "documents"]
+        )
+
+        if not results["ids"]:
+            logger.warning(
+                f"No vector metadata found for collection: {collection_name}"
+            )
+            return {}
+
+        # Extract metadata
+        metadata = results["metadatas"][0] if results["metadatas"] else {}
+        document = results["documents"][0] if results["documents"] else ""
+
+        # If raw_metadata exists, parse it
+        if "raw_metadata" in metadata:
+            try:
+                raw_metadata = json.loads(metadata["raw_metadata"])
+                return {
+                    "vector_metadata": True,
+                    "field_count": metadata.get("field_count", 0),
+                    "fields_info": raw_metadata,
+                }
+            except json.JSONDecodeError:
+                logger.error("Failed to parse raw_metadata JSON")
+
+        return {"vector_metadata": True, "document": document, "metadata": metadata}
+
+    except Exception as e:
+        logger.error(f"Error retrieving vector metadata: {str(e)}", exc_info=True)
+        return {}
+
+
+def _find_similar_queries(
+    query: str, query_vector: Optional[List[float]] = None
+) -> List[Dict]:
+    """
+    Find similar queries to the current query that might provide useful context.
+
+    This would typically involve:
+    1. Storing past successful queries and their generated code in ChromaDB
+    2. Finding similar past queries using vector similarity
+    3. Returning the similar queries and their code for context
+
+    NOTE: This is a placeholder for future functionality
+
+    Args:
+        query: Current user query
+        query_vector: Pre-computed vector embedding for the query (optional)
+
+    Returns:
+        List of similar queries with their generated code
+    """
+    # This would be implemented in a future version
+    return []
+
+
+def _generate_processing_code(
+    query: str, metadata: Dict, query_vector: Optional[List[float]] = None
+) -> str:
     """
     Generate pandas processing code using Groq LLM based on the user query.
 
@@ -151,6 +238,7 @@ def _generate_processing_code(query: str, metadata: Dict) -> str:
     Args:
         query: The user's query describing the desired data transformation
         metadata: Dictionary of DataFrame metadata from _get_column_metadata()
+        query_vector: Pre-computed vector embedding for the query (optional)
 
     Returns:
         Generated Python code as a string
@@ -160,13 +248,53 @@ def _generate_processing_code(query: str, metadata: Dict) -> str:
     """
     logger.info(f"Generating processing code for query: '{query}'")
 
+    # Get collection name from metadata if available
+    collection_name = metadata.get("collection_name", "unknown")
+
+    # Get vector-based metadata if available
+    vector_info = _get_collection_vector_info(collection_name)
+    vector_context = ""
+
+    if vector_info:
+        logger.info("Including vector-based metadata in the prompt")
+        if "fields_info" in vector_info:
+            # Extract field type information from vector metadata
+            fields_info = vector_info["fields_info"]
+            type_info = "\nField types from vector metadata:\n"
+            for field, info in fields_info.items():
+                field_type = info.get("type", "unknown")
+                type_info += f"- {field}: {field_type}\n"
+
+                # Include stats if available
+                if "stats" in info:
+                    stats = info["stats"]
+                    if field_type == "numerical" and isinstance(stats, dict):
+                        type_info += f"  Range: {stats.get('min', 'N/A')} to {stats.get('max', 'N/A')}\n"
+                    elif field_type == "categorical" and "unique_values" in stats:
+                        values = stats["unique_values"]
+                        if values and len(values) > 0:
+                            sample = values[:5]
+                            type_info += f"  Values include: {', '.join(sample)}\n"
+
+            vector_context = f"\n{type_info}"
+
+    # Find similar queries (passing the pre-computed vector if available)
+    similar_queries = _find_similar_queries(query, query_vector)
+    similar_context = ""
+
+    if similar_queries:
+        similar_context = "\nSimilar queries that may help:\n"
+        for idx, sq in enumerate(similar_queries[:2]):  # Limit to 2 examples
+            similar_context += f"Query: {sq['query']}\n"
+            similar_context += f"Code:\n{sq['code']}\n"
+
     # Create prompt template with detailed instructions
     prompt_template = ChatPromptTemplate.from_template(
         """You are a pandas expert working with this dataset:
 - Columns: {columns}
 - Data types: {dtypes}
 - Unique values (string columns): {unique_values}
-- Numeric statistics: {numeric_stats}
+- Numeric statistics: {numeric_stats}{vector_context}{similar_context}
 
 Write Python code to process the DataFrame according to this query:
 "{query}"
@@ -218,6 +346,8 @@ Now generate the code for this query:"""
         dtypes=metadata["dtypes"],
         unique_values=metadata["unique_values"],
         numeric_stats=metadata["numeric_stats"],
+        vector_context=vector_context,
+        similar_context=similar_context,
     )
 
     logger.debug("Prompt prepared for LLM code generation")
@@ -368,7 +498,9 @@ def _execute_with_retries(
     return df
 
 
-def process_collection_query(collection_name: str, query: str) -> pd.DataFrame:
+def process_collection_query(
+    collection_name: str, query: str, query_vector: Optional[List[float]] = None
+) -> pd.DataFrame:
     """
     Main function to process a collection based on a user query.
 
@@ -383,6 +515,7 @@ def process_collection_query(collection_name: str, query: str) -> pd.DataFrame:
     Args:
         collection_name: Name of the MongoDB collection to process
         query: The user's query describing the desired data transformation
+        query_vector: Pre-computed vector embedding for the query (optional)
 
     Returns:
         Processed pandas DataFrame
@@ -412,9 +545,11 @@ def process_collection_query(collection_name: str, query: str) -> pd.DataFrame:
 
         # Step 3: Extract metadata for code generation
         metadata = _get_column_metadata(df)
+        # Add collection name to metadata
+        metadata["collection_name"] = collection_name
 
-        # Step 4: Generate processing code using LLM
-        code = _generate_processing_code(query, metadata)
+        # Step 4: Generate processing code using LLM (with query vector if available)
+        code = _generate_processing_code(query, metadata, query_vector)
 
         # Step 5: Execute code with retries
         result_df = _execute_with_retries(code, df, query, metadata)

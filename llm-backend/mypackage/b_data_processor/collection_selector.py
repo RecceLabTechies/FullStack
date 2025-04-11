@@ -11,6 +11,7 @@ Key components:
 - Field and value matching between query terms and collection content
 - LLM-based disambiguation for complex queries
 - Scoring algorithm to rank potential collection matches
+- Vector-based similarity matching using ChromaDB embeddings
 """
 
 import logging
@@ -19,6 +20,7 @@ from typing import Any, Dict, List, Optional, Protocol, Tuple, TypeAlias, TypedD
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel
 
+from mypackage.utils.chroma_db import ChromaDBManager
 from mypackage.utils.database import Database
 from mypackage.utils.llm_config import COLLECTION_SELECTOR_MODEL, get_groq_llm
 
@@ -854,7 +856,113 @@ def _select_collection_with_llm(
     return result
 
 
-def select_collection_for_query(query: str) -> str:
+def _find_collection_by_vector_similarity(
+    query: str, query_vector: Optional[List[float]] = None
+) -> Tuple[Optional[str], float, str]:
+    """
+    Find the most similar collection using vector embeddings.
+
+    This function:
+    1. Uses the provided query vector or generates an embedding for the query
+    2. Performs similarity search against the collection embeddings in ChromaDB
+    3. Returns the most similar collection with its similarity score
+
+    Args:
+        query: The user query to match against collections
+        query_vector: Pre-computed vector embedding for the query (optional)
+
+    Returns:
+        Tuple containing:
+        - Name of the most similar collection (or None if no match)
+        - Similarity score (higher is better)
+        - Reason for the match
+    """
+    logger.info(f"Using vector similarity to find collection for query: '{query}'")
+
+    try:
+        # Check if the collection_embeddings collection exists in ChromaDB
+        collections = ChromaDBManager.list_collections()
+        collection_exists = any(c.name == "collection_embeddings" for c in collections)
+
+        if not collection_exists:
+            logger.warning(
+                "collection_embeddings not found in ChromaDB, cannot use vector search"
+            )
+            return None, 0.0, "No vector embeddings available"
+
+        # Perform similarity search using ChromaDBManager
+        if query_vector:
+            # Use pre-computed vector if provided
+            logger.debug("Using pre-computed query vector")
+            chroma_collection = ChromaDBManager.get_or_create_collection(
+                "collection_embeddings"
+            )
+            search_results = chroma_collection.query(
+                query_embeddings=[query_vector],
+                n_results=3,
+                include=["documents", "metadatas", "distances"],
+            )
+        else:
+            # Generate vector on the fly if not provided
+            logger.debug("Generating new query vector")
+            search_results = ChromaDBManager.find_similar(
+                collection_name="collection_embeddings", query=query, n_results=3
+            )
+
+        if not search_results["ids"] or not search_results["ids"][0]:
+            logger.warning("No vector search results returned")
+            return None, 0.0, "No vector search results"
+
+        # Get the most similar collection
+        top_collection_id = search_results["ids"][0][0]
+        similarity_score = (
+            1.0 - search_results["distances"][0][0]
+        )  # Convert distance to similarity
+
+        # Get metadata for additional context
+        metadata = (
+            search_results["metadatas"][0][0]
+            if search_results["metadatas"] and search_results["metadatas"][0]
+            else {}
+        )
+        field_count = metadata.get("field_count", 0)
+
+        reason = (
+            f"Vector similarity score: {similarity_score:.4f} with {field_count} fields"
+        )
+
+        logger.info(
+            f"Vector search found collection '{top_collection_id}' with similarity {similarity_score:.4f}"
+        )
+        return top_collection_id, similarity_score, reason
+
+    except Exception as e:
+        logger.error(f"Error during vector similarity search: {str(e)}", exc_info=True)
+        return None, 0.0, f"Vector search error: {str(e)}"
+
+
+def select_collection_for_query(
+    query: str, query_vector: Optional[List[float]] = None
+) -> str:
+    """
+    Select the most appropriate collection for the given query.
+
+    This function uses a combination of approaches to find the best collection:
+    1. Vector similarity search (if vector embeddings are available)
+    2. Field name matching
+    3. Field value matching
+    4. LLM-based selection as a fallback
+
+    Args:
+        query: The user query to find a collection for
+        query_vector: Pre-computed vector embedding for the query (optional)
+
+    Returns:
+        Name of the selected collection
+
+    Raises:
+        CollectionNotFoundError: If no suitable collection is found
+    """
     logger.info(f"Selecting collection for query: '{query}'")
 
     if not Database.initialize():
@@ -866,6 +974,19 @@ def select_collection_for_query(query: str) -> str:
             available_collections=[],
         )
 
+    # First, try vector-based selection if available
+    vector_collection, vector_score, vector_reason = (
+        _find_collection_by_vector_similarity(query, query_vector)
+    )
+
+    # If we got a strong vector match (score > 0.8), use it directly
+    if vector_collection and vector_score > 0.8:
+        logger.info(
+            f"Using vector-selected collection with high confidence: {vector_collection}"
+        )
+        return vector_collection
+
+    # Continue with traditional collection selection
     collection_info = _extract_collection_info()
     if not collection_info:
         error_msg = "No collections found in MongoDB database"
@@ -888,6 +1009,27 @@ def select_collection_for_query(query: str) -> str:
         header_matches, value_match_dict
     )
 
+    # If we have both traditional and vector matches, consider the vector match as an additional signal
+    if best_match and vector_collection:
+        # If they agree, increase confidence
+        if best_match == vector_collection:
+            logger.info(f"Vector search confirms traditional selection: {best_match}")
+            return best_match
+        # If they disagree but vector match has high score, use it as an alternative
+        elif vector_score > 0.7 and vector_collection not in [
+            alt["collection"] for alt in alternative_matches
+        ]:
+            alternative_matches.append(
+                {
+                    "collection": vector_collection,
+                    "score": vector_score
+                    * 10,  # Scale to be comparable with other scores
+                    "fields": [],
+                    "reason": vector_reason,
+                }
+            )
+            logger.info(f"Added vector match '{vector_collection}' as an alternative")
+
     if best_match and not alternative_matches:
         logger.info(f"Selected collection without ambiguity: {best_match}")
         return best_match
@@ -903,6 +1045,11 @@ def select_collection_for_query(query: str) -> str:
             f"Selected collection after resolving ambiguity: {selected_collection}"
         )
         return selected_collection
+
+    # If traditional methods failed but we have a vector match, use it as a fallback
+    if not best_match and vector_collection:
+        logger.info(f"Using vector match as fallback: {vector_collection}")
+        return vector_collection
 
     if not best_match:
         logger.info("No matching collections found, asking Groq LLM to help")
