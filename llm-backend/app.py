@@ -15,17 +15,20 @@ and response data.
 """
 
 import base64
-from typing import Dict, Union
+import json
 import os
+from typing import Dict, Union
 
+import chromadb
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-import chromadb
-from chromadb.config import Settings
+from langchain_groq import ChatGroq
+from langchain_community.embeddings import HuggingFaceEmbeddings
 
 from config import CORS_CONFIG, DEBUG, HOST, PORT
 from mypackage.d_report_generator import ReportResults
 from mypackage.utils.database import Database
+from mypackage.utils.llm_config import GROQ_API_KEY
 from mypackage.utils.logging_config import setup_logging
 from pipeline import main as run_pipeline
 
@@ -38,8 +41,44 @@ Database.initialize()
 # Initialize ChromaDB client
 chroma_client = chromadb.HttpClient(
     host=os.getenv("CHROMA_SERVER_HOST", "chromadb"),
-    port=int(os.getenv("CHROMA_SERVER_PORT", "8000"))
+    port=int(os.getenv("CHROMA_SERVER_PORT", "8000")),
 )
+
+# Initialize embeddings model
+embeddings_model = HuggingFaceEmbeddings(
+    model_name="sentence-transformers/all-MiniLM-L6-v2"
+)
+
+# Utility function to convert collection data to embedding input
+def prepare_collection_for_embedding(collection_data):
+    """
+    Convert collection metadata into a string format suitable for embedding.
+
+    Args:
+        collection_data (dict): Collection metadata from analyze_collections
+
+    Returns:
+        str: Formatted string representation of the collection
+    """
+    collection_text = json.dumps(collection_data, default=str, sort_keys=True)
+    return collection_text
+
+
+# Utility function to get or create a ChromaDB collection
+def get_or_create_chroma_collection(collection_name):
+    """
+    Get a ChromaDB collection or create it if it doesn't exist.
+
+    Args:
+        collection_name (str): Name of the collection
+
+    Returns:
+        Collection: ChromaDB collection
+    """
+    try:
+        return chroma_client.get_collection(name=collection_name)
+    except Exception:
+        return chroma_client.create_collection(name=collection_name)
 
 
 @app.route("/api/query", methods=["POST"])
@@ -187,7 +226,7 @@ def health_check():
 def chroma_health_check():
     """
     Check the health status of ChromaDB and its collections.
-    
+
     Returns:
         JSON response with:
         - status: "ok" or "error"
@@ -198,32 +237,143 @@ def chroma_health_check():
     try:
         # Check if we can connect to ChromaDB
         collections = chroma_client.list_collections()
-        
+
         # Get details for each collection
         collections_info = []
         for collection in collections:
             collection_info = {
                 "name": collection.name,
                 "count": collection.count(),
-                "metadata": collection.metadata
+                "metadata": collection.metadata,
             }
             collections_info.append(collection_info)
-        
-        return jsonify({
-            "status": "ok",
-            "message": "ChromaDB is healthy and accessible",
-            "healthy": True,
-            "collections": collections_info
-        }), 200
-        
+
+        return jsonify(
+            {
+                "status": "ok",
+                "message": "ChromaDB is healthy and accessible",
+                "healthy": True,
+                "collections": collections_info,
+            }
+        ), 200
+
     except Exception as e:
         logger.error(f"ChromaDB health check failed: {str(e)}", exc_info=True)
-        return jsonify({
-            "status": "error",
-            "message": f"ChromaDB health check failed: {str(e)}",
-            "healthy": False,
-            "collections": []
-        }), 503
+        return jsonify(
+            {
+                "status": "error",
+                "message": f"ChromaDB health check failed: {str(e)}",
+                "healthy": False,
+                "collections": [],
+            }
+        ), 503
+
+
+@app.route("/api/vectorize_collections", methods=["POST"])
+def vectorize_collections():
+    """
+    Generate vector embeddings for all accessible MongoDB collections.
+
+    This endpoint analyzes all accessible collections using the Database.analyze_collections
+    method, then generates embeddings for each collection using HuggingFace embeddings.
+    The embeddings are stored in ChromaDB for later use in search and retrieval operations.
+
+    The process:
+    1. Deletes all existing ChromaDB collections to ensure fresh embeddings
+    2. Analyzes all MongoDB collections to extract metadata
+    3. Generates embeddings for each collection
+    4. Stores the embeddings in ChromaDB with collection metadata
+
+    Returns:
+        JSON response with:
+        - status: "success" or "error"
+        - message: Description of the operation result
+        - collections_processed: Number of collections processed
+        - embedding_dimensions: Size of the embedding vectors
+    """
+    try:
+        logger.info("Starting collection vectorization process")
+        
+        # Step 1: Delete existing embeddings (delete all collections in ChromaDB)
+        existing_collections = chroma_client.list_collections()
+        for collection in existing_collections:
+            logger.info(f"Deleting existing ChromaDB collection: {collection.name}")
+            chroma_client.delete_collection(collection.name)
+        
+        # Step 2: Analyze MongoDB collections to extract metadata
+        logger.info("Analyzing MongoDB collections")
+        collection_data = Database.analyze_collections()
+        
+        if not collection_data:
+            return jsonify(
+                {
+                    "status": "error",
+                    "message": "No collections found or analysis failed",
+                    "collections_processed": 0,
+                }
+            ), 404
+        
+        # Step 3: Create a vector store in ChromaDB for collection embeddings
+        chroma_collection = get_or_create_chroma_collection("collection_embeddings")
+        
+        # Step 4: Process each collection and generate embeddings
+        processed_collections = []
+        for collection_name, fields_data in collection_data.items():
+            logger.info(f"Processing collection: {collection_name}")
+            
+            # Prepare collection data for embedding
+            collection_text = prepare_collection_for_embedding(
+                {"name": collection_name, "fields": fields_data}
+            )
+            
+            # Generate embedding using HuggingFace model
+            try:
+                embedding = embeddings_model.embed_query(collection_text)
+                
+                # Add to ChromaDB
+                chroma_collection.add(
+                    ids=[collection_name],
+                    embeddings=[embedding],
+                    metadatas=[
+                        {
+                            "name": collection_name,
+                            "field_count": len(fields_data),
+                            "raw_metadata": json.dumps(fields_data, default=str),
+                        }
+                    ],
+                    documents=[collection_text],
+                )
+                
+                processed_collections.append(collection_name)
+                logger.info(f"Successfully vectorized collection: {collection_name}")
+                
+            except Exception as e:
+                logger.error(
+                    f"Error vectorizing collection {collection_name}: {str(e)}"
+                )
+        
+        # Get embedding dimensions by checking the first embedding
+        embedding_dimensions = len(embedding) if processed_collections else 0
+        
+        return jsonify(
+            {
+                "status": "success",
+                "message": f"Successfully vectorized {len(processed_collections)} collections",
+                "collections_processed": len(processed_collections),
+                "collections": processed_collections,
+                "embedding_dimensions": embedding_dimensions,
+            }
+        ), 200
+        
+    except Exception as e:
+        logger.error(f"Error in vectorization process: {str(e)}", exc_info=True)
+        return jsonify(
+            {
+                "status": "error",
+                "message": f"Vectorization failed: {str(e)}",
+                "collections_processed": 0,
+            }
+        ), 500
 
 
 if __name__ == "__main__":

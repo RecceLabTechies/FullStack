@@ -7,7 +7,7 @@ from config import DB_NAME, MONGO_URI
 logger = logging.getLogger(__name__)
 
 # Collections that should not be accessible
-RESTRICTED_COLLECTIONS = ["users", "prophet_predictions"]
+RESTRICTED_COLLECTIONS = ["users"]
 
 
 class Database:
