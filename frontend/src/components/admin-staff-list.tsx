@@ -8,13 +8,31 @@
 import { useEffect, useState } from 'react';
 
 import { type UserData } from '@/types/types';
+import { Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
-import { usePatchUser } from '@/hooks/use-backend-api';
+import { useDeleteUser, usePatchUser } from '@/hooks/use-backend-api';
 
 /**
  * Props interface for the StaffList component
@@ -194,11 +212,29 @@ function PermissionControls({
 function StaffCard({ staff, onPermissionUpdate }: StaffCardProps) {
   // State to handle hydration mismatch
   const [isMounted, setIsMounted] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const { deleteUser, isLoading: isDeleting } = useDeleteUser();
 
   // Effect to set mounted state after hydration
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  /**
+   * Handles the deletion of a user after confirmation
+   */
+  const handleDeleteUser = async () => {
+    try {
+      await deleteUser(staff.username);
+      toast.success(`User ${staff.username} has been deleted successfully`);
+      setDeleteDialogOpen(false);
+      onPermissionUpdate(); // Refresh the users list
+    } catch (error) {
+      toast.error(
+        `Failed to delete user: ${error instanceof Error ? error.message : 'Unknown error occurred'}`
+      );
+    }
+  };
 
   return (
     <article>
@@ -220,6 +256,32 @@ function StaffCard({ staff, onPermissionUpdate }: StaffCardProps) {
             )}
           </section>
         </CardContent>
+        <CardFooter>
+          <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="destructive" size="sm">
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete User
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Delete User</DialogTitle>
+                <DialogDescription>
+                  Are you sure you want to delete {staff.name}? This action cannot be undone.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button variant="destructive" onClick={handleDeleteUser} disabled={isDeleting}>
+                  {isDeleting ? 'Deleting...' : 'Delete'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </CardFooter>
       </Card>
     </article>
   );

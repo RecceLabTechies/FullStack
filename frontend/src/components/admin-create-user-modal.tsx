@@ -85,9 +85,15 @@ const formSchema = z.object({
  * - Success/error notifications
  * - Automatic form reset after successful submission
  *
+ * @param {Object} props - Component props
+ * @param {() => void} props.onUserAdded - Callback function called after user creation
  * @returns JSX.Element - The modal dialog component
  */
-export default function CreateUserModal() {
+interface CreateUserModalProps {
+  onUserAdded?: () => void;
+}
+
+export default function CreateUserModal({ onUserAdded }: CreateUserModalProps) {
   // State for controlling modal visibility
   const [open, setOpen] = useState(false);
   const { addUser, isLoading } = useAddUser();
@@ -121,6 +127,7 @@ export default function CreateUserModal() {
       toast.success('User created successfully');
       setOpen(false);
       form.reset();
+      onUserAdded?.(); // Call the callback function to refresh the user list
     } catch (err) {
       toast.error(
         `Failed to create user: ${err instanceof Error ? err.message : 'Unknown error occurred'}`
