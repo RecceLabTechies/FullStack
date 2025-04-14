@@ -325,9 +325,16 @@ class ChannelContributionResponse(TypedDict):
     error: Optional[str]
 
 
-def get_channel_contribution_data() -> ChannelContributionResponse:
+def get_channel_contribution_data(min_date=None, max_date=None) -> ChannelContributionResponse:
     """
-    Generate channel contribution data for various metrics over the latest 3 months.
+    Generate channel contribution data for various metrics.
+    
+    If min_date and max_date are provided, data will be filtered to that range.
+    Otherwise, returns data for the latest 3 months.
+
+    Args:
+        min_date: Optional start date as Unix timestamp
+        max_date: Optional end date as Unix timestamp
 
     Returns:
         ChannelContributionResponse: Dictionary containing channel contribution percentages for
@@ -386,17 +393,31 @@ def get_channel_contribution_data() -> ChannelContributionResponse:
     if df.empty:
         return empty_response
 
-    # Get the latest 3 months of data
-    df = df.sort_values("datetime", ascending=False)
-    unique_months = df["datetime"].dt.strftime("%Y-%m").unique()
-    latest_months = sorted(unique_months[: min(3, len(unique_months))])
+    # Filter by date range if provided
+    if min_date and max_date:
+        df = df[(df["date"] >= min_date) & (df["date"] <= max_date)]
+    else:
+        # Get the latest 3 months of data (default behavior)
+        df = df.sort_values("datetime", ascending=False)
+        unique_months = df["datetime"].dt.strftime("%Y-%m").unique()
+        latest_months = sorted(unique_months[: min(3, len(unique_months))])
 
-    # Filter data for the latest 3 months
-    df["month"] = df["datetime"].dt.strftime("%Y-%m")
-    df = df[df["month"].isin(latest_months)]
+        # Filter data for the latest 3 months
+        df["month"] = df["datetime"].dt.strftime("%Y-%m")
+        df = df[df["month"].isin(latest_months)]
 
     if df.empty:
         return empty_response
+
+    # Get the actual time range in the filtered data for response metadata
+    if not df.empty:
+        min_timestamp = df["date"].min()
+        max_timestamp = df["date"].max()
+        min_month = pd.to_datetime(min_timestamp, unit="s").strftime("%Y-%m")
+        max_month = pd.to_datetime(max_timestamp, unit="s").strftime("%Y-%m")
+    else:
+        min_month = None
+        max_month = None
 
     # Ensure numeric columns are parsed correctly
     numeric_columns = ["ad_spend", "views", "leads", "new_accounts", "revenue"]
@@ -461,8 +482,8 @@ def get_channel_contribution_data() -> ChannelContributionResponse:
         "channels": channels,
         "data": result_data,
         "time_range": {
-            "from_": latest_months[0] if latest_months else None,
-            "to": latest_months[-1] if latest_months else None,
+            "from_": min_month,
+            "to": max_month,
         },
         "error": None,
     }
@@ -494,10 +515,16 @@ class HeatmapResponse(TypedDict):
     error: Optional[str]
 
 
-def get_cost_metrics_heatmap() -> HeatmapResponse:
+def get_cost_metrics_heatmap(min_date=None, max_date=None) -> HeatmapResponse:
     """
     Generate cost metrics heatmap data showing different cost metrics by channel.
-    Uses data from the latest 3 months similar to channel contribution data.
+    
+    If min_date and max_date are provided, data will be filtered to that range.
+    Otherwise, uses data from the latest 3 months similar to channel contribution data.
+
+    Args:
+        min_date: Optional start date as Unix timestamp
+        max_date: Optional end date as Unix timestamp
 
     Returns:
         HeatmapResponse: Dictionary containing cost metrics data formatted for heatmap visualization
@@ -549,18 +576,32 @@ def get_cost_metrics_heatmap() -> HeatmapResponse:
         empty_response["error"] = "No valid data after filtering"
         return empty_response
 
-    # Get the latest 3 months of data
-    df = df.sort_values("datetime", ascending=False)
-    unique_months = df["datetime"].dt.strftime("%Y-%m").unique()
-    latest_months = sorted(unique_months[: min(3, len(unique_months))])
+    # Filter by date range if provided
+    if min_date and max_date:
+        df = df[(df["date"] >= min_date) & (df["date"] <= max_date)]
+    else:
+        # Get the latest 3 months of data (default behavior)
+        df = df.sort_values("datetime", ascending=False)
+        unique_months = df["datetime"].dt.strftime("%Y-%m").unique()
+        latest_months = sorted(unique_months[: min(3, len(unique_months))])
 
-    # Filter data for the latest 3 months
-    df["month"] = df["datetime"].dt.strftime("%Y-%m")
-    df = df[df["month"].isin(latest_months)]
+        # Filter data for the latest 3 months
+        df["month"] = df["datetime"].dt.strftime("%Y-%m")
+        df = df[df["month"].isin(latest_months)]
 
     if df.empty:
-        empty_response["error"] = "No data available for the latest 3 months"
+        empty_response["error"] = "No data available for the specified date range"
         return empty_response
+
+    # Get the actual time range in the filtered data for response metadata
+    if not df.empty:
+        min_timestamp = df["date"].min()
+        max_timestamp = df["date"].max()
+        min_month = pd.to_datetime(min_timestamp, unit="s").strftime("%Y-%m")
+        max_month = pd.to_datetime(max_timestamp, unit="s").strftime("%Y-%m")
+    else:
+        min_month = None
+        max_month = None
 
     # Ensure numeric columns are parsed correctly
     numeric_columns = ["ad_spend", "views", "leads", "new_accounts"]
@@ -656,8 +697,8 @@ def get_cost_metrics_heatmap() -> HeatmapResponse:
         "channels": channels,
         "data": metrics_data,
         "time_range": {
-            "from_": latest_months[0] if latest_months else None,
-            "to": latest_months[-1] if latest_months else None,
+            "from_": min_month,
+            "to": max_month,
         },
         "error": None,
     }

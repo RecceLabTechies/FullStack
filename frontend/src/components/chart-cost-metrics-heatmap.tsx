@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { type DateRange } from 'react-day-picker';
 
 import dynamic from 'next/dynamic';
 
@@ -6,6 +7,7 @@ import { useDatabaseOperations } from '@/context/database-operations-context';
 import { type ApexOptions } from 'apexcharts';
 import { Info } from 'lucide-react';
 
+import { DatePickerWithRange } from '@/components/date-range-picker';
 import {
   Card,
   CardContent,
@@ -16,7 +18,7 @@ import {
 } from '@/components/ui/card';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 
-import { useCostMetricsHeatmap } from '@/hooks/use-backend-api';
+import { useCampaignDateRange, useCostMetricsHeatmap } from '@/hooks/use-backend-api';
 
 // Dynamically import ReactApexChart with SSR disabled
 const ReactApexChart = dynamic(() => import('react-apexcharts'), { ssr: false });
@@ -44,11 +46,29 @@ interface TooltipContext {
 
 export function CostMetricsHeatmap() {
   const { data, isLoading, error, fetchCostMetricsHeatmap } = useCostMetricsHeatmap();
+  const {
+    data: dateRangeData,
+    isLoading: isDateRangeLoading,
+    fetchDateRange,
+  } = useCampaignDateRange();
   const { lastUpdated } = useDatabaseOperations();
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
+  // Fetch available date range on mount
   useEffect(() => {
-    void fetchCostMetricsHeatmap();
-  }, [fetchCostMetricsHeatmap, lastUpdated]);
+    void fetchDateRange();
+  }, [fetchDateRange, lastUpdated]);
+
+  // Fetch data with date range filter
+  useEffect(() => {
+    const minDate = dateRange?.from ? Math.floor(dateRange.from.getTime() / 1000) : undefined;
+    const maxDate = dateRange?.to ? Math.floor(dateRange.to.getTime() / 1000) : undefined;
+    void fetchCostMetricsHeatmap(minDate, maxDate);
+  }, [fetchCostMetricsHeatmap, dateRange, lastUpdated]);
+
+  // Convert Unix timestamps to Date objects for the date picker
+  const minDate = dateRangeData?.min_date ? new Date(dateRangeData.min_date * 1000) : undefined;
+  const maxDate = dateRangeData?.max_date ? new Date(dateRangeData.max_date * 1000) : undefined;
 
   if (isLoading) {
     return (
@@ -182,11 +202,13 @@ export function CostMetricsHeatmap() {
       <div className="flex items-center justify-between pr-6">
         <CardHeader>
           <CardTitle id="cost-metrics-title">Cost Metrics by Channel</CardTitle>
-          <CardDescription>
-            {data.time_range?.from_ &&
-              data.time_range?.to &&
-              `Data from ${data.time_range.from_} to ${data.time_range.to}`}
-          </CardDescription>
+          <DatePickerWithRange
+            onRangeChange={setDateRange}
+            initialDateRange={dateRange}
+            minDate={minDate}
+            maxDate={maxDate}
+            className="w-[300px]"
+          />
         </CardHeader>
         <HoverCard>
           <HoverCardTrigger asChild>
@@ -208,6 +230,7 @@ export function CostMetricsHeatmap() {
           </HoverCardContent>
         </HoverCard>
       </div>
+
       <CardContent>
         <div className="w-full" aria-labelledby="cost-metrics-title">
           <ReactApexChart options={options} series={series} type="heatmap" height={350} />

@@ -530,16 +530,29 @@ def get_monthly_aggregated_data_route():
 @handle_exceptions
 def get_channel_contribution_data_route():
     """
-    Get channel contribution data for various metrics over the latest 3 months.
-
-    Returns data for chart showing percentage contribution of each channel
-    to Spending, Views, Leads, New Accounts, and Revenue metrics.
+    Get channel contribution data for various metrics.
+    
+    Query parameters:
+    - min_date: Optional start date as Unix timestamp
+    - max_date: Optional end date as Unix timestamp
+    
+    If date parameters are provided, data will be filtered to that range.
+    Otherwise, returns data for the latest 3 months by default.
 
     Returns:
         JSON object containing metrics, channels, and percentage contribution data
     """
     try:
-        data = get_channel_contribution_data()
+        # Extract date range parameters from query string
+        min_date = request.args.get("min_date", type=float)
+        max_date = request.args.get("max_date", type=float)
+        
+        # Validate date parameters if both are provided
+        if min_date and max_date and min_date > max_date:
+            return error_response(400, "min_date cannot be greater than max_date", "invalid_date_range")
+        
+        # Call service function with optional date parameters
+        data = get_channel_contribution_data(min_date, max_date)
         return format_response(data)
 
     except Exception as e:
@@ -552,12 +565,28 @@ def get_channel_contribution_data_route():
 def get_cost_metrics_heatmap_route():
     """
     Get cost metrics heatmap data showing different cost metrics (cost per lead, view, account) by channel.
+    
+    Query parameters:
+    - min_date: Optional start date as Unix timestamp
+    - max_date: Optional end date as Unix timestamp
+    
+    If date parameters are provided, data will be filtered to that range.
+    Otherwise, returns data for the latest 3 months by default.
 
     Returns:
         JSON object containing heatmap data with metrics, channels, and values with intensity levels
     """
     try:
-        data = get_cost_metrics_heatmap()
+        # Extract date range parameters from query string
+        min_date = request.args.get("min_date", type=float)
+        max_date = request.args.get("max_date", type=float)
+        
+        # Validate date parameters if both are provided
+        if min_date and max_date and min_date > max_date:
+            return error_response(400, "min_date cannot be greater than max_date", "invalid_date_range")
+        
+        # Call service function with optional date parameters
+        data = get_cost_metrics_heatmap(min_date, max_date)
         return format_response(data)
 
     except Exception as e:

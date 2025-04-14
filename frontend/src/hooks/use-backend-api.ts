@@ -389,13 +389,16 @@ export const useMonthlyAggregatedData = () => {
 /**
  * Hook for fetching channel contribution data
  * Returns channel performance metrics for visualization
+ *
+ * @param minDate Optional - Start date as Unix timestamp
+ * @param maxDate Optional - End date as Unix timestamp
  */
 export const useChannelContribution = () => {
   const [state, setState] = useState<HookState<ChannelContributionData>>(createInitialState());
 
-  const fetchChannelContribution = useCallback(async () => {
+  const fetchChannelContribution = useCallback(async (minDate?: number, maxDate?: number) => {
     setState((prev) => ({ ...prev, isLoading: true }));
-    const result = await backendApi.fetchChannelContribution();
+    const result = await backendApi.fetchChannelContribution(minDate, maxDate);
 
     if (result instanceof Error) {
       handleError(setState, result);
@@ -411,6 +414,9 @@ export const useChannelContribution = () => {
  * Hook to fetch cost metrics heatmap data.
  * Returns cost per lead, cost per view, and cost per new account metrics by channel
  * for generating a heatmap visualization.
+ *
+ * @param minDate Optional - Start date as Unix timestamp
+ * @param maxDate Optional - End date as Unix timestamp
  */
 export const useCostMetricsHeatmap = () => {
   const [state, setState] = useState<HookState<CostMetricsHeatmapData>>({
@@ -419,9 +425,9 @@ export const useCostMetricsHeatmap = () => {
     error: null,
   });
 
-  const fetchCostMetricsHeatmap = useCallback(async () => {
+  const fetchCostMetricsHeatmap = useCallback(async (minDate?: number, maxDate?: number) => {
     setState((prev) => ({ ...prev, isLoading: true }));
-    const result = await backendApi.fetchCostMetricsHeatmap();
+    const result = await backendApi.fetchCostMetricsHeatmap(minDate, maxDate);
 
     if (result instanceof Error) {
       setState({ data: null, isLoading: false, error: result });
@@ -704,4 +710,26 @@ export const useDeleteDatabase = () => {
   }, []);
 
   return { ...state, deleteDatabase };
+};
+
+/**
+ * Hook to fetch campaign date range information
+ * Returns min and max dates as Unix timestamps
+ */
+export const useCampaignDateRange = () => {
+  const [state, setState] =
+    useState<HookState<{ min_date: number | null; max_date: number | null }>>(createInitialState());
+
+  const fetchDateRange = useCallback(async () => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    const result = await backendApi.fetchCampaignDateRange();
+
+    if (result instanceof Error) {
+      handleError(setState, result);
+    } else {
+      handleSuccess(setState, result);
+    }
+  }, []);
+
+  return { ...state, fetchDateRange };
 };

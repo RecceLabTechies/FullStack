@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { type DateRange } from 'react-day-picker';
 
 import { useDatabaseOperations } from '@/context/database-operations-context';
 import { Info } from 'lucide-react';
@@ -13,10 +14,11 @@ import {
   YAxis,
 } from 'recharts';
 
+import { DatePickerWithRange } from '@/components/date-range-picker';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 
-import { useChannelContribution } from '@/hooks/use-backend-api';
+import { useCampaignDateRange, useChannelContribution } from '@/hooks/use-backend-api';
 
 // Define color scheme for different channels using CSS variables
 const CHANNEL_COLORS: Record<string, string> = {
@@ -50,11 +52,29 @@ const DEFAULT_COLORS = [
  */
 export default function ChannelContributionChart() {
   const { data, isLoading, error, fetchChannelContribution } = useChannelContribution();
+  const {
+    data: dateRangeData,
+    isLoading: isDateRangeLoading,
+    fetchDateRange,
+  } = useCampaignDateRange();
   const { lastUpdated } = useDatabaseOperations();
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
+  // Fetch available date range on mount
   useEffect(() => {
-    void fetchChannelContribution();
-  }, [fetchChannelContribution, lastUpdated]);
+    void fetchDateRange();
+  }, [fetchDateRange, lastUpdated]);
+
+  // Fetch data with date range filter
+  useEffect(() => {
+    const minDate = dateRange?.from ? Math.floor(dateRange.from.getTime() / 1000) : undefined;
+    const maxDate = dateRange?.to ? Math.floor(dateRange.to.getTime() / 1000) : undefined;
+    void fetchChannelContribution(minDate, maxDate);
+  }, [fetchChannelContribution, dateRange, lastUpdated]);
+
+  // Convert Unix timestamps to Date objects for the date picker
+  const minDate = dateRangeData?.min_date ? new Date(dateRangeData.min_date * 1000) : undefined;
+  const maxDate = dateRangeData?.max_date ? new Date(dateRangeData.max_date * 1000) : undefined;
 
   if (isLoading) {
     return (
@@ -126,11 +146,13 @@ export default function ChannelContributionChart() {
       <div className="flex items-center justify-between pr-6">
         <CardHeader>
           <CardTitle id="channel-contribution-title">Channel Contribution by Metric</CardTitle>
-          {data.time_range?.from_ && data.time_range?.to && (
-            <CardDescription>
-              Data from {data.time_range.from_} to {data.time_range.to}
-            </CardDescription>
-          )}
+          <DatePickerWithRange
+            onRangeChange={setDateRange}
+            initialDateRange={dateRange}
+            minDate={minDate}
+            maxDate={maxDate}
+            className="w-[300px]"
+          />
         </CardHeader>
         <HoverCard>
           <HoverCardTrigger asChild>
@@ -152,6 +174,9 @@ export default function ChannelContributionChart() {
           </HoverCardContent>
         </HoverCard>
       </div>
+
+      <div className="px-6 pb-2"></div>
+
       <CardContent className="h-[30rem]">
         <ResponsiveContainer
           width="100%"
