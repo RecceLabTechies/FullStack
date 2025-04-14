@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 def get_all_users():
     """
-    Retrieve all users from the 'users' collection in the database.
+    Retrieve all users from the 'users' table in the database.
 
     Returns:
         list: List of user dictionaries
@@ -39,7 +39,7 @@ def get_all_users():
 
 def get_user_by_username(username):
     """
-    Retrieve a user's information from the 'users' collection based on the username.
+    Retrieve a user's information from the 'users' table based on the username.
 
     Args:
         username: The username to search for
@@ -70,7 +70,7 @@ def get_user_by_username(username):
 
 def add_user(user_data):
     """
-    Add a new user to the 'users' collection in the database.
+    Add a new user to the 'users' table in the database.
 
     Args:
         user_data: Dictionary containing user data
@@ -106,7 +106,7 @@ def add_user(user_data):
 
 def patch_user(username, patch_data):
     """
-    Partially update a user in the 'users' collection in the database.
+    Partially update a user in the 'users' table in the database.
     Unlike update_user, patch_user only updates the specified fields.
 
     Args:
@@ -139,7 +139,7 @@ def patch_user(username, patch_data):
         logger.warning(f"Invalid patch data received: {e}")
         return False, f"Invalid patch data: {str(e)}"
 
-    # Update only the specified fields in the user document
+    # Update only the specified fields in the user record
     if update_fields:
         success = UserModel.update_fields(username, update_fields)
 
@@ -156,7 +156,7 @@ def patch_user(username, patch_data):
 
 def update_user(username, update_data):
     """
-    Update a user in the 'users' collection in the database.
+    Update a user in the 'users' table in the database.
     Requires all fields to be present for a complete update.
 
     Args:
@@ -192,7 +192,7 @@ def update_user(username, update_data):
         "user_management_access": user_obj.user_management_access,
     }
 
-    # Update the user document
+    # Update the user record
     success = UserModel.update(username, validated_user_data)
 
     if success:
@@ -204,7 +204,7 @@ def update_user(username, update_data):
 
 def delete_user(username):
     """
-    Delete a user from the 'users' collection in the database.
+    Delete a user from the 'users' table in the database.
 
     Args:
         username: The username of the user to delete

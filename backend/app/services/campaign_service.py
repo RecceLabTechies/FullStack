@@ -38,21 +38,30 @@ def filter_campaigns(filter_params: Dict) -> Dict:
     Returns:
         Dict: Response containing filtered data with pagination metadata
     """
-    # Build query
-    query = {}  # Empty query matches all documents by default
+    # Build SQL WHERE conditions and parameters
+    where_conditions = []
+    params = []
 
     # List-based filters (channel, country, age_group, campaign_id)
     if filter_params.get("channels"):
-        query["channel"] = {"$in": filter_params["channels"]}
+        placeholders = ", ".join(["%s"] * len(filter_params["channels"]))
+        where_conditions.append(f"channel IN ({placeholders})")
+        params.extend(filter_params["channels"])
 
     if filter_params.get("countries"):
-        query["country"] = {"$in": filter_params["countries"]}
+        placeholders = ", ".join(["%s"] * len(filter_params["countries"]))
+        where_conditions.append(f"country IN ({placeholders})")
+        params.extend(filter_params["countries"])
 
     if filter_params.get("age_groups"):
-        query["age_group"] = {"$in": filter_params["age_groups"]}
+        placeholders = ", ".join(["%s"] * len(filter_params["age_groups"]))
+        where_conditions.append(f"age_group IN ({placeholders})")
+        params.extend(filter_params["age_groups"])
 
     if filter_params.get("campaign_ids"):
-        query["campaign_id"] = {"$in": filter_params["campaign_ids"]}
+        placeholders = ", ".join(["%s"] * len(filter_params["campaign_ids"]))
+        where_conditions.append(f"campaign_id IN ({placeholders})")
+        params.extend(filter_params["campaign_ids"])
 
     # Numeric range filters
     for field in ["revenue", "ad_spend"]:
@@ -63,29 +72,32 @@ def filter_campaigns(filter_params: Dict) -> Dict:
             filter_params.get(min_field) is not None
             or filter_params.get(max_field) is not None
         ):
-            query.setdefault(field, {})
-
             if filter_params.get(min_field) is not None:
-                query[field]["$gte"] = filter_params[min_field]
+                where_conditions.append(f"{field} >= %s")
+                params.append(filter_params[min_field])
 
             if filter_params.get(max_field) is not None:
-                query[field]["$lte"] = filter_params[max_field]
+                where_conditions.append(f"{field} <= %s")
+                params.append(filter_params[max_field])
 
     # Simple minimum filters
     for field in ["views", "leads"]:
         min_field = f"min_{field}"
         if filter_params.get(min_field) is not None:
-            query[field] = {"$gte": filter_params[min_field]}
+            where_conditions.append(f"{field} >= %s")
+            params.append(filter_params[min_field])
 
     # Date range filter
-    if filter_params.get("from_date") or filter_params.get("to_date"):
-        query.setdefault("date", {})
+    if filter_params.get("from_date"):
+        where_conditions.append("date >= %s")
+        params.append(float(filter_params["from_date"]))
 
-        if filter_params.get("from_date"):
-            query["date"]["$gte"] = float(filter_params["from_date"])
+    if filter_params.get("to_date"):
+        where_conditions.append("date <= %s")
+        params.append(float(filter_params["to_date"]))
 
-        if filter_params.get("to_date"):
-            query["date"]["$lte"] = float(filter_params["to_date"])
+    # Build the final WHERE clause
+    where_clause = " AND ".join(where_conditions) if where_conditions else ""
 
     # Set default pagination and sorting parameters
     page = filter_params.get("page", 1)
@@ -93,21 +105,18 @@ def filter_campaigns(filter_params: Dict) -> Dict:
     sort_by = filter_params.get("sort_by", "date")
     sort_dir = filter_params.get("sort_dir", "desc")
 
-    # Count total matching documents for pagination info
-    total_count = CampaignModel.count(query)
+    # Count total matching records for pagination info
+    total_count = CampaignModel.count((where_clause, params) if where_clause else None)
 
     # Calculate pagination values
-    skip = (page - 1) * page_size
-
-    # Determine sort direction (1 for ascending, -1 for descending)
-    sort_direction = 1 if sort_dir.lower() == "asc" else -1
+    offset = (page - 1) * page_size
 
     # Get paginated results with sorting
     results = CampaignModel.get_paginated(
-        query=query,
+        where_conditions=(where_clause, params) if where_clause else None,
         sort_by=sort_by,
-        sort_dir=sort_direction,
-        skip=skip,
+        sort_dir=sort_dir,
+        offset=offset,
         limit=page_size,
     )
 
@@ -116,7 +125,7 @@ def filter_campaigns(filter_params: Dict) -> Dict:
 
     # Build response with pagination metadata
     response = {
-        "items": results,  # Changed from "data" to "items" for consistency with route handler
+        "items": results,
         "pagination": {
             "total_count": total_count,
             "total_pages": total_pages,
@@ -178,9 +187,16 @@ def get_monthly_aggregated_data(filter_params: Dict) -> Dict:
     monthly_data = {}
 
     for item in response["items"]:
-        # Convert Unix timestamp to month key (e.g., "2024-01")
-        month_key = datetime.fromtimestamp(item["date"]).strftime("%Y-%m")
-        month_timestamp = int(datetime.strptime(month_key, "%Y-%m").timestamp())
+        # Extract month from Unix timestamp
+        # Convert timestamp to month key while maintaining Unix timestamps
+        timestamp = item["date"]
+        # Convert Unix timestamp to datetime temporarily for month extraction only
+        dt = datetime.fromtimestamp(timestamp)
+        month_key = dt.strftime("%Y-%m")
+        
+        # Create Unix timestamp for first day of the month (for consistency)
+        dt = datetime(dt.year, dt.month, 1)
+        month_timestamp = int(dt.timestamp())
 
         if month_key not in monthly_data:
             monthly_data[month_key] = {
@@ -245,48 +261,44 @@ def get_campaign_filter_options() -> Dict:
         + other_groups
     )
 
-    # Get min/max for numeric fields using aggregation
+    # Get min/max for numeric fields using SQL aggregation
     numeric_ranges = {}
     for field in ["revenue", "ad_spend", "views", "leads"]:
-        pipeline = [
-            {
-                "$group": {
-                    "_id": None,
-                    "min": {"$min": f"${field}"},
-                    "max": {"$max": f"${field}"},
-                    "avg": {"$avg": f"${field}"},
-                }
-            }
-        ]
-
-        result = CampaignModel.aggregate(pipeline)
+        query = f"""
+            SELECT 
+                MIN({field}) as min,
+                MAX({field}) as max,
+                AVG({field}) as avg
+            FROM campaign_performance
+        """
+        result = CampaignModel.aggregate(query)
 
         if result:
             numeric_ranges[field] = {
-                "min": result[0]["min"],
-                "max": result[0]["max"],
-                "avg": result[0]["avg"],
+                "min": float(result[0]["min"]) if result[0]["min"] is not None else 0,
+                "max": float(result[0]["max"]) if result[0]["max"] is not None else 0,
+                "avg": float(result[0]["avg"]) if result[0]["avg"] is not None else 0,
             }
         else:
             numeric_ranges[field] = {"min": 0, "max": 0, "avg": 0}
 
     # Get date range
     date_range = {}
-    date_pipeline = [
-        {
-            "$group": {
-                "_id": None,
-                "min_date": {"$min": "$date"},
-                "max_date": {"$max": "$date"},
-            }
-        }
-    ]
+    date_query = """
+        SELECT 
+            MIN(date) as min_date,
+            MAX(date) as max_date
+        FROM campaign_performance
+    """
 
-    date_result = CampaignModel.aggregate(date_pipeline)
+    date_result = CampaignModel.aggregate(date_query)
 
     if date_result:
-        date_range["min_date"] = float(date_result[0]["min_date"])
-        date_range["max_date"] = float(date_result[0]["max_date"])
+        date_range["min_date"] = float(date_result[0]["min_date"]) if date_result[0]["min_date"] is not None else None
+        date_range["max_date"] = float(date_result[0]["max_date"]) if date_result[0]["max_date"] is not None else None
+    else:
+        date_range["min_date"] = None
+        date_range["max_date"] = None
 
     # Build and return complete filter options
     return {
@@ -311,8 +323,8 @@ class ChannelMetricValues(TypedDict):
 class TimeRange(TypedDict):
     """Type definition for time range information."""
 
-    from_: Optional[str]
-    to: Optional[str]
+    from_: Optional[float]
+    to: Optional[float]
 
 
 class ChannelContributionResponse(TypedDict):
@@ -325,10 +337,12 @@ class ChannelContributionResponse(TypedDict):
     error: Optional[str]
 
 
-def get_channel_contribution_data(min_date=None, max_date=None) -> ChannelContributionResponse:
+def get_channel_contribution_data(
+    min_date=None, max_date=None
+) -> ChannelContributionResponse:
     """
     Generate channel contribution data for various metrics.
-    
+
     If min_date and max_date are provided, data will be filtered to that range.
     Otherwise, returns data for the latest 3 months.
 
@@ -411,13 +425,11 @@ def get_channel_contribution_data(min_date=None, max_date=None) -> ChannelContri
 
     # Get the actual time range in the filtered data for response metadata
     if not df.empty:
-        min_timestamp = df["date"].min()
-        max_timestamp = df["date"].max()
-        min_month = pd.to_datetime(min_timestamp, unit="s").strftime("%Y-%m")
-        max_month = pd.to_datetime(max_timestamp, unit="s").strftime("%Y-%m")
+        min_timestamp = float(df["date"].min()) if not pd.isna(df["date"].min()) else None
+        max_timestamp = float(df["date"].max()) if not pd.isna(df["date"].max()) else None
     else:
-        min_month = None
-        max_month = None
+        min_timestamp = None
+        max_timestamp = None
 
     # Ensure numeric columns are parsed correctly
     numeric_columns = ["ad_spend", "views", "leads", "new_accounts", "revenue"]
@@ -453,7 +465,7 @@ def get_channel_contribution_data(min_date=None, max_date=None) -> ChannelContri
 
     for metric, display_name in metrics_mapping.items():
         # Calculate total for the metric
-        total = channel_metrics[metric].sum()
+        total = float(channel_metrics[metric].sum())
 
         if total <= 0:
             # Skip metrics with zero or negative total to avoid division issues
@@ -467,9 +479,9 @@ def get_channel_contribution_data(min_date=None, max_date=None) -> ChannelContri
             # Use safe filtering to get channel value
             channel_data = channel_metrics[channel_metrics["channel"] == channel]
             if len(channel_data) > 0:
-                channel_value = channel_data[metric].iloc[0]
+                channel_value = float(channel_data[metric].iloc[0])
                 percentage = (channel_value / total) * 100
-                metric_data["values"][channel] = round(percentage, 2)
+                metric_data["values"][channel] = round(float(percentage), 2)
             else:
                 # If channel doesn't have data for this metric, set to zero
                 metric_data["values"][channel] = 0.0
@@ -482,8 +494,8 @@ def get_channel_contribution_data(min_date=None, max_date=None) -> ChannelContri
         "channels": channels,
         "data": result_data,
         "time_range": {
-            "from_": min_month,
-            "to": max_month,
+            "from_": min_timestamp,
+            "to": max_timestamp,
         },
         "error": None,
     }
@@ -518,7 +530,7 @@ class HeatmapResponse(TypedDict):
 def get_cost_metrics_heatmap(min_date=None, max_date=None) -> HeatmapResponse:
     """
     Generate cost metrics heatmap data showing different cost metrics by channel.
-    
+
     If min_date and max_date are provided, data will be filtered to that range.
     Otherwise, uses data from the latest 3 months similar to channel contribution data.
 
@@ -595,13 +607,11 @@ def get_cost_metrics_heatmap(min_date=None, max_date=None) -> HeatmapResponse:
 
     # Get the actual time range in the filtered data for response metadata
     if not df.empty:
-        min_timestamp = df["date"].min()
-        max_timestamp = df["date"].max()
-        min_month = pd.to_datetime(min_timestamp, unit="s").strftime("%Y-%m")
-        max_month = pd.to_datetime(max_timestamp, unit="s").strftime("%Y-%m")
+        min_timestamp = float(df["date"].min()) if not pd.isna(df["date"].min()) else None
+        max_timestamp = float(df["date"].max()) if not pd.isna(df["date"].max()) else None
     else:
-        min_month = None
-        max_month = None
+        min_timestamp = None
+        max_timestamp = None
 
     # Ensure numeric columns are parsed correctly
     numeric_columns = ["ad_spend", "views", "leads", "new_accounts"]
@@ -663,7 +673,7 @@ def get_cost_metrics_heatmap(min_date=None, max_date=None) -> HeatmapResponse:
             continue
 
         # Calculate intensity based on value (higher value = higher intensity)
-        max_value = metric_values.max()
+        max_value = float(metric_values.max())
 
         if max_value == 0:
             # Avoid division by zero
@@ -697,8 +707,8 @@ def get_cost_metrics_heatmap(min_date=None, max_date=None) -> HeatmapResponse:
         "channels": channels,
         "data": metrics_data,
         "time_range": {
-            "from_": min_month,
-            "to": max_month,
+            "from_": min_timestamp,
+            "to": max_timestamp,
         },
         "error": None,
     }
@@ -838,29 +848,20 @@ def get_monthly_age_data() -> Dict:
         age_groups = CampaignModel.get_distinct("age_group")
 
         # Aggregate the data by month and age group
-        pipeline = [
-            # Group by month and age group, calculating sums
-            {
-                "$group": {
-                    "_id": {
-                        # Extract year and month to group by month
-                        "year": {"$year": {"$toDate": {"$multiply": ["$date", 1000]}}},
-                        "month": {
-                            "$month": {"$toDate": {"$multiply": ["$date", 1000]}}
-                        },
-                        "age_group": "$age_group",
-                    },
-                    "revenue": {"$sum": "$revenue"},
-                    "ad_spend": {"$sum": "$ad_spend"},
-                    # Get the first date in each month (for display purposes)
-                    "date": {"$first": "$date"},
-                }
-            },
-            # Sort by date and age group
-            {"$sort": {"_id.year": 1, "_id.month": 1, "_id.age_group": 1}},
-        ]
+        query = """
+            SELECT 
+                EXTRACT(YEAR FROM to_timestamp(date)) AS year,
+                EXTRACT(MONTH FROM to_timestamp(date)) AS month,
+                age_group,
+                SUM(revenue) AS revenue,
+                SUM(ad_spend) AS ad_spend,
+                MIN(date) AS date
+            FROM campaign_performance
+            GROUP BY year, month, age_group
+            ORDER BY year, month, age_group
+        """
 
-        results = CampaignModel.aggregate(pipeline)
+        results = CampaignModel.aggregate(query)
 
         # Transform the data to be suitable for Recharts
         months = []
@@ -870,8 +871,8 @@ def get_monthly_age_data() -> Dict:
         # Group by month first
         month_data = {}
         for item in results:
-            date_key = (item["_id"]["year"], item["_id"]["month"])
-            age_group = item["_id"]["age_group"]
+            date_key = (int(item["year"]), int(item["month"]))
+            age_group = item["age_group"]
 
             if date_key not in month_data:
                 month_data[date_key] = {"date": item["date"], "age_groups": {}}
@@ -927,29 +928,20 @@ def get_monthly_channel_data() -> Dict:
         channels = CampaignModel.get_distinct("channel")
 
         # Aggregate the data by month and channel
-        pipeline = [
-            # Group by month and channel, calculating sums
-            {
-                "$group": {
-                    "_id": {
-                        # Extract year and month to group by month
-                        "year": {"$year": {"$toDate": {"$multiply": ["$date", 1000]}}},
-                        "month": {
-                            "$month": {"$toDate": {"$multiply": ["$date", 1000]}}
-                        },
-                        "channel": "$channel",
-                    },
-                    "revenue": {"$sum": "$revenue"},
-                    "ad_spend": {"$sum": "$ad_spend"},
-                    # Get the first date in each month (for display purposes)
-                    "date": {"$first": "$date"},
-                }
-            },
-            # Sort by date and channel
-            {"$sort": {"_id.year": 1, "_id.month": 1, "_id.channel": 1}},
-        ]
+        query = """
+            SELECT 
+                EXTRACT(YEAR FROM to_timestamp(date)) AS year,
+                EXTRACT(MONTH FROM to_timestamp(date)) AS month,
+                channel,
+                SUM(revenue) AS revenue,
+                SUM(ad_spend) AS ad_spend,
+                MIN(date) AS date
+            FROM campaign_performance
+            GROUP BY year, month, channel
+            ORDER BY year, month, channel
+        """
 
-        results = CampaignModel.aggregate(pipeline)
+        results = CampaignModel.aggregate(query)
 
         # Transform the data to be suitable for Recharts
         months = []
@@ -959,8 +951,8 @@ def get_monthly_channel_data() -> Dict:
         # Group by month first
         month_data = {}
         for item in results:
-            date_key = (item["_id"]["year"], item["_id"]["month"])
-            channel = item["_id"]["channel"]
+            date_key = (int(item["year"]), int(item["month"]))
+            channel = item["channel"]
 
             if date_key not in month_data:
                 month_data[date_key] = {"date": item["date"], "channels": {}}
@@ -1016,29 +1008,20 @@ def get_monthly_country_data() -> Dict:
         countries = CampaignModel.get_distinct("country")
 
         # Aggregate the data by month and country
-        pipeline = [
-            # Group by month and country, calculating sums
-            {
-                "$group": {
-                    "_id": {
-                        # Extract year and month to group by month
-                        "year": {"$year": {"$toDate": {"$multiply": ["$date", 1000]}}},
-                        "month": {
-                            "$month": {"$toDate": {"$multiply": ["$date", 1000]}}
-                        },
-                        "country": "$country",
-                    },
-                    "revenue": {"$sum": "$revenue"},
-                    "ad_spend": {"$sum": "$ad_spend"},
-                    # Get the first date in each month (for display purposes)
-                    "date": {"$first": "$date"},
-                }
-            },
-            # Sort by date and country
-            {"$sort": {"_id.year": 1, "_id.month": 1, "_id.country": 1}},
-        ]
+        query = """
+            SELECT 
+                EXTRACT(YEAR FROM to_timestamp(date)) AS year,
+                EXTRACT(MONTH FROM to_timestamp(date)) AS month,
+                country,
+                SUM(revenue) AS revenue,
+                SUM(ad_spend) AS ad_spend,
+                MIN(date) AS date
+            FROM campaign_performance
+            GROUP BY year, month, country
+            ORDER BY year, month, country
+        """
 
-        results = CampaignModel.aggregate(pipeline)
+        results = CampaignModel.aggregate(query)
 
         # Transform the data to be suitable for Recharts
         months = []
@@ -1048,8 +1031,8 @@ def get_monthly_country_data() -> Dict:
         # Group by month first
         month_data = {}
         for item in results:
-            date_key = (item["_id"]["year"], item["_id"]["month"])
-            country = item["_id"]["country"]
+            date_key = (int(item["year"]), int(item["month"]))
+            country = item["country"]
 
             if date_key not in month_data:
                 month_data[date_key] = {"date": item["date"], "countries": {}}
@@ -1097,44 +1080,20 @@ def get_latest_twelve_months_data() -> Dict:
             - items: List of dictionaries with date, revenue, and ad_spend for each month
     """
     try:
-        # Aggregate the data by month
-        pipeline = [
-            # Group by month, calculating sums
-            {
-                "$group": {
-                    "_id": {
-                        # Extract year and month to group by month
-                        "year": {"$year": {"$toDate": {"$multiply": ["$date", 1000]}}},
-                        "month": {
-                            "$month": {"$toDate": {"$multiply": ["$date", 1000]}}
-                        },
-                    },
-                    "revenue": {"$sum": "$revenue"},
-                    "ad_spend": {"$sum": "$ad_spend"},
-                    "new_accounts": {"$sum": "$new_accounts"},
-                    # Get the first date in each month (for display purposes)
-                    "date": {"$first": "$date"},
-                }
-            },
-            # Sort by date descending to get latest months first
-            {"$sort": {"_id.year": -1, "_id.month": -1}},
-            # Limit to 12 months
-            {"$limit": 12},
-            # Project to final format
-            {
-                "$project": {
-                    "_id": 0,
-                    "date": "$date",
-                    "revenue": "$revenue",
-                    "ad_spend": "$ad_spend",
-                    "new_accounts": "$new_accounts",
-                }
-            },
-            # Sort by date ascending for consistent display
-            {"$sort": {"date": 1}},
-        ]
+        # Aggregate the data by month using SQL
+        query = """
+            SELECT 
+                MIN(date) as date,
+                SUM(revenue) as revenue,
+                SUM(ad_spend) as ad_spend,
+                SUM(new_accounts) as new_accounts
+            FROM campaign_performance
+            GROUP BY EXTRACT(YEAR FROM to_timestamp(date)), EXTRACT(MONTH FROM to_timestamp(date))
+            ORDER BY date DESC
+            LIMIT 12
+        """
 
-        results = CampaignModel.aggregate(pipeline)
+        results = CampaignModel.aggregate(query)
 
         # Convert to list and round numbers
         items = [
@@ -1146,6 +1105,9 @@ def get_latest_twelve_months_data() -> Dict:
             }
             for item in results
         ]
+
+        # Sort by date ascending
+        items.sort(key=lambda x: x["date"])
 
         return {"items": items}
 
@@ -1161,23 +1123,20 @@ def get_campaign_date_range() -> Dict:
     Returns:
         Dict: Dictionary containing min_date and max_date
     """
-    # Get date range
+    # Get date range using SQL
+    date_query = """
+        SELECT 
+            MIN(date) as min_date,
+            MAX(date) as max_date
+        FROM campaign_performance
+    """
+
+    date_result = CampaignModel.aggregate(date_query)
+
     date_range = {}
-    date_pipeline = [
-        {
-            "$group": {
-                "_id": None,
-                "min_date": {"$min": "$date"},
-                "max_date": {"$max": "$date"},
-            }
-        }
-    ]
-
-    date_result = CampaignModel.aggregate(date_pipeline)
-
     if date_result:
-        date_range["min_date"] = float(date_result[0]["min_date"])
-        date_range["max_date"] = float(date_result[0]["max_date"])
+        date_range["min_date"] = float(date_result[0]["min_date"]) if date_result[0]["min_date"] is not None else None
+        date_range["max_date"] = float(date_result[0]["max_date"]) if date_result[0]["max_date"] is not None else None
     else:
         date_range["min_date"] = None
         date_range["max_date"] = None

@@ -8,7 +8,7 @@ from sklearn.preprocessing import TargetEncoder
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from statsmodels.tsa.stattools import adfuller
 
-from app.database.connection import get_campaign_performance_collection
+from app.database.connection import Database
 from app.models.prophet_prediction import ProphetPredictionModel
 
 logger = logging.getLogger(__name__)
@@ -283,9 +283,9 @@ def run_prophet_prediction(forecast_months=4):
     """
     Run the Prophet prediction pipeline.
     This is a long-running task that:
-    1. Acquires data from the campaign_performance collection
+    1. Acquires data from the campaign_performance table
     2. Processes it and runs the Prophet model
-    3. Deletes existing data in prophet_predictions collection
+    3. Deletes existing data in prophet_predictions table
     4. Inserts new prediction data
 
     Args:
@@ -324,13 +324,11 @@ def run_prophet_prediction(forecast_months=4):
         last_prediction["status"] = "running"
         logger.info(f"Starting Prophet prediction task for {forecast_months} months")
 
-        # Get data from MongoDB
-        campaign_collection = get_campaign_performance_collection()
-        # Convert MongoDB data to DataFrame
-        campaign_data = list(campaign_collection.find({}, {"_id": 0}))
+        # Get data from PostgreSQL
+        campaign_data = Database.execute_query("SELECT * FROM campaign_performance")
 
         if not campaign_data:
-            logger.error("No campaign data found in MongoDB")
+            logger.error("No campaign data found in the database")
             return {"status": "error", "message": "No campaign data found"}
 
         # Convert to DataFrame and prepare data
@@ -411,7 +409,7 @@ def run_prophet_prediction(forecast_months=4):
         predictions["ad_spend"] = future_ad["yhat"]
         predictions["new_accounts"] = future_accounts["yhat"]
 
-        # Convert to unix timestamp and prepare for MongoDB
+        # Convert to unix timestamp and prepare for database
         predictions_list = []
         for _, row in predictions.iterrows():
             timestamp = int(row["ds"].timestamp())

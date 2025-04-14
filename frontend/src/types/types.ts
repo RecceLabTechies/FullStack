@@ -64,9 +64,9 @@ export interface CampaignFilterOptions {
   /** Date range constraints */
   date_range: {
     /** Latest available date (Unix timestamp) */
-    max_date: number;
+    max_date: number | null;
     /** Earliest available date (Unix timestamp) */
-    min_date: number;
+    min_date: number | null;
   };
   /** Numeric range statistics */
   numeric_ranges: {
@@ -268,10 +268,10 @@ export interface ChannelContributionData {
  * Time range specification
  */
 interface TimeRange {
-  /** Start date */
-  from_: string | null;
-  /** End date */
-  to: string | null;
+  /** Start date as Unix timestamp */
+  from_: number | null;
+  /** End date as Unix timestamp */
+  to: number | null;
 }
 
 /**

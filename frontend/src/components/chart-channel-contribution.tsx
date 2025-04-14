@@ -114,7 +114,7 @@ export default function ChannelContributionChart() {
           <CardTitle>Channel Contribution by Metric</CardTitle>
           <CardDescription>
             {data?.time_range?.from_ && data?.time_range?.to
-              ? `Data from ${data.time_range.from_} to ${data.time_range.to}`
+              ? `Data from ${new Date(data.time_range.from_ * 1000).toLocaleDateString()} to ${new Date(data.time_range.to * 1000).toLocaleDateString()}`
               : 'No data available'}
           </CardDescription>
         </CardHeader>

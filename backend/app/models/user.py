@@ -1,6 +1,6 @@
 import logging
 
-from app.database.connection import get_users_collection
+from app.database.connection import Database
 
 logger = logging.getLogger(__name__)
 
@@ -14,18 +14,17 @@ class UserModel:
     @staticmethod
     def get_all():
         """
-        Retrieve all users from the 'users' collection in the database.
+        Retrieve all users from the 'users' table in the database.
 
         Returns:
-            list: List of user documents
+            list: List of user records
         """
-        users_collection = get_users_collection()
-        return list(users_collection.find({}, {"_id": 0}))
+        return Database.execute_query("SELECT * FROM users")
 
     @staticmethod
     def get_by_username(username):
         """
-        Retrieve a user's information from the 'users' collection based on the username.
+        Retrieve a user's information from the 'users' table based on the username.
 
         Args:
             username: The username to search for
@@ -33,30 +32,36 @@ class UserModel:
         Returns:
             dict: User information or None if not found
         """
-        users_collection = get_users_collection()
-        return users_collection.find_one(
-            {"username": username}, {"_id": 0}
-        )  # Exclude the ObjectId from the response
+        result = Database.execute_query(
+            "SELECT * FROM users WHERE username = %s", (username,)
+        )
+        return result[0] if result else None
 
     @staticmethod
     def create(user_data):
         """
-        Add a new user to the 'users' collection in the database.
+        Add a new user to the 'users' table in the database.
 
         Args:
             user_data: Dictionary containing user data
 
         Returns:
-            str: ID of the inserted user
+            int: ID of the inserted user
         """
-        users_collection = get_users_collection()
-        result = users_collection.insert_one(user_data)
-        return str(result.inserted_id)
+        fields = user_data.keys()
+        values = user_data.values()
+
+        placeholders = ", ".join(["%s"] * len(fields))
+        columns = ", ".join(fields)
+
+        query = f"INSERT INTO users ({columns}) VALUES ({placeholders}) RETURNING id"
+        result = Database.execute_query(query, tuple(values))
+        return result[0]["id"] if result else None
 
     @staticmethod
     def update(username, update_data):
         """
-        Update a user in the 'users' collection in the database.
+        Update a user in the 'users' table in the database.
 
         Args:
             username: The username of the user to update
@@ -65,16 +70,17 @@ class UserModel:
         Returns:
             bool: True if user was updated, False otherwise
         """
-        users_collection = get_users_collection()
-        result = users_collection.update_one(
-            {"username": username}, {"$set": update_data}
-        )
-        return result.matched_count > 0
+        set_clause = ", ".join([f"{key} = %s" for key in update_data.keys()])
+        query = f"UPDATE users SET {set_clause} WHERE username = %s"
+        params = list(update_data.values()) + [username]
+
+        result = Database.execute_query(query, tuple(params), fetch=False)
+        return result > 0
 
     @staticmethod
     def update_fields(username, update_fields):
         """
-        Update specific fields of a user in the 'users' collection.
+        Update specific fields of a user in the 'users' table.
 
         Args:
             username: The username of the user to update
@@ -83,16 +89,17 @@ class UserModel:
         Returns:
             bool: True if user was updated, False otherwise
         """
-        users_collection = get_users_collection()
-        result = users_collection.update_one(
-            {"username": username}, {"$set": update_fields}
-        )
-        return result.matched_count > 0
+        set_clause = ", ".join([f"{key} = %s" for key in update_fields.keys()])
+        query = f"UPDATE users SET {set_clause} WHERE username = %s"
+        params = list(update_fields.values()) + [username]
+
+        result = Database.execute_query(query, tuple(params), fetch=False)
+        return result > 0
 
     @staticmethod
     def delete(username):
         """
-        Delete a user from the 'users' collection in the database.
+        Delete a user from the 'users' table in the database.
 
         Args:
             username: The username of the user to delete
@@ -100,6 +107,6 @@ class UserModel:
         Returns:
             bool: True if user was deleted, False otherwise
         """
-        users_collection = get_users_collection()
-        result = users_collection.delete_one({"username": username})
-        return result.deleted_count > 0
+        query = "DELETE FROM users WHERE username = %s"
+        result = Database.execute_query(query, (username,), fetch=False)
+        return result > 0

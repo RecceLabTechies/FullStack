@@ -9,6 +9,7 @@ from app.data_types import CampaignData
 from app.database.connection import Database
 from app.services.campaign_service import (
     filter_campaigns,
+    get_campaign_date_range,
     get_campaign_filter_options,
     get_channel_contribution_data,
     get_cost_metrics_heatmap,
@@ -19,11 +20,10 @@ from app.services.campaign_service import (
     get_monthly_aggregated_data,
     get_monthly_channel_data,
     get_monthly_country_data,
-    get_campaign_date_range,
 )
 from app.services.prophet_service import get_prediction_status, run_prophet_prediction
 from app.utils.data_processing import (
-    find_matching_collection,
+    find_matching_table,
     get_db_structure,
     process_csv_data,
 )
@@ -329,41 +329,41 @@ def get_database_structures_data():
 @handle_exceptions
 def get_database():
     """
-    List all databases in the database
+    List all tables in the database
     Returns:
-        JSON array of database names
+        JSON array of table names
     """
-    databases = Database.list_collections()
-    return format_response({"databases": databases})
+    tables = Database.list_tables()
+    return format_response({"tables": tables})
 
 
 @data_bp.route("/api/v1/database/delete", methods=["POST"])
 @handle_exceptions
 def delete_database():
     """
-    Delete a database by name
+    Delete a table's data by name
     Request body:
-        - database_name: string (required)
+        - table_name: string (required)
     """
     request_data = request.get_json() or {}
 
-    if not request_data.get("database_name"):
-        raise ValueError("database_name parameter is required")
+    if not request_data.get("table_name"):
+        raise ValueError("table_name parameter is required")
 
-    database_name = request_data["database_name"]
+    table_name = request_data["table_name"]
 
-    # Add protection for system collections
-    if database_name == "user":
+    # Add protection for system tables
+    if table_name == "users":
         return error_response(
-            400, "Cannot delete protected 'user' collection", "protected_collection"
+            400, "Cannot delete protected 'users' table", "protected_table"
         )
 
-    Database.delete_collection(database_name)
+    Database.delete_table_data(table_name)
 
     return format_response(
         {
-            "message": f"Database '{database_name}' processed successfully",
-            "database": database_name,
+            "message": f"Table '{table_name}' processed successfully",
+            "table": table_name,
         }
     )
 
@@ -531,11 +531,11 @@ def get_monthly_aggregated_data_route():
 def get_channel_contribution_data_route():
     """
     Get channel contribution data for various metrics.
-    
+
     Query parameters:
     - min_date: Optional start date as Unix timestamp
     - max_date: Optional end date as Unix timestamp
-    
+
     If date parameters are provided, data will be filtered to that range.
     Otherwise, returns data for the latest 3 months by default.
 
@@ -546,11 +546,13 @@ def get_channel_contribution_data_route():
         # Extract date range parameters from query string
         min_date = request.args.get("min_date", type=float)
         max_date = request.args.get("max_date", type=float)
-        
+
         # Validate date parameters if both are provided
         if min_date and max_date and min_date > max_date:
-            return error_response(400, "min_date cannot be greater than max_date", "invalid_date_range")
-        
+            return error_response(
+                400, "min_date cannot be greater than max_date", "invalid_date_range"
+            )
+
         # Call service function with optional date parameters
         data = get_channel_contribution_data(min_date, max_date)
         return format_response(data)
@@ -565,11 +567,11 @@ def get_channel_contribution_data_route():
 def get_cost_metrics_heatmap_route():
     """
     Get cost metrics heatmap data showing different cost metrics (cost per lead, view, account) by channel.
-    
+
     Query parameters:
     - min_date: Optional start date as Unix timestamp
     - max_date: Optional end date as Unix timestamp
-    
+
     If date parameters are provided, data will be filtered to that range.
     Otherwise, returns data for the latest 3 months by default.
 
@@ -580,11 +582,13 @@ def get_cost_metrics_heatmap_route():
         # Extract date range parameters from query string
         min_date = request.args.get("min_date", type=float)
         max_date = request.args.get("max_date", type=float)
-        
+
         # Validate date parameters if both are provided
         if min_date and max_date and min_date > max_date:
-            return error_response(400, "min_date cannot be greater than max_date", "invalid_date_range")
-        
+            return error_response(
+                400, "min_date cannot be greater than max_date", "invalid_date_range"
+            )
+
         # Call service function with optional date parameters
         data = get_cost_metrics_heatmap(min_date, max_date)
         return format_response(data)
@@ -766,7 +770,7 @@ def get_campaign_date_range_data():
 @data_bp.route("/api/v1/imports/csv", methods=["POST", "OPTIONS"])
 def handle_csv_import():
     """
-    Handle CSV file uploads and import data into MongoDB.
+    Handle CSV file uploads and import data into PostgreSQL.
     """
     # Handle CORS preflight request
     if request.method == "OPTIONS":
@@ -791,15 +795,11 @@ def handle_csv_import():
         # Process the CSV file
         try:
             # Process CSV data
-            records, is_structured_data, default_collection_name = process_csv_data(
-                file
-            )
+            records, is_structured_data, default_table_name = process_csv_data(file)
 
-            # Find matching collection for data
-            matching_collection, collection_name, found_match = (
-                find_matching_collection(
-                    records, is_structured_data, default_collection_name
-                )
+            # Find matching table for data
+            matching_table, table_name, found_match = find_matching_table(
+                records, is_structured_data, default_table_name
             )
 
             # Check if we have any valid records to insert
@@ -809,10 +809,10 @@ def handle_csv_import():
                     {"error": "No valid records found after validation"}, 400
                 )
 
-            # Insert all records into MongoDB
-            result = matching_collection.insert_many(records)
+            # Insert all records into PostgreSQL
+            inserted_count = Database.bulk_insert(table_name, records)
             logger.info(
-                f"Successfully inserted {len(result.inserted_ids)} records into {collection_name}"
+                f"Successfully inserted {inserted_count} records into {table_name}"
             )
 
             # Determine operation type for response message
@@ -821,9 +821,9 @@ def handle_csv_import():
             # Prepare and send response
             return format_response(
                 {
-                    "message": f"CSV {operation} collection successfully",
-                    "count": len(result.inserted_ids),
-                    "collection": collection_name,
+                    "message": f"CSV {operation} table successfully",
+                    "count": inserted_count,
+                    "table": table_name,
                 },
                 headers={"Access-Control-Allow-Origin": "*"},
             )

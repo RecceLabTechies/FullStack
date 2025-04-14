@@ -75,9 +75,9 @@ def validation_error_response(validation_err):
 @user_bp.route("/api/v1/users", methods=["GET"])
 def users_get():
     """
-    Retrieve all users from the 'users' collection in the database.
+    Retrieve all users from the 'users' table in the database.
     If username query parameter is provided, returns a single user instead.
-    Converts database documents to validated UserData objects.
+    Converts database records to validated UserData objects.
     """
     try:
         username = request.args.get("username")
@@ -101,7 +101,7 @@ def users_get():
 @user_bp.route("/api/v1/users", methods=["POST"])
 def users_post():
     """
-    Add a new user to the 'users' collection in the database.
+    Add a new user to the 'users' table in the database.
     Uses Marshmallow schema for validation of the input data.
     """
     try:
@@ -134,7 +134,7 @@ def users_post():
 @user_bp.route("/api/v1/users/<username>", methods=["GET"])
 def user_get_by_path(username):
     """
-    Retrieve a user's information from the 'users' collection based on the username in the path.
+    Retrieve a user's information from the 'users' table based on the username in the path.
     Converts to UserData object for validation and proper typing.
     """
     try:
@@ -154,7 +154,7 @@ def user_get_by_path(username):
 @user_bp.route("/api/v1/users/<username>", methods=["PUT"])
 def user_update(username):
     """
-    Update a user in the 'users' collection based on the username.
+    Update a user in the 'users' table based on the username.
     Uses Marshmallow schema for validation of the input data.
     """
     try:
@@ -187,7 +187,7 @@ def user_update(username):
 @user_bp.route("/api/v1/users/<username>", methods=["DELETE"])
 def user_delete(username):
     """
-    Delete a user from the 'users' collection based on the username.
+    Delete a user from the 'users' table based on the username.
     """
     try:
         success, result = delete_user(username)
@@ -204,7 +204,7 @@ def user_delete(username):
 @user_bp.route("/api/v1/users/<username>", methods=["PATCH"])
 def user_patch(username):
     """
-    Partially update a user in the 'users' collection based on the username.
+    Partially update a user in the 'users' table based on the username.
     Unlike PUT, PATCH only updates the specified fields.
     Uses Marshmallow schema for validation of the input data.
     """

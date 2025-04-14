@@ -1,6 +1,6 @@
 import logging
 
-from app.database.connection import get_campaign_performance_collection
+from app.database.connection import Database
 
 logger = logging.getLogger(__name__)
 
@@ -12,162 +12,231 @@ class CampaignModel:
     """
 
     @staticmethod
-    def get_all(query=None, projection=None):
+    def get_all(where_conditions=None, columns=None):
         """
-        Get all campaign documents matching the query.
+        Get all campaign records matching the conditions.
 
         Args:
-            query: MongoDB query dict (default: all documents)
-            projection: Fields to include/exclude
+            where_conditions: SQL WHERE conditions as a tuple (query_string, params)
+            columns: List of columns to include in the result
 
         Returns:
-            list: List of campaign documents
+            list: List of campaign records
         """
-        collection = get_campaign_performance_collection()
-        query = query or {}
-        projection = projection or {"_id": 0}
+        columns_str = "*" if not columns else ", ".join(columns)
 
-        return list(collection.find(query, projection))
+        if where_conditions:
+            query_string, params = where_conditions
+            query = (
+                f"SELECT {columns_str} FROM campaign_performance WHERE {query_string}"
+            )
+            return Database.execute_query(query, params)
+        else:
+            query = f"SELECT {columns_str} FROM campaign_performance"
+            return Database.execute_query(query)
 
     @staticmethod
-    def count(query=None):
+    def count(where_conditions=None):
         """
-        Count campaign documents matching the query.
+        Count campaign records matching the conditions.
 
         Args:
-            query: MongoDB query dict (default: all documents)
+            where_conditions: SQL WHERE conditions as a tuple (query_string, params)
 
         Returns:
-            int: Number of matching documents
+            int: Number of matching records
         """
-        collection = get_campaign_performance_collection()
-        query = query or {}
+        if where_conditions:
+            query_string, params = where_conditions
+            query = f"SELECT COUNT(*) FROM campaign_performance WHERE {query_string}"
+            result = Database.execute_query(query, params)
+        else:
+            query = "SELECT COUNT(*) FROM campaign_performance"
+            result = Database.execute_query(query)
 
-        return collection.count_documents(query)
+        return result[0]["count"] if result else 0
 
     @staticmethod
     def get_paginated(
-        query=None, projection=None, sort_by="date", sort_dir=-1, skip=0, limit=20
+        where_conditions=None,
+        columns=None,
+        sort_by="date",
+        sort_dir="DESC",
+        offset=0,
+        limit=20,
     ):
         """
-        Get paginated campaign documents.
+        Get paginated campaign records.
 
         Args:
-            query: MongoDB query dict
-            projection: Fields to include/exclude
+            where_conditions: SQL WHERE conditions as a tuple (query_string, params)
+            columns: List of columns to include in the result
             sort_by: Field to sort by
-            sort_dir: Sort direction (1 for ascending, -1 for descending)
-            skip: Number of documents to skip
-            limit: Maximum number of documents to return
+            sort_dir: Sort direction ('ASC' or 'DESC')
+            offset: Number of records to skip
+            limit: Maximum number of records to return
 
         Returns:
-            list: List of campaign documents
+            list: List of campaign records
         """
-        collection = get_campaign_performance_collection()
-        query = query or {}
-        projection = projection or {"_id": 0}
-
-        return list(
-            collection.find(query, projection)
-            .sort(sort_by, sort_dir)
-            .skip(skip)
-            .limit(limit)
+        columns_str = "*" if not columns else ", ".join(columns)
+        sort_direction = (
+            "DESC" if sort_dir == -1 or sort_dir.upper() == "DESC" else "ASC"
         )
 
+        if where_conditions:
+            query_string, params = where_conditions
+            query = f"""
+                SELECT {columns_str} 
+                FROM campaign_performance 
+                WHERE {query_string} 
+                ORDER BY {sort_by} {sort_direction}
+                LIMIT {limit} OFFSET {offset}
+            """
+            return Database.execute_query(query, params)
+        else:
+            query = f"""
+                SELECT {columns_str} 
+                FROM campaign_performance 
+                ORDER BY {sort_by} {sort_direction}
+                LIMIT {limit} OFFSET {offset}
+            """
+            return Database.execute_query(query)
+
     @staticmethod
-    def get_distinct(field, query=None):
+    def get_distinct(field, where_conditions=None):
         """
         Get distinct values for a field.
 
         Args:
             field: Field name to get distinct values for
-            query: Optional query to filter the documents
+            where_conditions: SQL WHERE conditions as a tuple (query_string, params)
 
         Returns:
             list: List of distinct values
         """
-        collection = get_campaign_performance_collection()
-        query = query or {}
+        if where_conditions:
+            query_string, params = where_conditions
+            query = f"SELECT DISTINCT {field} FROM campaign_performance WHERE {query_string}"
+            result = Database.execute_query(query, params)
+        else:
+            query = f"SELECT DISTINCT {field} FROM campaign_performance"
+            result = Database.execute_query(query)
 
-        return collection.distinct(field, query)
+        return [record[field] for record in result]
 
     @staticmethod
-    def aggregate(pipeline):
+    def aggregate(agg_query, params=None):
         """
-        Perform an aggregation pipeline query.
+        Perform a custom aggregation query.
 
         Args:
-            pipeline: MongoDB aggregation pipeline
+            agg_query: SQL aggregation query
+            params: Query parameters
 
         Returns:
             list: Result of the aggregation
         """
-        collection = get_campaign_performance_collection()
-
-        return list(collection.aggregate(pipeline))
+        return Database.execute_query(agg_query, params)
 
     @staticmethod
-    def update_many(query, update):
+    def update_many(where_conditions, update_data):
         """
-        Update multiple documents.
+        Update multiple records.
 
         Args:
-            query: MongoDB query to select documents
-            update: Update operation to apply
+            where_conditions: SQL WHERE conditions as a tuple (query_string, params)
+            update_data: Dictionary with fields to update
 
         Returns:
-            int: Number of documents modified
+            int: Number of records modified
         """
-        collection = get_campaign_performance_collection()
+        set_clause = ", ".join([f"{key} = %s" for key in update_data.keys()])
+        query_string, where_params = where_conditions
 
-        result = collection.update_many(query, update)
-        return result.modified_count
+        query = f"UPDATE campaign_performance SET {set_clause} WHERE {query_string}"
+        params = list(update_data.values()) + where_params
+
+        return Database.execute_query(query, tuple(params), fetch=False)
 
     @staticmethod
-    def update_one(query, update):
+    def update_one(where_conditions, update_data):
         """
-        Update a single document.
+        Update a single record.
 
         Args:
-            query: MongoDB query to select the document
-            update: Update operation to apply
+            where_conditions: SQL WHERE conditions as a tuple (query_string, params)
+            update_data: Dictionary with fields to update
 
         Returns:
-            bool: True if a document was modified, False otherwise
+            bool: True if a record was modified, False otherwise
         """
-        collection = get_campaign_performance_collection()
+        set_clause = ", ".join([f"{key} = %s" for key in update_data.keys()])
+        query_string, where_params = where_conditions
 
-        result = collection.update_one(query, update)
-        return result.modified_count > 0
+        query = f"""
+            UPDATE campaign_performance SET {set_clause} 
+            WHERE {query_string}
+            LIMIT 1
+        """
+        params = list(update_data.values()) + where_params
+
+        result = Database.execute_query(query, tuple(params), fetch=False)
+        return result > 0
 
     @staticmethod
     def create(document):
         """
-        Insert a new campaign document.
+        Insert a new campaign record.
 
         Args:
-            document: Document to insert
+            document: Dictionary with data to insert
 
         Returns:
-            str: ID of the inserted document
+            int: ID of the inserted record
         """
-        collection = get_campaign_performance_collection()
+        fields = document.keys()
+        values = document.values()
 
-        result = collection.insert_one(document)
-        return str(result.inserted_id)
+        placeholders = ", ".join(["%s"] * len(fields))
+        columns = ", ".join(fields)
+
+        query = f"INSERT INTO campaign_performance ({columns}) VALUES ({placeholders}) RETURNING id"
+        result = Database.execute_query(query, tuple(values))
+        return result[0]["id"] if result else None
 
     @staticmethod
     def create_many(documents):
         """
-        Insert multiple campaign documents.
+        Insert multiple campaign records.
 
         Args:
-            documents: List of documents to insert
+            documents: List of dictionaries with data to insert
 
         Returns:
-            int: Number of documents inserted
+            int: Number of records inserted
         """
-        collection = get_campaign_performance_collection()
+        if not documents:
+            return 0
 
-        result = collection.insert_many(documents)
-        return len(result.inserted_ids)
+        # All dictionaries should have same keys
+        sample = documents[0]
+        fields = sample.keys()
+        columns = ", ".join(fields)
+
+        # Create placeholder groups for each row
+        values_list = []
+        placeholders_template = "(" + ", ".join(["%s"] * len(fields)) + ")"
+        placeholders = []
+
+        for doc in documents:
+            values_list.extend([doc[field] for field in fields])
+            placeholders.append(placeholders_template)
+
+        placeholders_str = ", ".join(placeholders)
+        query = (
+            f"INSERT INTO campaign_performance ({columns}) VALUES {placeholders_str}"
+        )
+
+        result = Database.execute_query(query, tuple(values_list), fetch=False)
+        return result

@@ -6,9 +6,10 @@ PORT = int(os.getenv("PORT", 5000))
 HOST = "0.0.0.0"
 MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
 
-# MongoDB Configuration
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://root:example@mongodb:27017/")
-DB_NAME = os.getenv("MONGO_DB_NAME", "test_database")
+# PostgreSQL Configuration
+DATABASE_URL = os.getenv(
+    "DATABASE_URL", "postgresql://postgres:example@postgres:5432/app"
+)
 
 # Logging Configuration
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")

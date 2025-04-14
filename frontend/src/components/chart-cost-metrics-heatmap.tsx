@@ -202,6 +202,11 @@ export function CostMetricsHeatmap() {
       <div className="flex items-center justify-between pr-6">
         <CardHeader>
           <CardTitle id="cost-metrics-title">Cost Metrics by Channel</CardTitle>
+          <CardDescription>
+            {data?.time_range?.from_ && data?.time_range?.to
+              ? `Data from ${new Date(data.time_range.from_ * 1000).toLocaleDateString()} to ${new Date(data.time_range.to * 1000).toLocaleDateString()}`
+              : ''}
+          </CardDescription>
           <DatePickerWithRange
             onRangeChange={setDateRange}
             initialDateRange={dateRange}

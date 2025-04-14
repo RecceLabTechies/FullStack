@@ -53,12 +53,12 @@ pandas==2.2.3
 patsy==1.0.1
 pillow==11.1.0
 propcache==0.3.1
+psycopg2-binary==2.9.9
 pycparser==2.22
 pycryptodome==3.22.0
 pydantic==2.11.1
 pydantic-settings==2.8.1
 pydantic_core==2.33.0
-pymongo==4.11.3
 pyparsing==3.2.3
 python-dateutil==2.9.0.post0
 python-dotenv==1.1.0

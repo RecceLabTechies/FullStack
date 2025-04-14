@@ -12,6 +12,7 @@ class DataTypeConverter:
         if not value:
             raise ValueError("Date value cannot be empty")
         try:
+            # Ensure we return a float timestamp
             return float(value)
         except (ValueError, TypeError):
             raise ValueError(f"Invalid date format: {value}")
@@ -22,6 +23,7 @@ class DataTypeConverter:
         if not value:
             raise ValueError("Datetime value cannot be empty")
         try:
+            # Ensure we return a float timestamp
             return float(value)
         except (ValueError, TypeError):
             raise ValueError(f"Invalid datetime format: {value}")
@@ -29,7 +31,7 @@ class DataTypeConverter:
     @staticmethod
     def to_float(value: Any) -> float:
         """Convert value to float."""
-        if value == "":
+        if value is None or value == "":
             return 0.0
         try:
             return float(value)
@@ -64,6 +66,7 @@ class DataTypeConverter:
         if not value:
             raise ValueError("Date value cannot be empty")
         try:
+            # First convert to float then to int to ensure proper casting
             return int(float(value))
         except (ValueError, TypeError):
             raise ValueError(f"Invalid date format: {value}")
@@ -94,6 +97,7 @@ class CsvDataModel:
                 converted = self.field_converters[field_name](value)
                 setattr(self, field_name, converted)
             elif field_type == date or field_type == datetime:
+                # Always convert date/datetime types to Unix timestamp (float)
                 setattr(self, field_name, DataTypeConverter.to_float(value))
             elif field_type == float and not isinstance(value, float):
                 setattr(self, field_name, DataTypeConverter.to_float(value))
@@ -107,16 +111,17 @@ class CsvDataModel:
 class CampaignData(CsvDataModel):
     """Data model for campaign analytics data matching the CSV structure."""
 
-    date: int
-    campaign_id: str
-    channel: str
-    age_group: str
-    ad_spend: float
-    views: float
-    leads: float
-    new_accounts: float
-    country: str
-    revenue: float
+    id: int = None  # PostgreSQL primary key
+    date: int = None
+    campaign_id: str = None
+    channel: str = None
+    age_group: str = None
+    ad_spend: float = None
+    views: float = None
+    leads: float = None
+    new_accounts: float = None
+    country: str = None
+    revenue: float = None
 
     field_converters: ClassVar[Dict[str, Callable]] = {
         "date": DataTypeConverter.to_timestamp_int,
@@ -132,19 +137,22 @@ class CampaignData(CsvDataModel):
 class UserData(CsvDataModel):
     """Data model for user information matching the users.csv structure."""
 
-    username: str
-    email: str
-    role: str
-    company: str
-    password: str
-    chart_access: bool
-    report_generation_access: bool
-    user_management_access: bool
+    id: int = None  # PostgreSQL primary key
+    username: str = None
+    email: str = None
+    role: str = None
+    company: str = None
+    password: str = None
+    chart_access: bool = False
+    report_generation_access: bool = False
+    user_management_access: bool = False
+    created_at: float = None  # Timestamp for creation date
 
     field_converters: ClassVar[Dict[str, Callable]] = {
         "chart_access": DataTypeConverter.to_bool,
         "report_generation_access": DataTypeConverter.to_bool,
         "user_management_access": DataTypeConverter.to_bool,
+        "created_at": DataTypeConverter.to_float,
     }
 
 
@@ -152,10 +160,11 @@ class UserData(CsvDataModel):
 class ProphetPredictionData(CsvDataModel):
     """Data model for prophet prediction data matching the prophet_prediction_data.csv structure."""
 
-    date: int
-    revenue: float
-    ad_spend: float
-    new_accounts: float
+    id: int = None  # PostgreSQL primary key
+    date: int = None
+    revenue: float = None
+    ad_spend: float = None
+    new_accounts: float = None
 
     field_converters: ClassVar[Dict[str, Callable]] = {
         "date": DataTypeConverter.to_timestamp_int,

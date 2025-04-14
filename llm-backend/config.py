@@ -7,7 +7,7 @@ configuration parameters.
 
 Configuration categories include:
 - Flask server settings (debug mode, port, host)
-- MongoDB connection parameters
+- PostgreSQL connection parameters
 - Logging configuration
 - CORS (Cross-Origin Resource Sharing) settings
 """
@@ -21,12 +21,11 @@ PORT = int(os.getenv("PORT", 5000))  # HTTP port to listen on
 HOST = "0.0.0.0"  # Listen on all network interfaces
 MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max request size
 
-# MongoDB Configuration
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://root:example@mongodb:27017/")
-# When running in Docker, the host should be 'mongodb' (service name)
+# PostgreSQL Configuration
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:example@postgres:5432/app")
+# When running in Docker, the host should be 'postgres' (service name)
 # When running locally, the host should be 'localhost'
-# MONGO_URI = os.getenv("MONGO_URI", "mongodb://root:example@localhost:27017/")
-DB_NAME = os.getenv("MONGO_DB_NAME", "test_database")
+# DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:example@localhost:5432/app")
 
 # Logging Configuration
 # Controls log verbosity and format
