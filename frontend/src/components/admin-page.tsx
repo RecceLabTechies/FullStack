@@ -194,7 +194,7 @@ export default function AdminPage() {
               <CardTitle id="staff-management-title">Staff Management</CardTitle>
               <CardDescription>Manage your team&apos;s permissions and access</CardDescription>
             </div>
-            <CreateUserModal />
+            <CreateUserModal onUserAdded={handleUsersUpdate} />
           </div>
         </CardHeader>
         <CardContent>

@@ -28,7 +28,7 @@ import {
 import axios from 'axios';
 
 /** Base URL for all API endpoints */
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? '/api';
 
 /**
  * Standard API response interface used across endpoints
@@ -265,13 +265,22 @@ export const uploadCsv = async (file: File): Promise<CsvUploadResponse | Error> 
  */
 
 /**
- * Fetches channel contribution data for the latest 3 months
+ * Fetches channel contribution data
+ * @param minDate Optional - Start date as Unix timestamp
+ * @param maxDate Optional - End date as Unix timestamp
  * @returns Channel contribution metrics
  */
-export const fetchChannelContribution = async (): Promise<ChannelContributionData | Error> => {
+export const fetchChannelContribution = async (
+  minDate?: number,
+  maxDate?: number
+): Promise<ChannelContributionData | Error> => {
   try {
+    const params = new URLSearchParams();
+    if (minDate) params.append('min_date', minDate.toString());
+    if (maxDate) params.append('max_date', maxDate.toString());
+
     const response = await axios.get<ApiResponse<ChannelContributionData>>(
-      `${API_BASE_URL}/api/v1/campaigns/channel-contribution`
+      `${API_BASE_URL}/api/v1/campaigns/channel-contribution${params.toString() ? '?' + params.toString() : ''}`
     );
     return response.data.data;
   } catch (error) {
@@ -282,12 +291,21 @@ export const fetchChannelContribution = async (): Promise<ChannelContributionDat
 
 /**
  * Fetches cost metrics heatmap data
+ * @param minDate Optional - Start date as Unix timestamp
+ * @param maxDate Optional - End date as Unix timestamp
  * @returns Cost metrics by channel
  */
-export const fetchCostMetricsHeatmap = async (): Promise<CostMetricsHeatmapData | Error> => {
+export const fetchCostMetricsHeatmap = async (
+  minDate?: number,
+  maxDate?: number
+): Promise<CostMetricsHeatmapData | Error> => {
   try {
+    const params = new URLSearchParams();
+    if (minDate) params.append('min_date', minDate.toString());
+    if (maxDate) params.append('max_date', maxDate.toString());
+
     const response = await axios.get<ApiResponse<CostMetricsHeatmapData>>(
-      `${API_BASE_URL}/api/v1/campaigns/cost-metrics-heatmap`
+      `${API_BASE_URL}/api/v1/campaigns/cost-metrics-heatmap${params.toString() ? '?' + params.toString() : ''}`
     );
     return response.data.data;
   } catch (error) {
@@ -504,5 +522,23 @@ export const deleteDatabase = async (
       return new Error(errorData.error?.message ?? 'Failed to delete database');
     }
     return new Error('Failed to delete database');
+  }
+};
+
+/**
+ * Fetches campaign date range information
+ * @returns Min and max dates for campaign data as Unix timestamps
+ */
+export const fetchCampaignDateRange = async (): Promise<
+  { min_date: number | null; max_date: number | null } | Error
+> => {
+  try {
+    const response = await axios.get<
+      ApiResponse<{ min_date: number | null; max_date: number | null }>
+    >(`${API_BASE_URL}/api/v1/campaigns/date-range`);
+    return response.data.data;
+  } catch (error) {
+    console.error('Failed to fetch campaign date range', error);
+    return new Error('Failed to fetch campaign date range');
   }
 };
