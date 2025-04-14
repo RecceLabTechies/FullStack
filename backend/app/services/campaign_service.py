@@ -1111,3 +1111,34 @@ def get_latest_twelve_months_data() -> Dict:
     except Exception as e:
         logger.error(f"Error getting latest twelve months data: {e}")
         raise
+
+
+def get_campaign_date_range() -> Dict:
+    """
+    Get only the date range information for campaign data.
+
+    Returns:
+        Dict: Dictionary containing min_date and max_date
+    """
+    # Get date range
+    date_range = {}
+    date_pipeline = [
+        {
+            "$group": {
+                "_id": None,
+                "min_date": {"$min": "$date"},
+                "max_date": {"$max": "$date"},
+            }
+        }
+    ]
+
+    date_result = CampaignModel.aggregate(date_pipeline)
+
+    if date_result:
+        date_range["min_date"] = float(date_result[0]["min_date"])
+        date_range["max_date"] = float(date_result[0]["max_date"])
+    else:
+        date_range["min_date"] = None
+        date_range["max_date"] = None
+
+    return date_range

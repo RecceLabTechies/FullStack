@@ -19,6 +19,7 @@ from app.services.campaign_service import (
     get_monthly_aggregated_data,
     get_monthly_channel_data,
     get_monthly_country_data,
+    get_campaign_date_range,
 )
 from app.services.prophet_service import get_prediction_status, run_prophet_prediction
 from app.utils.data_processing import (
@@ -713,6 +714,19 @@ def get_latest_twelve_months_route():
     except Exception as e:
         logger.error(f"Error getting latest twelve months data: {e}")
         return error_response(500, f"Internal server error: {str(e)}", "server_error")
+
+
+@data_bp.route("/api/v1/campaigns/date-range", methods=["GET"])
+@handle_exceptions
+def get_campaign_date_range_data():
+    """
+    Get only the date range information for campaign data.
+
+    Returns:
+        JSON object containing min_date and max_date
+    """
+    date_range = get_campaign_date_range()
+    return format_response(date_range)
 
 
 # ----------------------------------------------------------------
