@@ -193,7 +193,7 @@ def get_monthly_aggregated_data(filter_params: Dict) -> Dict:
         # Convert Unix timestamp to datetime temporarily for month extraction only
         dt = datetime.fromtimestamp(timestamp)
         month_key = dt.strftime("%Y-%m")
-        
+
         # Create Unix timestamp for first day of the month (for consistency)
         dt = datetime(dt.year, dt.month, 1)
         month_timestamp = int(dt.timestamp())
@@ -294,8 +294,16 @@ def get_campaign_filter_options() -> Dict:
     date_result = CampaignModel.aggregate(date_query)
 
     if date_result:
-        date_range["min_date"] = float(date_result[0]["min_date"]) if date_result[0]["min_date"] is not None else None
-        date_range["max_date"] = float(date_result[0]["max_date"]) if date_result[0]["max_date"] is not None else None
+        date_range["min_date"] = (
+            float(date_result[0]["min_date"])
+            if date_result[0]["min_date"] is not None
+            else None
+        )
+        date_range["max_date"] = (
+            float(date_result[0]["max_date"])
+            if date_result[0]["max_date"] is not None
+            else None
+        )
     else:
         date_range["min_date"] = None
         date_range["max_date"] = None
@@ -425,8 +433,12 @@ def get_channel_contribution_data(
 
     # Get the actual time range in the filtered data for response metadata
     if not df.empty:
-        min_timestamp = float(df["date"].min()) if not pd.isna(df["date"].min()) else None
-        max_timestamp = float(df["date"].max()) if not pd.isna(df["date"].max()) else None
+        min_timestamp = (
+            float(df["date"].min()) if not pd.isna(df["date"].min()) else None
+        )
+        max_timestamp = (
+            float(df["date"].max()) if not pd.isna(df["date"].max()) else None
+        )
     else:
         min_timestamp = None
         max_timestamp = None
@@ -607,8 +619,12 @@ def get_cost_metrics_heatmap(min_date=None, max_date=None) -> HeatmapResponse:
 
     # Get the actual time range in the filtered data for response metadata
     if not df.empty:
-        min_timestamp = float(df["date"].min()) if not pd.isna(df["date"].min()) else None
-        max_timestamp = float(df["date"].max()) if not pd.isna(df["date"].max()) else None
+        min_timestamp = (
+            float(df["date"].min()) if not pd.isna(df["date"].min()) else None
+        )
+        max_timestamp = (
+            float(df["date"].max()) if not pd.isna(df["date"].max()) else None
+        )
     else:
         min_timestamp = None
         max_timestamp = None
@@ -1135,8 +1151,16 @@ def get_campaign_date_range() -> Dict:
 
     date_range = {}
     if date_result:
-        date_range["min_date"] = float(date_result[0]["min_date"]) if date_result[0]["min_date"] is not None else None
-        date_range["max_date"] = float(date_result[0]["max_date"]) if date_result[0]["max_date"] is not None else None
+        date_range["min_date"] = (
+            float(date_result[0]["min_date"])
+            if date_result[0]["min_date"] is not None
+            else None
+        )
+        date_range["max_date"] = (
+            float(date_result[0]["max_date"])
+            if date_result[0]["max_date"] is not None
+            else None
+        )
     else:
         date_range["min_date"] = None
         date_range["max_date"] = None

@@ -1,35 +1,37 @@
 #!/usr/bin/env python
 """
-Truncated Pipeline Module
+Truncated Pipeline Module for Report Generator
 
-This module provides a simplified pipeline for processing individual analysis queries
-as part of report generation. It handles routing queries to the appropriate processor
-based on query type (chart or description) and returns formatted results.
-
-Key components:
-- Query type classification (chart vs. description)
-- Data retrieval and processing from MongoDB collections
-- Result generation via specialized generators
-- Error handling and standardized response format
+This module provides a simplified pipeline flow specifically for the report generator,
+where collection selection has already been handled and we just need to process
+the query and generate content.
 """
 
 import logging
-from typing import Union
+from enum import Enum, auto
+from typing import Any, Dict, Optional
 
-from mypackage.b_data_processor import collection_processor
-from mypackage.c_regular_generator import chart_generator, description_generator
-from mypackage.d_report_generator.generate_analysis_queries import QueryItem, QueryType
+import pandas as pd
+from pydantic import BaseModel
+
+from mypackage.a_query_processor.query_classifier import classify_query
+from mypackage.b_data_processor import table_processor
+from mypackage.c_regular_generator.chart_generator import (
+    generate_chart as chart_generator,
+)
+from mypackage.c_regular_generator.description_generator import (
+    generate_description as description_generator,
+)
 
 # Set up module-level logger
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.propagate = False
 
-
 if not logger.handlers:
     handler = logging.StreamHandler()
     formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s - %(funcName)s - %(lineno)d"
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
     handler.setFormatter(formatter)
     logger.addHandler(handler)
@@ -37,101 +39,127 @@ if not logger.handlers:
 logger.debug("truncated_pipeline module initialized")
 
 
-def run_truncated_pipeline(query_item: QueryItem) -> Union[str, bytes]:
-    """
-    Process an individual analysis query through the appropriate pipeline components.
+class QueryType(Enum):
+    """Enumeration of possible query types for the truncated pipeline."""
 
-    This function represents a simplified version of the main pipeline, specialized
-    for handling individual analysis queries as part of report generation. It serves
-    as the entry point for processing sub-queries generated during report creation.
+    CHART = auto()
+    DESCRIPTION = auto()
+
+
+class QueryItem(BaseModel):
+    """
+    Pydantic model for a single query item in a report.
+
+    Attributes:
+        query: The natural language query text
+        query_type: The type of output expected (chart or description)
+        collection_name: Name of the MongoDB collection to query (optional)
+    """
+
+    query: str
+    query_type: QueryType
+    collection_name: Optional[str] = None
+
+
+def run_truncated_pipeline(query_item: QueryItem) -> Dict[str, Any]:
+    """
+    Run a simplified pipeline process for report generation.
+
+    This function processes a single query item, assuming that collection selection
+    has already been handled. It extracts data from the specified collection,
+    processes it according to the query, and generates the appropriate output.
 
     Args:
-        query_item: A QueryItem object containing the query text, type, and target collection
+        query_item: The QueryItem containing the query, type, and collection name
 
     Returns:
-        Either a string (for descriptions or error messages) or bytes (for chart images)
-
-    Raises:
-        ValueError: If the query type is invalid
-
-    Flow:
-        1. Determine query type (chart or description)
-        2. Process the data collection query to get a DataFrame
-        3. Generate appropriate output based on query type
-        4. Return formatted results
+        dict: A dictionary with the result type and content
     """
-    logger.info(
-        f"Processing query: '{query_item.query}' of type {query_item.query_type.value}"
-    )
-    logger.debug(f"Target collection: '{query_item.collection_name}'")
+    # Step 0: Validate the query and extract details
+    classification_result = classify_query(query_item.query)
+    logger.debug(f"Query classified as: {classification_result}")
 
-    # Step 1: Determine query type
-    if query_item.query_type == QueryType.CHART:
-        classification_result = "chart"
-        logger.debug("Query classified as chart request - will generate visualization")
-    elif query_item.query_type == QueryType.DESCRIPTION:
-        classification_result = "description"
-        logger.debug(
-            "Query classified as description request - will generate text analysis"
-        )
-    else:
-        error_msg = f"Invalid query type: {query_item.query_type}"
+    if classification_result not in ["chart", "description"]:
+        error_msg = f"Invalid query type: Expected 'chart' or 'description', got '{classification_result}'"
+        logger.error(error_msg)
+        return {"type": "error", "result": error_msg}
+
+    if query_item.query_type == QueryType.CHART and classification_result != "chart":
+        error_msg = f"Query type mismatch: Expected chart query, but classified as '{classification_result}'"
+        logger.error(error_msg)
+        return {"type": "error", "result": error_msg}
+
+    if (
+        query_item.query_type == QueryType.DESCRIPTION
+        and classification_result != "description"
+    ):
+        error_msg = f"Query type mismatch: Expected description query, but classified as '{classification_result}'"
+        logger.error(error_msg)
+        return {"type": "error", "result": error_msg}
+
+    if not query_item.collection_name:
+        error_msg = "No collection name provided for query processing"
         logger.error(error_msg)
         raise ValueError(error_msg)
 
-    collection_name = query_item.collection_name
-    logger.debug(f"Using collection: '{collection_name}'")
+    table_name = query_item.collection_name
+    logger.debug(f"Using table: '{table_name}'")
 
-    # Step 2: Process collection query to get DataFrame
+    # Step 2: Process table query to get DataFrame
     try:
-        logger.debug(
-            f"Querying collection '{collection_name}' with: '{query_item.query}'"
-        )
-        df = collection_processor.process_collection_query(
-            collection_name, query_item.query
-        )
+        logger.debug(f"Querying table '{table_name}' with: '{query_item.query}'")
+        results = table_processor.process_table_query(table_name, query_item.query)
+
+        # Convert results to DataFrame if needed
+        if isinstance(results, list) and results:
+            if isinstance(results[0], dict):
+                df = pd.DataFrame(results)
+            else:
+                df = pd.DataFrame(results[0])  # Take first result set
+        else:
+            df = pd.DataFrame()
+
         if df.empty:
-            logger.warning(
-                f"Query returned empty DataFrame from collection '{collection_name}'"
-            )
-            return f"No data found in collection '{collection_name}' for query: '{query_item.query}'"
+            logger.warning(f"Query returned empty DataFrame from table '{table_name}'")
+            return {
+                "type": "error",
+                "result": f"No data found in table '{table_name}' for query: '{query_item.query}'",
+            }
 
         logger.debug(
-            f"Successfully processed collection query, received DataFrame with shape: {df.shape}, columns: {list(df.columns)}"
+            f"Successfully processed table query, received DataFrame with shape: {df.shape}, columns: {list(df.columns)}"
         )
     except Exception as e:
-        error_msg = f"Error processing collection '{collection_name}': {str(e)}"
+        error_msg = f"Error processing table '{table_name}': {str(e)}"
         logger.error(error_msg, exc_info=True)
-        return error_msg
+        return {"type": "error", "result": error_msg}
 
     # Step 3: Generate appropriate output based on query type
     try:
         if classification_result == "chart":
             logger.info(f"Generating chart for DataFrame with {len(df)} rows")
-            chart_bytes = chart_generator.generate_chart(df, query_item.query)
+            chart_bytes = chart_generator(df, query_item.query)
             logger.debug(f"Chart generation successful, {len(chart_bytes)} bytes")
-            return chart_bytes
+            return {"type": "chart", "result": chart_bytes}
 
         elif classification_result == "description":
             logger.info(f"Generating description for DataFrame with {len(df)} rows")
-            description = description_generator.generate_description(
-                df, query_item.query
-            )
+            description = description_generator(df, query_item.query)
             logger.debug(
                 f"Description generation successful ({len(description)} chars)"
             )
-            return description
+            return {"type": "description", "result": description}
 
         else:
             # This should never happen given the earlier validation, but included for completeness
             error_msg = f"Unexpected classification result: {classification_result}"
             logger.error(error_msg)
-            return error_msg
+            return {"type": "error", "result": error_msg}
 
     except Exception as e:
         error_msg = f"Error generating {classification_result} output: {str(e)}"
         logger.error(error_msg, exc_info=True)
-        return error_msg
+        return {"type": "error", "result": error_msg}
 
 
 if __name__ == "__main__":

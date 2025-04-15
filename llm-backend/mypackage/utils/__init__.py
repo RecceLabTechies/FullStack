@@ -7,8 +7,9 @@ logging configuration, LLM configuration, and schema validation.
 
 from mypackage.utils.database import (
     Database,
-    get_campaign_performance_collection,
-    is_collection_accessible,
+    get_campaign_performance_table,
+    is_table_accessible,
+    query_to_dataframe,
 )
 from mypackage.utils.llm_config import (
     get_groq_llm,
@@ -26,8 +27,9 @@ __all__ = [
     "Database",
     "CampaignData",
     # Functions
-    "get_campaign_performance_collection",
-    "is_collection_accessible",
+    "get_campaign_performance_table",
+    "is_table_accessible",
+    "query_to_dataframe",
     "get_groq_llm",
     "setup_logging",
     "matches_campaign_schema",

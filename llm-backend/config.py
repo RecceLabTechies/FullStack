@@ -22,7 +22,9 @@ HOST = "0.0.0.0"  # Listen on all network interfaces
 MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max request size
 
 # PostgreSQL Configuration
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:example@postgres:5432/app")
+DATABASE_URL = os.getenv(
+    "DATABASE_URL", "postgresql://postgres:example@postgres:5432/app"
+)
 # When running in Docker, the host should be 'postgres' (service name)
 # When running locally, the host should be 'localhost'
 # DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:example@localhost:5432/app")

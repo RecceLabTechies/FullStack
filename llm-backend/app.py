@@ -109,7 +109,7 @@ def health_check():
 
     This endpoint checks:
     1. Database connection status
-    2. Availability of accessible collections
+    2. Availability of accessible tables
 
     It returns a JSON response indicating whether the application is healthy
     and can function properly.
@@ -119,7 +119,7 @@ def health_check():
             "status": "ok|error",
             "message": "Descriptive status message",
             "healthy": true|false,
-            "collections_count": <number of accessible collections> (if healthy)
+            "tables_count": <number of accessible tables> (if healthy)
         }
 
     Returns:
@@ -143,15 +143,15 @@ def health_check():
                 503,
             )
 
-    # Check for accessible collections
-    collections = Database.list_collections()
-    if not collections:
-        logger.error("Health check failed: No accessible collections found")
+    # Check for accessible tables
+    tables = Database.list_tables()
+    if not tables:
+        logger.error("Health check failed: No accessible tables found")
         return (
             jsonify(
                 {
                     "status": "error",
-                    "message": "No accessible collections found",
+                    "message": "No accessible tables found",
                     "healthy": False,
                 }
             ),
@@ -159,14 +159,14 @@ def health_check():
         )
 
     # All checks passed
-    logger.info(f"Health check successful: {len(collections)} collections available")
+    logger.info(f"Health check successful: {len(tables)} tables available")
     return (
         jsonify(
             {
                 "status": "ok",
-                "message": "Database is healthy and collections exist",
+                "message": "Database is healthy and tables exist",
                 "healthy": True,
-                "collections_count": len(collections),
+                "tables_count": len(tables),
             }
         ),
         200,

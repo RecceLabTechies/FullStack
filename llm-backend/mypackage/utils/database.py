@@ -1,111 +1,115 @@
 import logging
 
-from pymongo import MongoClient
+import pandas as pd
+import psycopg2
+import psycopg2.extras
 
-from config import DB_NAME, MONGO_URI
+from config import DATABASE_URL
 
 logger = logging.getLogger(__name__)
 
-# Collections that should not be accessible
-RESTRICTED_COLLECTIONS = ["users", "prophet_predictions"]
+# Tables that should not be accessible
+RESTRICTED_TABLES = ["users", "auth_tokens"]
 
 
 class Database:
     """
-    Singleton class for managing MongoDB database connections and operations.
+    Singleton class for managing PostgreSQL database connections and operations.
 
-    This class provides centralized access to the MongoDB database, with methods
-    for initializing connections, accessing collections, and analyzing collection
-    metadata. It implements a singleton pattern to ensure a single connection
-    is maintained throughout the application.
+    This class provides centralized access to the PostgreSQL database, with methods
+    for initializing connections, accessing tables, and analyzing table metadata.
+    It implements a singleton pattern to ensure a single connection is maintained
+    throughout the application.
 
     Attributes:
-        client: MongoDB client instance
-        db: Reference to the configured MongoDB database
+        conn: PostgreSQL connection instance
+        db: Connection cursor with dictionary factory
     """
 
-    client = None
+    conn = None
     db = None
 
     @classmethod
     def initialize(cls):
         """
-        Initialize the MongoDB connection.
+        Initialize the PostgreSQL connection.
 
-        This method establishes a connection to MongoDB using the configured
-        MONGO_URI and DB_NAME from the config module. It sets up the class-level
-        client and db attributes for later use.
+        This method establishes a connection to PostgreSQL using the configured
+        DATABASE_URL from the config module. It sets up the class-level
+        connection and cursor attributes for later use.
 
         Returns:
             bool: True if connection was successful, False otherwise
         """
         try:
-            # Connect to MongoDB
-            cls.client = MongoClient(MONGO_URI)
-            # Test the connection
-            cls.client.server_info()
-            # Get database reference
-            cls.db = cls.client[DB_NAME]
-            logger.info("Successfully connected to MongoDB")
+            # Connect to PostgreSQL
+            cls.conn = psycopg2.connect(DATABASE_URL)
+            # Create a cursor with dictionary factory
+            cls.db = cls.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+            logger.info("Successfully connected to PostgreSQL")
             return True
         except Exception as e:
-            logger.error(f"Error connecting to MongoDB: {e}")
+            logger.error(f"Error connecting to PostgreSQL: {e}")
             return False
 
     @classmethod
-    def get_collection(cls, collection_name):
+    def get_table(cls, table_name):
         """
-        Get a reference to a MongoDB collection, if it's not restricted.
+        Get a reference to a PostgreSQL table, if it's not restricted.
 
-        This method checks if the requested collection is in the restricted list
-        before returning a reference to it. If the database connection hasn't been
+        This method checks if the requested table is in the restricted list
+        before returning a cursor for it. If the database connection hasn't been
         initialized, it will initialize it first.
 
         Args:
-            collection_name (str): Name of the collection to retrieve
+            table_name (str): Name of the table to retrieve
 
         Returns:
-            Collection: MongoDB collection reference, or None if the collection is restricted
+            str: Table name if accessible, None if the table is restricted
         """
-        if collection_name in RESTRICTED_COLLECTIONS:
-            logger.warning(
-                f"Access to restricted collection '{collection_name}' was denied"
-            )
+        if table_name in RESTRICTED_TABLES:
+            logger.warning(f"Access to restricted table '{table_name}' was denied")
             return None
 
         if cls.db is None:
             cls.initialize()
-        return cls.db[collection_name]
+        return table_name
 
     @classmethod
-    def list_collections(cls):
+    def list_tables(cls):
         """
-        List all accessible (non-restricted) collections in the database.
+        List all accessible (non-restricted) tables in the database.
 
-        This method retrieves the names of all collections in the database
-        and filters out any that are in the RESTRICTED_COLLECTIONS list.
+        This method retrieves the names of all tables in the database
+        and filters out any that are in the RESTRICTED_TABLES list.
 
         Returns:
-            list: List of accessible collection names
+            list: List of accessible table names
         """
         if cls.db is None:
             cls.initialize()
-        all_collections = cls.db.list_collection_names()
-        return [col for col in all_collections if col not in RESTRICTED_COLLECTIONS]
+
+        cls.db.execute("""
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public'
+        """)
+        all_tables = [row[0] for row in cls.db.fetchall()]
+        return [table for table in all_tables if table not in RESTRICTED_TABLES]
 
     @classmethod
-    def analyze_collections(cls):
+    def analyze_tables(cls):
         """
-        Analyze all accessible collections to extract field information and statistics.
+        Analyze all accessible tables to extract field information and statistics.
 
-        This method examines each accessible collection in the database, identifies
+        This method examines each accessible table in the database, identifies
         all fields, and generates statistics about each field (min/max values for
         numerical fields, unique values for categorical fields, etc.).
 
         Returns:
             dict: Nested dictionary with structure:
                 {
-                    "collection_name": {
+                    "table_name": {
                         "field_name": {
                             "type": "numerical|categorical|datetime|etc",
                             "stats": {
@@ -121,94 +125,201 @@ class Database:
             cls.initialize()
 
         result = {}
-        collections = cls.list_collections()
+        tables = cls.list_tables()
 
-        for collection_name in collections:
-            collection = cls.db[collection_name]
-            # Get sample documents to determine fields
-            sample = list(collection.find())
+        for table_name in tables:
+            # Get column information
+            cls.db.execute(f"""
+                SELECT column_name, data_type 
+                FROM information_schema.columns 
+                WHERE table_name = '{table_name}'
+            """)
+            columns = {row[0]: {"type": row[1]} for row in cls.db.fetchall()}
+
+            # Sample data for analysis
+            cls.db.execute(f"SELECT * FROM {table_name} LIMIT 100")
+            sample = cls.db.fetchall()
 
             if not sample:
-                result[collection_name] = {}
+                result[table_name] = columns
                 continue
 
-            fields = {}
-            # First, identify all fields in the sample
-            for doc in sample:
-                for field_name, value in doc.items():
-                    if field_name not in fields:
-                        fields[field_name] = {"type": str(type(value).__name__)}
-
             # Analyze each field
-            for field_name, field_info in fields.items():
-                # Skip the _id field
-                if field_name == "_id":
-                    continue
-
-                sample_values = [
-                    doc.get(field_name) for doc in sample if field_name in doc
-                ]
+            for field_name, field_info in columns.items():
+                # Get sample values for analysis
+                sample_values = [row[field_name] for row in sample if field_name in row]
                 non_null_values = [v for v in sample_values if v is not None]
 
                 if not non_null_values:
-                    fields[field_name] = {
-                        "type": "unknown",
-                        "stats": "no non-null values",
-                    }
+                    field_info["stats"] = "no non-null values"
                     continue
 
                 # Check if numerical
-                if all(isinstance(v, (int, float)) for v in non_null_values):
-                    min_val = min(non_null_values)
-                    max_val = max(non_null_values)
-                    fields[field_name] = {
-                        "type": "numerical",
-                        "stats": {"min": min_val, "max": max_val},
-                    }
-                # Check if datetime
-                elif all(hasattr(v, "strftime") for v in non_null_values):
-                    min_val = min(non_null_values)
-                    max_val = max(non_null_values)
-                    fields[field_name] = {
-                        "type": "datetime",
-                        "stats": {"min": min_val, "max": max_val},
-                    }
-                # Treat as categorical
-                else:
-                    unique_values = list(set(str(v) for v in non_null_values))
-                    # Don't limit unique values
-                    fields[field_name] = {
-                        "type": "categorical",
-                        "stats": {"unique_values": unique_values},
-                    }
+                if field_info["type"] in (
+                    "integer",
+                    "bigint",
+                    "numeric",
+                    "double precision",
+                    "real",
+                ):
+                    cls.db.execute(
+                        f"SELECT MIN({field_name}), MAX({field_name}) FROM {table_name}"
+                    )
+                    min_val, max_val = cls.db.fetchone()
+                    field_info["stats"] = {"min": min_val, "max": max_val}
 
-            result[collection_name] = fields
+                # Check if datetime
+                elif field_info["type"] in ("timestamp", "date", "time"):
+                    cls.db.execute(
+                        f"SELECT MIN({field_name}), MAX({field_name}) FROM {table_name}"
+                    )
+                    min_val, max_val = cls.db.fetchone()
+                    field_info["stats"] = {"min": str(min_val), "max": str(max_val)}
+
+                # Treat as categorical if fewer than 100 unique values
+                else:
+                    cls.db.execute(f"""
+                        SELECT {field_name} 
+                        FROM {table_name} 
+                        WHERE {field_name} IS NOT NULL 
+                        GROUP BY {field_name} 
+                        LIMIT 100
+                    """)
+                    unique_values = [str(row[0]) for row in cls.db.fetchall()]
+                    field_info["stats"] = {"unique_values": unique_values}
+
+            result[table_name] = columns
 
         return result
 
+    @classmethod
+    def execute_query(cls, query, params=None):
+        """
+        Execute a SQL query and return the results.
 
-# Initialize common collection references
-def get_campaign_performance_collection():
+        Args:
+            query (str): The SQL query to execute
+            params (tuple, optional): Parameters for the query
+
+        Returns:
+            list: List of dictionaries containing the query results
+        """
+        if cls.db is None:
+            cls.initialize()
+
+        try:
+            cls.db.execute(query, params)
+            return cls.db.fetchall()
+        except Exception as e:
+            logger.error(f"Error executing query: {e}")
+            raise
+
+
+# Initialize common table references
+def get_campaign_performance_table():
     """
-    Get a reference to the campaign_performance collection.
+    Get a reference to the campaign_performance table.
 
-    This is a convenience function for accessing a commonly used collection.
+    This is a convenience function for accessing a commonly used table.
 
     Returns:
-        Collection: MongoDB collection reference for campaign_performance
+        str: Table name for campaign_performance if accessible
     """
-    return Database.get_collection("campaign_performance")
+    return Database.get_table("campaign_performance")
 
 
-# Function to check if a collection is accessible
-def is_collection_accessible(collection_name):
+# Function to check if a table is accessible
+def is_table_accessible(table_name):
     """
-    Check if a collection is accessible (not in the restricted list).
+    Check if a table is accessible (not in the restricted list).
 
     Args:
-        collection_name (str): Name of the collection to check
+        table_name (str): Name of the table to check
 
     Returns:
-        bool: True if the collection is accessible, False if it's restricted
+        bool: True if the table is accessible, False if it's restricted
     """
-    return collection_name not in RESTRICTED_COLLECTIONS
+    return table_name not in RESTRICTED_TABLES
+
+
+# Function to convert SQL results to a pandas DataFrame
+def query_to_dataframe(query, params=None):
+    """
+    Execute a SQL query and return the results as a pandas DataFrame.
+
+    Args:
+        query (str): The SQL query to execute
+        params (tuple, optional): Parameters for the query
+
+    Returns:
+        pandas.DataFrame: DataFrame containing the query results
+
+    Raises:
+        Exception: If there was an error executing the query
+    """
+    if not Database.conn or not Database.db:
+        Database.initialize()
+
+    try:
+        return pd.read_sql_query(query, Database.conn, params=params)
+    except Exception as e:
+        logger.error(f"Error executing query: {e}")
+        raise
+
+
+def query_to_dict(query, params=None):
+    """
+    Execute a SQL query and return the results as a list of dictionaries.
+
+    Args:
+        query (str): The SQL query to execute
+        params (tuple, optional): Parameters for the query
+
+    Returns:
+        list: List of dictionaries containing the query results
+
+    Raises:
+        Exception: If there was an error executing the query
+    """
+    if not Database.conn or not Database.db:
+        Database.initialize()
+
+    try:
+        cursor = Database.conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor.execute(query, params)
+        results = cursor.fetchall()
+        cursor.close()
+        return [dict(row) for row in results]
+    except Exception as e:
+        logger.error(f"Error executing query: {e}")
+        raise
+
+
+def execute_sql(sql, params=None):
+    """
+    Execute a SQL command that doesn't return results (INSERT, UPDATE, DELETE).
+
+    Args:
+        sql (str): The SQL command to execute
+        params (tuple, optional): Parameters for the SQL command
+
+    Returns:
+        int: Number of rows affected by the command
+
+    Raises:
+        Exception: If there was an error executing the SQL command
+    """
+    if not Database.conn or not Database.db:
+        Database.initialize()
+
+    try:
+        cursor = Database.conn.cursor()
+        cursor.execute(sql, params)
+        rowcount = cursor.rowcount
+        Database.conn.commit()
+        cursor.close()
+        return rowcount
+    except Exception as e:
+        Database.conn.rollback()
+        logger.error(f"Error executing SQL command: {e}")
+        raise

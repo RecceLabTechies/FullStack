@@ -22,7 +22,7 @@ from typing import Dict, List
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel
 
-from mypackage.utils.database import Database, is_collection_accessible
+from mypackage.utils.database import Database, is_table_accessible
 from mypackage.utils.llm_config import ANALYSIS_QUERIES_MODEL, get_groq_llm
 
 # Set up module-level logger
@@ -298,7 +298,7 @@ def _parse_llm_response(response) -> QueryList:
             collection_name = parts[1].strip()
 
             # Verify the collection exists and is accessible
-            if not is_collection_accessible(collection_name):
+            if not is_table_accessible(collection_name):
                 logger.warning(
                     f"Skipping query for inaccessible collection: {collection_name}"
                 )
