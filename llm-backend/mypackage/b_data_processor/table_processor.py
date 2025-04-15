@@ -323,6 +323,9 @@ Rules:
 5. Use CTEs (WITH clauses) for better readability when appropriate
 6. The solution might require multiple SQL statements to achieve the desired result
 7. Always return readable results with appropriate column names
+8. NEVER use SQL keywords as table aliases (ASC, DESC, ORDER, GROUP, etc.)
+9. Ensure JOIN conditions use columns that exist in both tables being joined
+10. When using CTEs, verify that the columns used in JOINs are actually defined in the CTE
 
 {similar_examples}
 
@@ -454,6 +457,13 @@ Faulty SQL commands:
 
 {similar_examples}
 
+IMPORTANT SQL RULES:
+1. NEVER use SQL keywords as table aliases (e.g., don't use ASC, DESC, JOIN, FROM, WHERE, etc.)
+2. Ensure JOIN conditions match the correct column types (don't join text with numeric values)
+3. Verify that columns used in JOIN conditions actually exist in their respective tables
+4. When using CTEs, ensure the JOIN conditions reference columns that exist in the CTE definition
+5. Verify that GROUP BY operations include all non-aggregated columns in the SELECT clause
+
 Create corrected SQL commands that address the error.
 Return ONLY the corrected SQL commands in code blocks:
 ```sql
@@ -466,8 +476,15 @@ Return ONLY the corrected SQL commands in code blocks:
         correction_prompt
     )
 
-    if isinstance(corrected_response, AIMessage):
-        corrected_response = corrected_response.content
+    cleaned_corrected_response = re.sub(
+        r"`?\s*<think>.*?</think>\s*`?",
+        "",
+        corrected_response,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+
+    if isinstance(cleaned_corrected_response, AIMessage):
+        cleaned_corrected_response = cleaned_corrected_response.content
 
     # Extract the corrected SQL commands
     corrected_commands = _extract_sql_commands(corrected_response)
@@ -562,9 +579,17 @@ def process_table_query(table_name: str, query: str) -> List[Dict[str, Any]]:
 
         # Step 2: Generate SQL commands using LLM
         sql_commands = _generate_sql_commands(query, metadata)
+        cleaned_sql_commands = re.sub(
+            r"`?\s*<think>.*?</think>\s*`?",
+            "",
+            sql_commands,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
 
         # Step 3: Execute commands with retries
-        results = _execute_with_retries(sql_commands, table_name, query, metadata)
+        results = _execute_with_retries(
+            cleaned_sql_commands, table_name, query, metadata
+        )
 
         logger.info(f"Query processing complete, returning {len(results)} result sets")
         return results

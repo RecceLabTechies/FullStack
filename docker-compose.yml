@@ -12,6 +12,18 @@ services:
             - POSTGRES_DB=app
         restart: always
 
+    chromadb:
+        image: chromadb/chroma:latest
+        ports:
+            - "8000:8000"
+        volumes:
+            - chromadb_data:/chroma/data
+        environment:
+            - CHROMA_SERVER_HOST=0.0.0.0
+            - CHROMA_SERVER_HTTP_PORT=8000
+            - CHROMA_PERSIST_DIRECTORY=/chroma/data
+        restart: always
+
     nginx:
         build: ./nginx
         ports:
@@ -39,13 +51,14 @@ services:
             - "5000"
         depends_on:
             - postgres
-            - chroma
+            - chromadb
         environment:
             - DATABASE_URL=postgresql://postgres:example@postgres:5432/app
             - PORT=5000
             - PYTHONUNBUFFERED=1
             - GROQ_API_KEY=${GROQ_API_KEY} # From .env file
-            - CHROMA_URL=http://chroma:8000
+            - CHROMA_SERVER_HOST=chromadb
+            - CHROMA_SERVER_PORT=8000
         restart: always
 
     frontend:
@@ -68,19 +81,8 @@ services:
         extra_hosts:
             - "host.docker.internal:host-gateway"
 
-    chroma:
-        image: ghcr.io/chroma-core/chroma:latest
-        ports:
-            - "8000:8000"
-        volumes:
-            - chroma_data:/chroma/chroma
-        environment:
-            - ALLOW_RESET=true
-            - ANONYMIZED_TELEMETRY=false
-        restart: always
-
 volumes:
     postgres_data:
         driver: local
-    chroma_data:
+    chromadb_data:
         driver: local
