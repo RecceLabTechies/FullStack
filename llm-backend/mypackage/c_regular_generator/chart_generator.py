@@ -10,6 +10,7 @@ Key components:
 - Data analysis to extract column metadata
 - LLM-based selection of appropriate visualization type and axes
 - Chart rendering with matplotlib/seaborn
+- Vector-based example retrieval for improved chart selection
 """
 
 import logging
@@ -29,6 +30,7 @@ from pandas.api.types import (
 )
 from pydantic import BaseModel, field_validator
 
+from mypackage.utils.example_vectorizer import ExampleVectorizer
 from mypackage.utils.llm_config import CHART_DATA_MODEL, get_groq_llm
 
 # Set up module-level logger
@@ -247,13 +249,69 @@ def _get_column_synonyms(col_name: str) -> List[str]:
     return result
 
 
+def _get_similar_chart_examples(query: str, n_results: int = 3) -> str:
+    """
+    Retrieve similar chart examples from the vectorized example database.
+
+    Args:
+        query: The user's query to find similar examples for
+        n_results: Number of examples to return
+
+    Returns:
+        String containing formatted examples for inclusion in the prompt
+    """
+    logger.info(f"Finding similar chart examples for query: '{query}'")
+
+    examples = ExampleVectorizer.get_similar_examples(
+        function_name="chart_generator", query=query, n_results=n_results
+    )
+
+    if not examples:
+        logger.warning("No similar chart examples found")
+        return ""
+
+    # Format examples for inclusion in the prompt
+    formatted_examples = []
+    for i, example in enumerate(examples):
+        if "query" in example and "result" in example:
+            similarity_score = example.get("distance", 1.0)
+            # Lower distance means more similar (convert to similarity percentage)
+            similarity = round((1 - min(similarity_score, 0.99)) * 100)
+
+            # Extract relevant information from example
+            example_query = example["query"]
+            if (
+                "x_axis" in example["result"]
+                and "y_axis" in example["result"]
+                and "chart_type" in example["result"]
+            ):
+                example_x = example["result"]["x_axis"]
+                example_y = example["result"]["y_axis"]
+                example_chart = example["result"]["chart_type"]
+
+                formatted_example = f"Example {i + 1} (similarity: {similarity}%):\n"
+                formatted_example += f'Query: "{example_query}"\n'
+                formatted_example += f"x_axis: {example_x}\n"
+                formatted_example += f"y_axis: {example_y}\n"
+                formatted_example += f"chart_type: {example_chart}\n"
+
+                formatted_examples.append(formatted_example)
+
+    if not formatted_examples:
+        logger.warning("No usable chart examples found")
+        return ""
+
+    return "\n\nSimilar Chart Examples:\n" + "\n".join(formatted_examples)
+
+
 def get_llm_chart_selection(query: str, metadata: List[ColumnMetadata]) -> ChartInfo:
     """
     Use LLM to select appropriate chart type and axes based on the query.
 
     This function sends the query and column metadata to an LLM, which
     then recommends the most appropriate visualization type and columns
-    to use for the x and y axes.
+    to use for the x and y axes. It now enhances the prompt with similar
+    examples retrieved using vector embeddings.
 
     Args:
         query: The user's query (possibly enhanced with metadata)
@@ -267,6 +325,9 @@ def get_llm_chart_selection(query: str, metadata: List[ColumnMetadata]) -> Chart
     """
     logger.info(f"Getting chart selection for query: {query}")
 
+    # Retrieve similar examples using vector similarity search
+    similar_examples = _get_similar_chart_examples(query)
+
     # Define prompt template for LLM
     prompt_template = ChatPromptTemplate.from_template(
         """You are a chart configuration assistant. Your ONLY task is to analyze the visualization request and select appropriate columns.
@@ -275,6 +336,8 @@ def get_llm_chart_selection(query: str, metadata: List[ColumnMetadata]) -> Chart
 
         Available Columns:
         {columns}
+        
+        {similar_examples}
 
         CRITICAL INSTRUCTIONS:
         1. You MUST respond with EXACTLY 3 lines in this format:
@@ -314,7 +377,9 @@ def get_llm_chart_selection(query: str, metadata: List[ColumnMetadata]) -> Chart
     chain = prompt_template | model
 
     logger.debug("Sending prompt to Groq LLM")
-    response = chain.invoke({"query": query, "columns": columns_str})
+    response = chain.invoke(
+        {"query": query, "columns": columns_str, "similar_examples": similar_examples}
+    )
     logger.debug(f"Received response from Groq LLM: {response.content}")
 
     # Parse the response into chart configuration

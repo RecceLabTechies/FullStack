@@ -2,328 +2,121 @@
   {
     "query": "Show sales by region",
     "result": {
-      "generated_code": "import pandas as pd\nimport numpy as np\n\ndef process_data(df: pd.DataFrame) -> pd.DataFrame:\n    processed_df = df.copy()\n    result_df = processed_df.groupby('region')['sales_amount'].sum().reset_index()\n    result_df = result_df.sort_values('sales_amount', ascending=False)\n    return result_df"
+      "generated_code": "SELECT region, SUM(sales_amount) AS total_sales_amount FROM campaign_performance GROUP BY region ORDER BY total_sales_amount DESC;"
     }
   },
   {
     "query": "Show average order value by customer segment",
     "result": {
-      "generated_code": "import pandas as pd\nimport numpy as np\n\ndef process_data(df: pd.DataFrame) -> pd.DataFrame:\n    processed_df = df.copy()\n    result_df = processed_df.groupby('customer_segment')['order_value'].mean().reset_index()\n    result_df = result_df.sort_values('order_value', ascending=False)\n    result_df = result_df.head(10)\n    return result_df"
+      "generated_code": "SELECT customer_segment, AVG(order_value) AS average_order_value FROM orders GROUP BY customer_segment ORDER BY average_order_value DESC LIMIT 10;"
     }
   },
   {
     "query": "Show total revenue by product category in Q1 2023",
     "result": {
-      "generated_code": "import pandas as pd\nimport numpy as np\n\ndef process_data(df: pd.DataFrame) -> pd.DataFrame:\n    processed_df = df.copy()\n    # Filter for Q1 2023\n    mask = (processed_df['date'] >= '2023-01-01') & (processed_df['date'] <= '2023-03-31')\n    filtered_df = processed_df[mask]\n    # Group and aggregate\n    result_df = filtered_df.groupby('product_category')['revenue'].sum().reset_index()\n    result_df = result_df.sort_values('revenue', ascending=False)\n    return result_df"
+      "generated_code": "SELECT product_category, SUM(revenue) AS total_revenue FROM sales WHERE date >= '2023-01-01' AND date <= '2023-03-31' GROUP BY product_category ORDER BY total_revenue DESC;"
     }
   },
   {
     "query": "Compare monthly sales for 2022 and 2023",
     "result": {
-      "generated_code": "import pandas as pd\nimport numpy as np\n\ndef process_data(df: pd.DataFrame) -> pd.DataFrame:\n    processed_df = df.copy()\n    # Filter for years 2022 and 2023\n    mask = processed_df['year'].isin([2022, 2023])\n    filtered_df = processed_df[mask]\n    # Group by year and month\n    result_df = filtered_df.groupby(['year', 'month'])['sales_amount'].sum().reset_index()\n    # Sort by year and month\n    result_df = result_df.sort_values(['year', 'month'])\n    return result_df"
+      "generated_code": "SELECT year, month, SUM(sales_amount) AS total_sales FROM sales_data WHERE year IN (2022, 2023) GROUP BY year, month ORDER BY year, month;"
     }
   },
   {
     "query": "Show top 10 customers by lifetime value",
     "result": {
-      "generated_code": "import pandas as pd\nimport numpy as np\n\ndef process_data(df: pd.DataFrame) -> pd.DataFrame:\n    processed_df = df.copy()\n    # Sort by lifetime value and get top 10\n    result_df = processed_df.sort_values('lifetime_value', ascending=False)\n    result_df = result_df[['customer_name', 'lifetime_value']]\n    result_df = result_df.head(10)\n    return result_df"
+      "generated_code": "SELECT customer_name, lifetime_value FROM customers ORDER BY lifetime_value DESC LIMIT 10;"
     }
   },
   {
     "query": "Find products with inventory below reorder point",
     "result": {
-      "generated_code": "import pandas as pd\nimport numpy as np\n\ndef process_data(df: pd.DataFrame) -> pd.DataFrame:\n    processed_df = df.copy()\n    # Filter where current stock is below reorder point\n    result_df = processed_df[processed_df['current_stock'] < processed_df['reorder_point']]\n    # Select relevant columns\n    result_df = result_df[['product_id', 'product_name', 'current_stock', 'reorder_point']]\n    # Sort by current stock ascending\n    result_df = result_df.sort_values('current_stock')\n    return result_df"
+      "generated_code": "SELECT product_id, product_name, current_stock, reorder_point FROM inventory WHERE current_stock < reorder_point ORDER BY current_stock ASC;"
     }
   },
   {
     "query": "Show employee performance by department and seniority level",
     "result": {
-      "generated_code": "import pandas as pd\nimport numpy as np\n\ndef process_data(df: pd.DataFrame) -> pd.DataFrame:\n    processed_df = df.copy()\n    # Group by department and seniority level\n    result_df = processed_df.groupby(['department', 'seniority_level'])['performance_score'].mean().reset_index()\n    # Sort by department and performance score\n    result_df = result_df.sort_values(['department', 'performance_score'], ascending=[True, False])\n    return result_df"
+      "generated_code": "SELECT department, seniority_level, AVG(performance_score) AS avg_performance FROM employee_data GROUP BY department, seniority_level ORDER BY department, avg_performance DESC;"
     }
   },
   {
     "query": "Show marketing campaign ROI by channel",
     "result": {
-      "generated_code": "import pandas as pd\nimport numpy as np\n\ndef process_data(df: pd.DataFrame) -> pd.DataFrame:\n    processed_df = df.copy()\n    # Group by channel and calculate average ROI\n    result_df = processed_df.groupby('channel')['roi'].mean().reset_index()\n    # Sort by ROI descending\n    result_df = result_df.sort_values('roi', ascending=False)\n    return result_df"
+      "generated_code": "SELECT channel, AVG(roi) AS average_roi FROM campaign_data GROUP BY channel ORDER BY average_roi DESC;"
     }
   },
   {
     "query": "Show website traffic by source and device type",
     "result": {
-      "generated_code": "import pandas as pd\nimport numpy as np\n\ndef process_data(df: pd.DataFrame) -> pd.DataFrame:\n    processed_df = df.copy()\n    # Group by traffic source and device type\n    result_df = processed_df.groupby(['traffic_source', 'device_type'])[['visits', 'page_views']].sum().reset_index()\n    # Sort by visits descending\n    result_df = result_df.sort_values('visits', ascending=False)\n    return result_df"
+      "generated_code": "SELECT traffic_source, device_type, SUM(visits) AS total_visits, SUM(page_views) AS total_page_views FROM web_traffic GROUP BY traffic_source, device_type ORDER BY total_visits DESC;"
     }
   },
   {
     "query": "Compare customer satisfaction scores across product lines",
     "result": {
-      "generated_code": "import pandas as pd\nimport numpy as np\n\ndef process_data(df: pd.DataFrame) -> pd.DataFrame:\n    processed_df = df.copy()\n    # Calculate average satisfaction score by product line\n    result_df = processed_df.groupby('product_line')['satisfaction_score'].mean().reset_index()\n    # Sort by satisfaction score descending\n    result_df = result_df.sort_values('satisfaction_score', ascending=False)\n    return result_df"
+      "generated_code": "SELECT product_line, AVG(satisfaction_score) AS avg_satisfaction FROM customer_feedback GROUP BY product_line ORDER BY avg_satisfaction DESC;"
     }
   },
   {
     "query": "Show a line chart of total ad spend over time",
     "result": {
-      "generated_code": "import pandas as pd\nimport matplotlib.pyplot as plt\n\ndef process_data(df: pd.DataFrame):\n    df['date'] = pd.to_datetime(df['date'], unit='s')\n    daily_spend = df.groupby('date')['ad_spend'].sum()\n    plt.plot(daily_spend.index, daily_spend.values)\n    plt.xlabel('Date')\n    plt.ylabel('Total Ad Spend')\n    plt.title('Ad Spend Over Time')\n    plt.show()"
+      "generated_code": "SELECT date, SUM(ad_spend) AS total_ad_spend FROM ad_data GROUP BY date ORDER BY date;"
     }
   },
   {
     "query": "Create a bar chart comparing revenue by country",
     "result": {
-      "generated_code": "import pandas as pd\nimport matplotlib.pyplot as plt\n\ndef process_data(df: pd.DataFrame):\n    revenue_by_country = df.groupby('country')['revenue'].sum()\n    revenue_by_country.plot(kind='bar')\n    plt.xlabel('Country')\n    plt.ylabel('Total Revenue')\n    plt.title('Revenue by Country')\n    plt.show()"
+      "generated_code": "SELECT country, SUM(revenue) AS total_revenue FROM sales_data GROUP BY country ORDER BY total_revenue DESC;"
     }
   },
   {
     "query": "Plot a heatmap showing average revenue by age group and country",
     "result": {
-      "generated_code": "import pandas as pd\nimport matplotlib.pyplot as plt\nimport seaborn as sns\n\ndef process_data(df: pd.DataFrame):\n    pivot = df.pivot_table(values='revenue', index='age_group', columns='country', aggfunc='mean')\n    sns.heatmap(pivot, annot=True, fmt='.1f')\n    plt.title('Average Revenue by Age Group and Country')\n    plt.show()"
+      "generated_code": "SELECT age_group, country, AVG(revenue) AS avg_revenue FROM user_data GROUP BY age_group, country;"
     }
   },
   {
     "query": "Visualize the correlation between ad spend and revenue",
     "result": {
-      "generated_code": "import pandas as pd\nimport matplotlib.pyplot as plt\n\ndef process_data(df: pd.DataFrame):\n    plt.scatter(df['ad_spend'], df['revenue'])\n    plt.xlabel('Ad Spend')\n    plt.ylabel('Revenue')\n    plt.title('Correlation between Ad Spend and Revenue')\n    plt.show()"
+      "generated_code": "SELECT ad_spend, revenue FROM campaign_data;"
     }
   },
   {
     "query": "Create a stacked bar chart of new accounts by campaign and age group",
     "result": {
-      "generated_code": "import pandas as pd\nimport matplotlib.pyplot as plt\n\ndef process_data(df: pd.DataFrame):\n    grouped = df.groupby(['campaign_id', 'age_group'])['new_accounts'].sum().unstack().fillna(0)\n    grouped.plot(kind='bar', stacked=True)\n    plt.title('New Accounts by Campaign and Age Group')\n    plt.xlabel('Campaign ID')\n    plt.ylabel('New Accounts')\n    plt.show()"
+      "generated_code": "SELECT campaign_id, age_group, SUM(new_accounts) AS total_new_accounts FROM campaign_data GROUP BY campaign_id, age_group;"
     }
   },
   {
     "query": "Show a pie chart of total leads by marketing channel",
     "result": {
-      "generated_code": "import pandas as pd\nimport matplotlib.pyplot as plt\n\ndef process_data(df: pd.DataFrame):\n    leads_by_channel = df.groupby('channel')['leads'].sum()\n    leads_by_channel.plot(kind='pie', autopct='%1.1f%%')\n    plt.title('Total Leads by Channel')\n    plt.ylabel('')\n    plt.show()"
+      "generated_code": "SELECT channel, SUM(leads) AS total_leads FROM marketing_data GROUP BY channel;"
     }
   },
   {
     "query": "Plot a time series of average leads per day across all campaigns",
     "result": {
-      "generated_code": "import pandas as pd\nimport matplotlib.pyplot as plt\n\ndef process_data(df: pd.DataFrame):\n    df['date'] = pd.to_datetime(df['date'], unit='s')\n    avg_leads = df.groupby('date')['leads'].mean()\n    plt.plot(avg_leads.index, avg_leads.values)\n    plt.xlabel('Date')\n    plt.ylabel('Average Leads')\n    plt.title('Daily Average Leads')\n    plt.show()"
+      "generated_code": "SELECT date, AVG(leads) AS avg_daily_leads FROM campaign_data GROUP BY date ORDER BY date;"
     }
   },
   {
     "query": "Display a scatter plot of views vs. leads with ad spend as the point size",
     "result": {
-      "generated_code": "import pandas as pd\nimport matplotlib.pyplot as plt\n\ndef process_data(df: pd.DataFrame):\n    plt.scatter(df['views'], df['leads'], s=df['ad_spend'], alpha=0.6)\n    plt.xlabel('Views')\n    plt.ylabel('Leads')\n    plt.title('Views vs Leads (Ad Spend as Size)')\n    plt.show()"
+      "generated_code": "SELECT views, leads, ad_spend FROM campaign_data;"
     }
   },
   {
     "query": "Show a multi-line chart comparing revenue trends across channels",
     "result": {
-      "generated_code": "import pandas as pd\nimport matplotlib.pyplot as plt\n\ndef process_data(df: pd.DataFrame):\n    df['date'] = pd.to_datetime(df['date'], unit='s')\n    grouped = df.groupby(['date', 'channel'])['revenue'].sum().unstack()\n    grouped.plot()\n    plt.title('Revenue Trends by Channel')\n    plt.xlabel('Date')\n    plt.ylabel('Revenue')\n    plt.show()"
+      "generated_code": "SELECT date, channel, SUM(revenue) AS total_revenue FROM campaign_data GROUP BY date, channel ORDER BY date;"
     }
   },
   {
     "query": "Create a box plot of ad spend distribution across countries",
     "result": {
-      "generated_code": "import pandas as pd\nimport matplotlib.pyplot as plt\nimport seaborn as sns\n\ndef process_data(df: pd.DataFrame):\n    sns.boxplot(x='country', y='ad_spend', data=df)\n    plt.title('Ad Spend Distribution by Country')\n    plt.show()"
+      "generated_code": "SELECT country, ad_spend FROM ad_data;"
     }
-  },
-  {
-    "query": "Describe which country had the highest average revenue per campaign",
-    "result": {
-      "generated_code": "import pandas as pd\n\ndef process_data(df: pd.DataFrame):\n    avg_revenue = df.groupby('country')['revenue'].mean()\n    top_country = avg_revenue.idxmax()\n    top_value = avg_revenue.max()\n    return pd.DataFrame({ 'Top Country': [top_country], 'Average Revenue': [top_value] })"
-    }
-  },
-  {
-    "query": "Summarize which age group generated the most new accounts",
-    "result": {
-      "generated_code": "import pandas as pd\n\ndef process_data(df: pd.DataFrame):\n    new_accounts_by_age = df.groupby('age_group')['new_accounts'].sum()\n    return new_accounts_by_age.sort_values(ascending=False).reset_index()"
-    }
-  },
-  {
-    "query": "List the top 5 campaigns by total revenue",
-    "result": {
-      "generated_code": "import pandas as pd\n\ndef process_data(df: pd.DataFrame):\n    revenue_by_campaign = df.groupby('campaign_id')['revenue'].sum()\n    top_5 = revenue_by_campaign.sort_values(ascending=False).head(5)\n    return top_5.reset_index()"
-    }
-  },
-  {
-    "query": "Which marketing channel had the best leads-to-views conversion rate?",
-    "result": {
-      "generated_code": "import pandas as pd\n\ndef process_data(df: pd.DataFrame):\n    df['conversion_rate'] = df['leads'] / df['views']\n    avg_rate = df.groupby('channel')['conversion_rate'].mean()\n    best_channel = avg_rate.idxmax()\n    return pd.DataFrame({ 'Best Channel': [best_channel], 'Avg Conversion Rate': [avg_rate.max()] })"
-    }
-  },
-  {
-    "query": "Identify patterns or anomalies in ad spend over time",
-    "result": {
-      "generated_code": "import pandas as pd\nimport matplotlib.pyplot as plt\nimport seaborn as sns\n\ndef process_data(df: pd.DataFrame):\n    df['date'] = pd.to_datetime(df['date'], unit='s')\n    daily_spend = df.groupby('date')['ad_spend'].sum()\n    sns.lineplot(x=daily_spend.index, y=daily_spend.values)\n    plt.title('Daily Ad Spend Trends')\n    plt.show()"
-    }
-  },
-  {
-    "query": "Break down the average performance metrics by channel",
-    "result": {
-      "generated_code": "import pandas as pd\n\ndef process_data(df: pd.DataFrame):\n    metrics = df.groupby('channel')[['views', 'leads', 'new_accounts', 'revenue']].mean()\n    return metrics.reset_index()"
-    }
-  },
-  {
-    "query": "Describe the distribution of new accounts per country",
-    "result": {
-      "generated_code": "import pandas as pd\nimport seaborn as sns\nimport matplotlib.pyplot as plt\n\ndef process_data(df: pd.DataFrame):\n    sns.boxplot(x='country', y='new_accounts', data=df)\n    plt.title('Distribution of New Accounts per Country')\n    plt.show()"
-    }
-  },
-  {
-    "query": "Which age group has the highest revenue per dollar spent?",
-    "result": {
-      "generated_code": "import pandas as pd\n\ndef process_data(df: pd.DataFrame):\n    df['rev_per_dollar'] = df['revenue'] / df['ad_spend']\n    grouped = df.groupby('age_group')['rev_per_dollar'].mean()\n    return grouped.sort_values(ascending=False).reset_index()"
-    }
-  },
-  {
-    "query": "Identify underperforming campaigns based on low revenue despite high ad spend",
-    "result": {
-      "generated_code": "import pandas as pd\n\ndef process_data(df: pd.DataFrame):\n    campaign_perf = df.groupby('campaign_id')[['ad_spend', 'revenue']].sum()\n    campaign_perf['roi'] = campaign_perf['revenue'] / campaign_perf['ad_spend']\n    underperforming = campaign_perf[campaign_perf['roi'] < 0.5]\n    return underperforming.sort_values('roi')"
-    }
-  },
-  
-    {
-      "query": "Generate a chart of total ad spend over time for the LinkedIn channel during Q3.",
-      "result": {
-        "generated_code": "import pandas as pd\n\ndef process_data(df):\n    df['date'] = pd.to_datetime(df['date'], unit='s')\n    q3 = df[df['date'].dt.quarter == 3]\n    filtered = q3[df['channel'] == 'LinkedIn']\n    result = filtered.groupby('date')['ad_spend'].sum().reset_index()\n    return result"
-      }
-    },
-    {
-      "query": "Create a bar chart comparing total ad spend by channel in July 2022.",
-      "result": {
-        "generated_code": "import pandas as pd\n\ndef process_data(df):\n    df['date'] = pd.to_datetime(df['date'], unit='s')\n    july = df[(df['date'].dt.month == 7) & (df['date'].dt.year == 2022)]\n    result = july.groupby('channel')['ad_spend'].sum().reset_index()\n    return result"
-      }
-    },
-    {
-      "query": "Show a pie chart of ad spend distribution by age group for TikTok ads during August 2022.",
-      "result": {
-        "generated_code": "import pandas as pd\n\ndef process_data(df):\n    df['date'] = pd.to_datetime(df['date'], unit='s')\n    aug = df[(df['date'].dt.month == 8) & (df['date'].dt.year == 2022) & (df['channel'] == 'TikTok ads')]\n    result = aug.groupby('age_group')['ad_spend'].sum().reset_index()\n    return result"
-      }
-    },
-    {
-      "query": "Generate a line chart of weekly ad spend for Facebook campaigns during Q2.",
-      "result": {
-        "generated_code": "import pandas as pd\n\ndef process_data(df):\n    df['date'] = pd.to_datetime(df['date'], unit='s')\n    q2 = df[(df['date'].dt.quarter == 2) & (df['channel'] == 'Facebook')]\n    q2['week'] = q2['date'].dt.to_period('W').apply(lambda r: r.start_time)\n    result = q2.groupby('week')['ad_spend'].sum().reset_index()\n    return result"
-      }
-    },
-    {
-      "query": "Create a bar chart comparing average ad spend by age group for the YouTube channel.",
-      "result": {
-        "generated_code": "import pandas as pd\n\ndef process_data(df):\n    filtered = df[df['channel'] == 'YouTube']\n    result = filtered.groupby('age_group')['ad_spend'].mean().reset_index()\n    return result"
-      }
-    },
-    {
-      "query": "Plot total ad spend over time for the campaign 'June_2022_2'.",
-      "result": {
-        "generated_code": "import pandas as pd\n\ndef process_data(df):\n    df['date'] = pd.to_datetime(df['date'], unit='s')\n    filtered = df[df['campaign_id'] == 'June_2022_2']\n    result = filtered.groupby('date')['ad_spend'].sum().reset_index()\n    return result"
-      }
-    },
-    {
-      "query": "Total ad spend by month across all campaigns",
-      "result": {
-        "generated_code": "import pandas as pd\n\ndef process_data(df):\n    df['date'] = pd.to_datetime(df['date'], unit='s')\n    df['month'] = df['date'].dt.to_period('M').dt.to_timestamp()\n    result = df.groupby('month')['ad_spend'].sum().reset_index()\n    return result"
-      }
-    },
-    {
-      "query": "Ad spend distribution across marketing channels for each month",
-      "result": {
-        "generated_code": "import pandas as pd\n\ndef process_data(df):\n    df['date'] = pd.to_datetime(df['date'], unit='s')\n    df['month'] = df['date'].dt.to_period('M').dt.to_timestamp()\n    result = df.groupby(['month', 'channel'])['ad_spend'].sum().reset_index()\n    return result"
-      }
-    },
-    {
-      "query": "Identify the month with the highest and lowest total ad spend",
-      "result": {
-        "generated_code": "import pandas as pd\n\ndef process_data(df):\n    df['date'] = pd.to_datetime(df['date'], unit='s')\n    df['month'] = df['date'].dt.to_period('M').dt.to_timestamp()\n    monthly_spend = df.groupby('month')['ad_spend'].sum()\n    highest = monthly_spend.idxmax()\n    lowest = monthly_spend.idxmin()\n    return {'highest_month': str(highest), 'lowest_month': str(lowest)}"
-      }
-    },
-    {
-      "query": "Summarize overall ad spend trends across months",
-      "result": {
-        "generated_code": "import pandas as pd\n\ndef process_data(df):\n    df['date'] = pd.to_datetime(df['date'], unit='s')\n    df['month'] = df['date'].dt.to_period('M').dt.to_timestamp()\n    monthly_spend = df.groupby('month')['ad_spend'].sum().reset_index()\n    trend = 'increasing' if monthly_spend['ad_spend'].iloc[-1] > monthly_spend['ad_spend'].iloc[0] else 'decreasing'\n    return {'trend': trend, 'start_month': str(monthly_spend['month'].iloc[0]), 'end_month': str(monthly_spend['month'].iloc[-1])}"
-      }
-    },    
-    
-    {
-      "query": "Display a bar chart comparing total ad spend across all channels in Q4.",
-      "result": {
-        "generated_code": "import pandas as pd\n\ndef process_data(df):\n    df['date'] = pd.to_datetime(df['date'], unit='s')\n    q4 = df[df['date'].dt.quarter == 4]\n    result = q4.groupby('channel')['ad_spend'].sum().reset_index()\n    return result"
-      }
-    },
-    {
-      "query": "Show a line chart of daily ad spend for the 'September_2022_1' campaign on Instagram.",
-      "result": {
-        "generated_code": "import pandas as pd\n\ndef process_data(df):\n    df['date'] = pd.to_datetime(df['date'], unit='s')\n    filtered = df[(df['campaign_id'] == 'September_2022_1') & (df['channel'] == 'Instagram')]\n    result = filtered.groupby('date')['ad_spend'].sum().reset_index()\n    return result"
-      }
-    },
-    {
-      "query": "Create a pie chart showing age group-wise spend for the 'October_2022_2' campaign.",
-      "result": {
-        "generated_code": "import pandas as pd\n\ndef process_data(df):\n    filtered = df[df['campaign_id'] == 'October_2022_2']\n    result = filtered.groupby('age_group')['ad_spend'].sum().reset_index()\n    return result"
-      }
-    },
-    {
-      "query": "Generate a bar chart of average ad spend per channel for Q1.",
-      "result": {
-        "generated_code": "import pandas as pd\n\ndef process_data(df):\n    df['date'] = pd.to_datetime(df['date'], unit='s')\n    q1 = df[df['date'].dt.quarter == 1]\n    result = q1.groupby('channel')['ad_spend'].mean().reset_index()\n    return result"
-      }
-    },
-    {
-      "query": "Create a line chart showing ad spend trend for Influencer marketing across the year.",
-      "result": {
-        "generated_code": "import pandas as pd\n\ndef process_data(df):\n    df['date'] = pd.to_datetime(df['date'], unit='s')\n    filtered = df[df['channel'] == 'Influencer']\n    result = filtered.groupby('date')['ad_spend'].sum().reset_index()\n    return result"
-      }
-    },
-    {
-      "query": "Show a pie chart of total ad spend split by channel in December 2022.",
-      "result": {
-        "generated_code": "import pandas as pd\n\ndef process_data(df):\n    df['date'] = pd.to_datetime(df['date'], unit='s')\n    dec = df[(df['date'].dt.month == 12) & (df['date'].dt.year == 2022)]\n    result = dec.groupby('channel')['ad_spend'].sum().reset_index()\n    return result"
-      }
-    },
-    {
-      "query": "Plot ad spend over time for the 25-34 age group in Q2 on YouTube.",
-      "result": {
-        "generated_code": "import pandas as pd\n\ndef process_data(df):\n    df['date'] = pd.to_datetime(df['date'], unit='s')\n    filtered = df[(df['age_group'] == '25-34') & (df['channel'] == 'YouTube') & (df['date'].dt.quarter == 2)]\n    result = filtered.groupby('date')['ad_spend'].sum().reset_index()\n    return result"
-      }
-    },
-    {
-      "query": "Generate a bar chart comparing ad spend across age groups for Q3.",
-      "result": {
-        "generated_code": "import pandas as pd\n\ndef process_data(df):\n    df['date'] = pd.to_datetime(df['date'], unit='s')\n    q3 = df[df['date'].dt.quarter == 3]\n    result = q3.groupby('age_group')['ad_spend'].sum().reset_index()\n    return result"
-      }
-    },
-    {
-      "query": "Create a line chart for weekly spend in 'November_2022_1' on Sponsored search ads.",
-      "result": {
-        "generated_code": "import pandas as pd\n\ndef process_data(df):\n    df['date'] = pd.to_datetime(df['date'], unit='s')\n    filtered = df[(df['campaign_id'] == 'November_2022_1') & (df['channel'] == 'Sponsored search ads')]\n    filtered['week'] = filtered['date'].dt.to_period('W').apply(lambda r: r.start_time)\n    result = filtered.groupby('week')['ad_spend'].sum().reset_index()\n    return result"
-      }
-    },
-    {
-      "query": "Show a pie chart for ad spend by age group on LinkedIn in October 2022.",
-      "result": {
-        "generated_code": "import pandas as pd\n\ndef process_data(df):\n    df['date'] = pd.to_datetime(df['date'], unit='s')\n    oct_data = df[(df['date'].dt.month == 10) & (df['date'].dt.year == 2022) & (df['channel'] == 'LinkedIn')]\n    result = oct_data.groupby('age_group')['ad_spend'].sum().reset_index()\n    return result"
-      }
-    },
-    {
-      "query": "Create a bar chart of ad spend per campaign for November 2022.",
-      "result": {
-        "generated_code": "import pandas as pd\n\ndef process_data(df):\n    df['date'] = pd.to_datetime(df['date'], unit='s')\n    nov = df[(df['date'].dt.month == 11) & (df['date'].dt.year == 2022)]\n    result = nov.groupby('campaign_id')['ad_spend'].sum().reset_index()\n    return result"
-      }
-    },
-    {
-      "query": "Generate a line chart of ad spend on Google ads for each week in Q1.",
-      "result": {
-        "generated_code": "import pandas as pd\n\ndef process_data(df):\n    df['date'] = pd.to_datetime(df['date'], unit='s')\n    q1 = df[(df['date'].dt.quarter == 1) & (df['channel'] == 'Google ads')]\n    q1['week'] = q1['date'].dt.to_period('W').apply(lambda r: r.start_time)\n    result = q1.groupby('week')['ad_spend'].sum().reset_index()\n    return result"
-      }
-    },
-    {
-      "query": "Plot a bar chart showing total ad spend per channel for the 18-24 age group in Q2.",
-      "result": {
-        "generated_code": "import pandas as pd\n\ndef process_data(df):\n    df['date'] = pd.to_datetime(df['date'], unit='s')\n    filtered = df[(df['age_group'] == '18-24') & (df['date'].dt.quarter == 2)]\n    result = filtered.groupby('channel')['ad_spend'].sum().reset_index()\n    return result"
-      }
-    },
-    {
-      "query": "Show a line chart of monthly ad spend on Instagram throughout the year.",
-      "result": {
-        "generated_code": "import pandas as pd\n\ndef process_data(df):\n    df['date'] = pd.to_datetime(df['date'], unit='s')\n    insta = df[df['channel'] == 'Instagram']\n    insta['month'] = insta['date'].dt.to_period('M').apply(lambda r: r.start_time)\n    result = insta.groupby('month')['ad_spend'].sum().reset_index()\n    return result"
-      }
-    },
-    {
-      "query": "Create a pie chart showing total ad spend by channel for Q3.",
-      "result": {
-        "generated_code": "import pandas as pd\n\ndef process_data(df):\n    df['date'] = pd.to_datetime(df['date'], unit='s')\n    q3 = df[df['date'].dt.quarter == 3]\n    result = q3.groupby('channel')['ad_spend'].sum().reset_index()\n    return result"
-      }
-    }
-  ]
-  
+  }
+]

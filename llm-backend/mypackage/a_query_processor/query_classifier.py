@@ -5,15 +5,19 @@ Query Classification Module
 This module provides functionality to classify user queries into predefined types
 using an LLM-based classification approach. It determines whether a query is asking
 for a description, report, chart, or is invalid.
+
+It now enhances classification accuracy by using vector similarity search to find
+similar previously classified queries.
 """
 
 import logging
 from enum import Enum
-from typing import Dict, Protocol, Union
+from typing import Dict, List, Protocol, Union
 
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel
 
+from mypackage.utils.example_vectorizer import ExampleVectorizer
 from mypackage.utils.llm_config import CLASSIFIER_MODEL, get_groq_llm
 
 # Set up module-level logger
@@ -92,6 +96,50 @@ def _extract_query_type_from_response(
     return {"query_type": QueryTypeEnum.ERROR}
 
 
+def _get_similar_classified_queries(query: str, n_results: int = 5) -> List[Dict]:
+    """
+    Retrieve similar classified queries from the vectorized example database.
+
+    Args:
+        query: The user's query to find similar examples for
+        n_results: Number of examples to return
+
+    Returns:
+        List of dictionaries containing similar queries and their classifications
+    """
+    logger.info(f"Finding similar classified queries for: '{query}'")
+
+    examples = ExampleVectorizer.get_similar_examples(
+        function_name="query_classifier", query=query, n_results=n_results
+    )
+
+    if not examples:
+        logger.warning("No similar classified queries found")
+        return []
+
+    similar_queries = []
+    for example in examples:
+        if (
+            "query" in example
+            and "result" in example
+            and "query_type" in example["result"]
+        ):
+            similarity_score = example.get("distance", 1.0)
+            # Lower distance means more similar (convert to similarity percentage)
+            similarity = round((1 - min(similarity_score, 0.99)) * 100)
+
+            similar_queries.append(
+                {
+                    "query": example["query"],
+                    "classification": example["result"]["query_type"],
+                    "similarity": similarity,
+                }
+            )
+
+    logger.info(f"Found {len(similar_queries)} similar classified queries")
+    return similar_queries
+
+
 def _classify_query_with_llm(query: str) -> QueryType:
     """
     Use the Groq LLM to classify the user query.
@@ -109,6 +157,26 @@ def _classify_query_with_llm(query: str) -> QueryType:
         f"Classifying query with Groq LLM: '{query}' using model '{CLASSIFIER_MODEL}'"
     )
 
+    # Retrieve similar examples using vector embeddings
+    similar_queries = _get_similar_classified_queries(query)
+
+    # Check for very similar queries (>90% similarity) for fast path
+    for similar in similar_queries:
+        if similar["similarity"] > 90:
+            logger.info(
+                f"Found highly similar query with {similar['similarity']}% similarity, using existing classification: {similar['classification']}"
+            )
+            return QueryType(query_type=QueryTypeEnum(similar["classification"]))
+
+    # Format similar queries for prompt inclusion
+    similar_examples = ""
+    if similar_queries:
+        similar_examples = "### Similar queries and their classifications:\n\n"
+        for similar in similar_queries:
+            similar_examples += f"Query: {similar['query']}\n"
+            similar_examples += f"Classification: {similar['classification']}\n"
+            similar_examples += f"Similarity: {similar['similarity']}%\n\n"
+
     prompt_template = """You are a query classifier for a marketing analytics system working with a dataset that contains:
 date, campaign_id, channel, age_group, ad_spend, views, leads, new_accounts, country, revenue
 
@@ -117,6 +185,8 @@ Your task is to classify user queries into exactly one of these categories:
 - report: Queries requesting comprehensive analysis across multiple datasets
 - chart: Queries specifically requesting visual representation or graphs of data
 - error: For ambiguous, unclear queries
+
+{similar_examples}
 
 ### Few-shot examples:
 
@@ -160,7 +230,9 @@ Classification:"""
 
     try:
         logger.debug("Invoking Groq LLM chain for classification")
-        classification_result = chain.invoke({"query": query})
+        classification_result = chain.invoke(
+            {"query": query, "similar_examples": similar_examples}
+        )
         logger.info(f"Groq LLM classification result: {classification_result}")
         return QueryType(**classification_result)
     except Exception as e:
@@ -171,6 +243,7 @@ Classification:"""
 def classify_query(user_query: str) -> str:
     """
     Public function to classify a user query into one of the predefined types.
+    Now uses vector similarity search to enhance classification accuracy.
 
     Args:
         user_query: The raw query text from the user

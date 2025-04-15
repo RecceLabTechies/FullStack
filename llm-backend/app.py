@@ -22,8 +22,9 @@ from flask_cors import CORS
 
 from config import CORS_CONFIG, DEBUG, HOST, PORT
 from mypackage.d_report_generator import ReportResults
-from mypackage.utils.database import Database
 from mypackage.utils.chroma_db import ChromaDBManager
+from mypackage.utils.database import Database
+from mypackage.utils.example_vectorizer import initialize_examples
 from mypackage.utils.logging_config import setup_logging
 from pipeline import main as run_pipeline
 
@@ -33,6 +34,21 @@ app = Flask(__name__)
 CORS(app, **CORS_CONFIG)
 Database.initialize()
 ChromaDBManager.initialize()
+
+
+# Utility function to convert collection data to embedding input
+def prepare_collection_for_embedding(collection_data):
+    """
+    Convert collection metadata into a string format suitable for embedding.
+
+    Args:
+        collection_data (dict): Collection metadata from analyze_collections
+
+    Returns:
+        str: Formatted string representation of the collection
+    """
+    collection_text = json.dumps(collection_data, default=str, sort_keys=True)
+    return collection_text
 
 
 @app.route("/api/query", methods=["POST"])
@@ -226,27 +242,27 @@ def chroma_health_check():
 @app.route("/api/vectorize_collections", methods=["POST"])
 def vectorize_collections():
     """
-    Generate vector embeddings for all accessible MongoDB collections.
+    Generate vector embeddings for all accessible PostgreSQL tables.
 
-    This endpoint analyzes all accessible collections using the Database.analyze_collections
-    method, then generates embeddings for each collection using the embeddings model.
+    This endpoint analyzes all accessible tables using the Database.analyze_tables
+    method, then generates embeddings for each table using the embeddings model.
     The embeddings are stored in ChromaDB for later use in search and retrieval operations.
 
     The process:
     1. Deletes all existing ChromaDB collections to ensure fresh embeddings
-    2. Analyzes all MongoDB collections to extract metadata
-    3. Generates embeddings for each collection
-    4. Stores the embeddings in ChromaDB with collection metadata
+    2. Analyzes all PostgreSQL tables to extract metadata
+    3. Generates embeddings for each table
+    4. Stores the embeddings in ChromaDB with table metadata
 
     Returns:
         JSON response with:
         - status: "success" or "error"
         - message: Description of the operation result
-        - collections_processed: Number of collections processed
+        - tables_processed: Number of tables processed
         - embedding_dimensions: Size of the embedding vectors
     """
     try:
-        logger.info("Starting collection vectorization process")
+        logger.info("Starting table vectorization process")
 
         # Step 1: Delete existing embeddings (delete all collections in ChromaDB)
         existing_collections = ChromaDBManager.list_collections()
@@ -254,71 +270,67 @@ def vectorize_collections():
             logger.info(f"Deleting existing ChromaDB collection: {collection.name}")
             ChromaDBManager.delete_collection(collection.name)
 
-        # Step 2: Analyze MongoDB collections to extract metadata
-        logger.info("Analyzing MongoDB collections")
-        collection_data = Database.analyze_collections()
+        # Step 2: Analyze PostgreSQL tables to extract metadata
+        logger.info("Analyzing PostgreSQL tables")
+        table_data = Database.analyze_tables()
 
-        if not collection_data:
+        if not table_data:
             return jsonify(
                 {
                     "status": "error",
-                    "message": "No collections found or analysis failed",
-                    "collections_processed": 0,
+                    "message": "No tables found or analysis failed",
+                    "tables_processed": 0,
                 }
             ), 404
 
-        # Step 3: Create a vector store in ChromaDB for collection embeddings
-        chroma_collection = ChromaDBManager.get_or_create_collection(
-            "collection_embeddings"
-        )
+        # Step 3: Create a vector store in ChromaDB for table embeddings
+        chroma_collection = ChromaDBManager.get_or_create_collection("table_embeddings")
 
-        # Step 4: Process each collection and generate embeddings
-        processed_collections = []
+        # Step 4: Process each table and generate embeddings
+        processed_tables = []
         embedding_dimensions = 0
 
-        for collection_name, fields_data in collection_data.items():
-            logger.info(f"Processing collection: {collection_name}")
+        for table_name, fields_data in table_data.items():
+            logger.info(f"Processing table: {table_name}")
 
-            # Prepare collection data for embedding
-            collection_text = prepare_collection_for_embedding(
-                {"name": collection_name, "fields": fields_data}
+            # Prepare table data for embedding
+            table_text = prepare_collection_for_embedding(
+                {"name": table_name, "fields": fields_data}
             )
 
             # Generate embedding using model from ChromaDBManager
             try:
-                embedding = ChromaDBManager.generate_embedding(collection_text)
+                embedding = ChromaDBManager.generate_embedding(table_text)
 
                 # Add to ChromaDB
                 chroma_collection.add(
-                    ids=[collection_name],
+                    ids=[table_name],
                     embeddings=[embedding],
                     metadatas=[
                         {
-                            "name": collection_name,
+                            "name": table_name,
                             "field_count": len(fields_data),
                             "raw_metadata": json.dumps(fields_data, default=str),
                         }
                     ],
-                    documents=[collection_text],
+                    documents=[table_text],
                 )
 
                 if embedding_dimensions == 0:
                     embedding_dimensions = len(embedding)
 
-                processed_collections.append(collection_name)
-                logger.info(f"Successfully vectorized collection: {collection_name}")
+                processed_tables.append(table_name)
+                logger.info(f"Successfully vectorized table: {table_name}")
 
             except Exception as e:
-                logger.error(
-                    f"Error vectorizing collection {collection_name}: {str(e)}"
-                )
+                logger.error(f"Error vectorizing table {table_name}: {str(e)}")
 
         return jsonify(
             {
                 "status": "success",
-                "message": f"Successfully vectorized {len(processed_collections)} collections",
-                "collections_processed": len(processed_collections),
-                "collections": processed_collections,
+                "message": f"Successfully vectorized {len(processed_tables)} tables",
+                "tables_processed": len(processed_tables),
+                "tables": processed_tables,
                 "embedding_dimensions": embedding_dimensions,
             }
         ), 200
@@ -329,7 +341,7 @@ def vectorize_collections():
             {
                 "status": "error",
                 "message": f"Vectorization failed: {str(e)}",
-                "collections_processed": 0,
+                "tables_processed": 0,
             }
         ), 500
 

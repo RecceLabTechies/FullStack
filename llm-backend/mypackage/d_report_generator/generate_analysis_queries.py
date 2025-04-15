@@ -13,6 +13,7 @@ Key components:
 - LLM-driven decomposition of complex analytical requests
 - Query validation and normalization
 - Structured output via Pydantic models
+- Vector-based example retrieval for improved query generation
 """
 
 import logging
@@ -23,6 +24,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel
 
 from mypackage.utils.database import Database, is_table_accessible
+from mypackage.utils.example_vectorizer import ExampleVectorizer
 from mypackage.utils.llm_config import ANALYSIS_QUERIES_MODEL, get_groq_llm
 
 # Set up module-level logger
@@ -203,6 +205,63 @@ def _format_collections_for_prompt(collections_info: Dict[str, Dict[str, Dict]])
     return formatted_str
 
 
+def _get_similar_analysis_examples(query: str, n_results: int = 3) -> str:
+    """
+    Retrieve similar analysis query examples from the vectorized example database.
+
+    Args:
+        query: The user's query to find similar examples for
+        n_results: Number of examples to return
+
+    Returns:
+        String containing formatted examples for inclusion in the prompt
+    """
+    logger.info(f"Finding similar analysis examples for query: '{query}'")
+
+    examples = ExampleVectorizer.get_similar_examples(
+        function_name="analysis_queries", query=query, n_results=n_results
+    )
+
+    if not examples:
+        logger.warning("No similar analysis examples found")
+        return ""
+
+    # Format examples for inclusion in the prompt
+    formatted_examples = []
+    for i, example in enumerate(examples):
+        if (
+            "query" in example
+            and "result" in example
+            and "queries" in example["result"]
+        ):
+            similarity_score = example.get("distance", 1.0)
+            # Lower distance means more similar (convert to similarity percentage)
+            similarity = round((1 - min(similarity_score, 0.99)) * 100)
+
+            example_query = example["query"]
+            example_queries = example["result"]["queries"]
+
+            formatted_example = f"Example {i + 1} (similarity: {similarity}%):\n"
+            formatted_example += f'User query: "{example_query}"\n'
+            formatted_example += "Generated sub-queries:\n"
+
+            for j, query_item in enumerate(example_queries):
+                if j >= 5:  # Limit to 5 sub-queries per example
+                    formatted_example += "...\n"
+                    break
+                formatted_example += f"- Generate a {query_item.get('query_type', 'chart/description')} of {query_item.get('query', '')} | {query_item.get('collection_name', '')}\n"
+
+            formatted_examples.append(formatted_example)
+
+    if not formatted_examples:
+        logger.warning("No usable analysis examples found")
+        return ""
+
+    return "\n\nSimilar Query Examples (for reference):\n" + "\n".join(
+        formatted_examples
+    )
+
+
 # LLM prompt template for generating analysis queries
 template = """
 Given the following MongoDB collections and their fields, generate comprehensive analytical sub-queries based on the user's query. Assume the role of a marketing data analyst. You are to come up with a very comprehensive analysis of the data and report. Generate as many charts and descriptions that makes sense as possible.
@@ -210,7 +269,9 @@ Given the following MongoDB collections and their fields, generate comprehensive
 Available Collections and their fields:
 {collections_info}
 
-The user wants to :{query}
+{similar_examples}
+
+The user wants to: {query}
 
 STRICT FORMAT REQUIREMENTS:
 1. Each query MUST be on its own line
@@ -231,7 +292,7 @@ INVALID EXAMPLES:
 - Generate a chart of performance using collection campaign_performance  <-- WRONG FORMAT
 - Generate a chart from multiple collections  <-- ONLY ONE COLLECTION ALLOWED
 
-Your response should contain EXACTLY 3 lines, each following the format:
+Your response should contain AT LEAST 3 lines, each following the format:
 Generate a [chart/description] of [query content] | [single_collection_name]"""
 
 prompt = ChatPromptTemplate.from_template(template)
@@ -350,6 +411,7 @@ def generate_analysis_queries(user_query: str) -> QueryList:
 
     This function orchestrates the entire query generation process, from analyzing
     database collections to generating and validating sub-queries using an LLM.
+    It now enhances the prompt with similar examples from vector embeddings.
 
     The function aims to decompose a complex user query into multiple simpler queries
     that can be processed independently and then combined to create a comprehensive
@@ -387,6 +449,10 @@ def generate_analysis_queries(user_query: str) -> QueryList:
             f"Formatted collection information for prompt ({len(formatted_collections)} chars)"
         )
 
+        # Step 2.5: Get similar examples using vector embeddings
+        logger.debug("Retrieving similar analysis examples using vector embeddings")
+        similar_examples = _get_similar_analysis_examples(user_query)
+
         # Step 3: Initialize LLM and prepare chain
         logger.debug(f"Initializing Groq LLM with model: {DEFAULT_MODEL_NAME}")
         model = get_groq_llm(DEFAULT_MODEL_NAME)
@@ -395,7 +461,11 @@ def generate_analysis_queries(user_query: str) -> QueryList:
         # Step 4: Generate queries using LLM
         logger.info("Invoking Groq LLM to generate analysis queries")
         result = chain.invoke(
-            {"collections_info": formatted_collections, "query": user_query}
+            {
+                "collections_info": formatted_collections,
+                "query": user_query,
+                "similar_examples": similar_examples,
+            }
         )
 
         # Log details about the generated queries

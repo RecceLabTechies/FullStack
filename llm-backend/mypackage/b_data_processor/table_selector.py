@@ -6,6 +6,9 @@ This module provides functionality for selecting the most appropriate PostgreSQL
 based on a user's analytical query. It analyzes table metadata, field names, and sample
 values to determine which table is most likely to contain the data needed to answer
 the query.
+
+It now also uses vector similarity search to find similar historical queries and
+improve table selection accuracy.
 """
 
 import logging
@@ -15,6 +18,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel
 
 from mypackage.utils.database import Database
+from mypackage.utils.example_vectorizer import ExampleVectorizer
 from mypackage.utils.llm_config import COLLECTION_SELECTOR_MODEL, get_groq_llm
 
 # Set up module-level logger
@@ -749,6 +753,52 @@ def _format_table_info_for_prompt(
     return "\n\n".join(formatted_info)
 
 
+def _get_similar_table_selections(query: str, n_results: int = 3) -> List[Dict]:
+    """
+    Fetch similar table selection examples based on vector similarity.
+
+    Args:
+        query: The user query to find similar examples for
+        n_results: Number of examples to return
+
+    Returns:
+        List of similar table selection examples with their similarity scores
+    """
+    logger.info(f"Finding similar table selection examples for query: '{query}'")
+
+    examples = ExampleVectorizer.get_similar_examples(
+        function_name="table_selector", query=query, n_results=n_results
+    )
+
+    if not examples:
+        logger.warning("No similar table selection examples found")
+        return []
+
+    processed_examples = []
+    for example in examples:
+        if (
+            "query" in example
+            and "result" in example
+            and "collection_name" in example["result"]
+        ):
+            similarity_score = example.get("distance", 1.0)
+            # Lower distance means more similar (convert to similarity percentage)
+            similarity = round((1 - min(similarity_score, 0.99)) * 100)
+
+            processed_examples.append(
+                {
+                    "query": example["query"],
+                    "table": example["result"]["collection_name"],
+                    "reason": example["result"].get("reason", ""),
+                    "matching_fields": example["result"].get("matching_fields", []),
+                    "similarity": similarity,
+                }
+            )
+
+    logger.info(f"Found {len(processed_examples)} similar table selection examples")
+    return processed_examples
+
+
 def _select_table_with_llm(
     table_info: Dict[str, TableInfo],
     query: str,
@@ -759,6 +809,7 @@ def _select_table_with_llm(
 
     This function formats table information and value matches into a prompt
     for the LLM, which then selects the most relevant table for the query.
+    It now enriches the prompt with similar examples from vector search.
 
     Args:
         table_info: Dictionary of table information
@@ -780,6 +831,28 @@ def _select_table_with_llm(
             for field, matches in match["values"].items():
                 value_match_info += f"  Field '{field}' contains matches: {', '.join(map(str, matches))}\n"
 
+    # Retrieve similar examples using vector embeddings
+    similar_examples = _get_similar_table_selections(query)
+
+    # Format similar examples for inclusion in the prompt
+    similar_examples_text = ""
+    if similar_examples:
+        similar_examples_text = (
+            "\nSimilar historical queries and their table selections:\n"
+        )
+        for i, example in enumerate(similar_examples):
+            similar_examples_text += (
+                f"Example {i + 1} (similarity: {example['similarity']}%):\n"
+            )
+            similar_examples_text += f'- Query: "{example["query"]}"\n'
+            similar_examples_text += f"- Selected table: {example['table']}\n"
+            similar_examples_text += f"- Reason: {example['reason']}\n"
+            if example["matching_fields"]:
+                similar_examples_text += (
+                    f"- Matching fields: {', '.join(example['matching_fields'])}\n"
+                )
+            similar_examples_text += "\n"
+
     prompt = ChatPromptTemplate.from_template(
         """Given the following PostgreSQL tables and their contents, determine the most appropriate table for the query.
 
@@ -788,11 +861,14 @@ def _select_table_with_llm(
 
         {value_match_info}
 
+        {similar_examples}
+
         Query: {query}
 
         You MUST ONLY select from the PostgreSQL tables listed above.
         Analyze the fields, sample values, and unique values to determine which table would be most relevant for this query.
         Pay special attention to any value matches found, as these indicate fields containing values mentioned in the query.
+        Consider the similar historical queries and their table selections as guidance, especially for highly similar queries.
 
         If NO table is appropriate for this query, respond with "No appropriate table found" and explain why.
 
@@ -812,6 +888,7 @@ def _select_table_with_llm(
                 table_info=formatted_info,
                 query=query,
                 value_match_info=value_match_info,
+                similar_examples=similar_examples_text,
             )
         )
         logger.debug(f"Groq LLM response: {response}")
@@ -873,7 +950,8 @@ def select_table_for_query(query: str) -> str:
 
     This function analyzes the query and available tables to determine
     which table is most likely to contain the data needed to answer
-    the query.
+    the query. It now also uses vector similarity search to find similar
+    historical queries and their selected tables.
 
     Args:
         query: User's analytical query
@@ -886,6 +964,18 @@ def select_table_for_query(query: str) -> str:
     """
     logger.info(f"Selecting table for query: '{query}'")
 
+    # Check for similar historical queries first via vector similarity search
+    similar_examples = _get_similar_table_selections(query, n_results=1)
+
+    # If we have a very similar query (>90% similarity), use its table directly
+    if similar_examples and similar_examples[0]["similarity"] > 90:
+        selected_table = similar_examples[0]["table"]
+        logger.info(
+            f"Using table '{selected_table}' from highly similar historical query (similarity: {similar_examples[0]['similarity']}%)"
+        )
+        return selected_table
+
+    # Otherwise proceed with standard table selection logic
     if not Database.initialize():
         error_msg = "Failed to connect to PostgreSQL"
         logger.error(error_msg)

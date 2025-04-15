@@ -11,6 +11,7 @@ Key components:
 - LLM-based analysis type selection based on query intent
 - Specialized analytical functions for different types of data insights
 - Natural language description generation from analytical results
+- Vector-based example retrieval for improved analysis selection
 """
 
 import logging
@@ -21,6 +22,7 @@ import pandas as pd
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, field_validator
 
+from mypackage.utils.example_vectorizer import ExampleVectorizer
 from mypackage.utils.llm_config import (
     DESCRIPTION_GENERATOR_MODEL,
     DESCRIPTION_GENERATOR_SELECTOR_MODEL,
@@ -294,6 +296,62 @@ def enhance_query_with_metadata(query: str, metadata: List[ColumnMetadata]) -> s
     return enhanced_query
 
 
+def _get_similar_description_examples(query: str, n_results: int = 3) -> str:
+    """
+    Retrieve similar description examples from the vectorized example database.
+
+    Args:
+        query: The user's query to find similar examples for
+        n_results: Number of examples to return
+
+    Returns:
+        String containing formatted examples for inclusion in the prompt
+    """
+    logger.info(f"Finding similar description examples for query: '{query}'")
+
+    examples = ExampleVectorizer.get_similar_examples(
+        function_name="description_generator", query=query, n_results=n_results
+    )
+
+    if not examples:
+        logger.warning("No similar description examples found")
+        return ""
+
+    # Format examples for inclusion in the prompt
+    formatted_examples = []
+    for i, example in enumerate(examples):
+        if "query" in example and "result" in example:
+            similarity_score = example.get("distance", 1.0)
+            # Lower distance means more similar (convert to similarity percentage)
+            similarity = round((1 - min(similarity_score, 0.99)) * 100)
+
+            example_query = example["query"]
+
+            # Extract analysis parameters from the example
+            if (
+                "selected_columns" in example["result"]
+                and "analysis_type" in example["result"]
+                and "parameters" in example["result"]
+            ):
+                example_cols = example["result"]["selected_columns"]
+                example_type = example["result"]["analysis_type"]
+                example_params = example["result"]["parameters"]
+
+                formatted_example = f"Example {i + 1} (similarity: {similarity}%):\n"
+                formatted_example += f'Query: "{example_query}"\n'
+                formatted_example += f"selected_columns: {', '.join(example_cols)}\n"
+                formatted_example += f"analysis_type: {example_type}\n"
+                formatted_example += f"parameters: {', '.join([f'{k}:{v}' for k, v in example_params.items()])}"
+
+                formatted_examples.append(formatted_example)
+
+    if not formatted_examples:
+        logger.warning("No usable description examples found")
+        return ""
+
+    return "\n\nSimilar Analysis Examples:\n" + "\n".join(formatted_examples)
+
+
 def get_llm_analysis_plan(
     query: str, metadata: List[ColumnMetadata]
 ) -> AnalysisRequest:
@@ -302,6 +360,7 @@ def get_llm_analysis_plan(
 
     This function sends the query and column metadata to an LLM, which
     then recommends the type of analysis to perform and which columns to use.
+    It now enhances the prompt with similar examples from vector embeddings.
 
     Args:
         query: The user's query (possibly enhanced with metadata)
@@ -316,6 +375,9 @@ def get_llm_analysis_plan(
     logger.info("Getting analysis plan from LLM")
     logger.debug(f"Input query: {query}")
 
+    # Retrieve similar examples using vector similarity search
+    similar_examples = _get_similar_description_examples(query)
+
     # Define prompt template for LLM
     prompt_template = ChatPromptTemplate.from_template(
         """Analyze this data request and select analysis parameters:
@@ -324,6 +386,8 @@ Query: {query}
 
 Available Columns:
 {columns}
+
+{similar_examples}
 
 Respond STRICTLY in this format:
 selected_columns: [comma-separated column names]
@@ -362,7 +426,9 @@ parameters: group_by:category, metric:price"""
     chain = prompt_template | model
 
     logger.debug("Sending request to Groq LLM")
-    response = chain.invoke({"query": query, "columns": columns_str})
+    response = chain.invoke(
+        {"query": query, "columns": columns_str, "similar_examples": similar_examples}
+    )
     logger.debug(f"Received response from Groq LLM: {response.content}")
 
     # Parse LLM response into structured format
@@ -872,6 +938,7 @@ def _get_description_from_llm(
 ) -> str:
     """
     Generate a natural language description of the insights using an LLM.
+    Enhances the prompt with similar examples from vector embeddings.
 
     Args:
         query: The original user query
@@ -883,6 +950,9 @@ def _get_description_from_llm(
     """
     logger.info("Generating natural language description from insights")
 
+    # Retrieve similar examples for descriptions
+    similar_examples = _get_similar_description_examples(query)
+
     # Create prompt template
     prompt_template = ChatPromptTemplate.from_template(
         """Generate a clear, concise description based on the data analysis below.
@@ -892,6 +962,8 @@ User Query: {query}
 Analysis Type: {analysis_type}
 
 Insights: {insights}
+
+{similar_examples}
 
 Your description should:
 1. Start by directly answering the user's query
@@ -921,6 +993,7 @@ Description:"""
                 query=query,
                 analysis_type=analysis_request.analysis_type,
                 insights=insights_str,
+                similar_examples=similar_examples,
             )
         )
 

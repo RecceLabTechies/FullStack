@@ -11,6 +11,7 @@ Key components:
 - LLM-based SQL command generation
 - Safe SQL execution
 - Error handling and SQL correction
+- Example-based similarity search using vector embeddings
 """
 
 import logging
@@ -22,6 +23,7 @@ from langchain_core.messages import AIMessage
 from langchain_core.prompts import ChatPromptTemplate
 
 from mypackage.utils.database import Database, execute_sql, query_to_dict
+from mypackage.utils.example_vectorizer import ExampleVectorizer
 from mypackage.utils.llm_config import COLLECTION_PROCESSOR_MODEL, get_groq_llm
 
 # Set up module-level logger
@@ -176,12 +178,85 @@ def _extract_sql_commands(response: str) -> List[str]:
     return sql_commands
 
 
+def _get_similar_examples(query: str, n_results: int = 3) -> str:
+    """
+    Retrieve similar examples from the vectorized example database.
+
+    Args:
+        query: The user's query to find similar examples for
+        n_results: Number of examples to return
+
+    Returns:
+        String containing formatted examples for inclusion in the prompt
+    """
+    logger.info(f"Finding similar examples for query: '{query}'")
+
+    examples = ExampleVectorizer.get_similar_examples(
+        function_name="table_processor", query=query, n_results=n_results
+    )
+
+    if not examples:
+        logger.warning("No similar examples found")
+        return ""
+
+    # Format examples for inclusion in the prompt
+    formatted_examples = []
+    for i, example in enumerate(examples):
+        if (
+            "query" in example
+            and "result" in example
+            and "generated_code" in example["result"]
+        ):
+            similarity_score = example.get("distance", 1.0)
+            # Lower distance means more similar (convert to similarity percentage)
+            similarity = round((1 - min(similarity_score, 0.99)) * 100)
+
+            formatted_example = f"Example {i + 1} (similarity: {similarity}%):\n"
+            formatted_example += f'Query: "{example["query"]}"\n'
+            formatted_example += "SQL:\n```sql\n"
+
+            # Extract SQL-like code from the generated_code
+            code = example["result"]["generated_code"]
+            sql_code = []
+            in_sql = False
+            for line in code.split("\n"):
+                if (
+                    "SELECT" in line
+                    or "UPDATE" in line
+                    or "INSERT" in line
+                    or "DELETE" in line
+                    or "WITH" in line
+                ):
+                    in_sql = True
+                    sql_code.append(line)
+                elif in_sql and (
+                    "return" in line or "plt." in line or line.strip() == ""
+                ):
+                    in_sql = False
+                elif in_sql:
+                    sql_code.append(line)
+
+            # If no SQL was extracted, skip this example
+            if not sql_code:
+                continue
+
+            formatted_example += "\n".join(sql_code) + "\n```\n"
+            formatted_examples.append(formatted_example)
+
+    if not formatted_examples:
+        logger.warning("No usable SQL examples found")
+        return ""
+
+    return "\n\n" + "\n".join(formatted_examples)
+
+
 def _generate_sql_commands(query: str, metadata: Dict) -> List[str]:
     """
     Generate SQL commands using Groq LLM based on the user query.
 
     This function formulates a prompt that includes table metadata and the
     user query, sends it to the LLM, and extracts the generated SQL commands.
+    It enhances the prompt with similar examples retrieved using vector embeddings.
 
     Args:
         query: The user's query describing the desired data transformation
@@ -219,7 +294,10 @@ def _generate_sql_commands(query: str, metadata: Dict) -> List[str]:
             )
     statistics = "\n".join(stats_info)
 
-    # Create prompt template with detailed instructions
+    # Retrieve similar examples using vector similarity search
+    similar_examples = _get_similar_examples(query)
+
+    # Create prompt template with detailed instructions and examples
     prompt_template = ChatPromptTemplate.from_template(
         """You are a PostgreSQL expert working with this table:
 
@@ -246,28 +324,7 @@ Rules:
 6. The solution might require multiple SQL statements to achieve the desired result
 7. Always return readable results with appropriate column names
 
-Examples of good responses:
----
-Query: "Filter active users and sort by registration date"
-SQL:
-```sql
-SELECT * 
-FROM users
-WHERE status = 'active'
-ORDER BY registration_date;
-```
-
----
-Query: "Calculate average revenue by product category"
-SQL:
-```sql
-SELECT 
-    category,
-    AVG(revenue) as average_revenue
-FROM products
-GROUP BY category
-ORDER BY average_revenue DESC;
-```
+{similar_examples}
 
 Now generate SQL commands for this query:"""
     )
@@ -279,6 +336,7 @@ Now generate SQL commands for this query:"""
         primary_keys=", ".join(metadata["constraints"].get("primary_key", ["None"])),
         statistics=statistics,
         sample_data=sample_data,
+        similar_examples=similar_examples,
     )
 
     logger.debug("Prompt prepared for LLM SQL generation")
@@ -375,7 +433,10 @@ def _correct_sql(
         ]
     )
 
-    # Create correction prompt with error details
+    # Retrieve similar examples using vector similarity search
+    similar_examples = _get_similar_examples(query)
+
+    # Create correction prompt with error details and similar examples
     correction_prompt = f"""Fix these PostgreSQL commands based on the error:
 
 Original query: "{query}"
@@ -390,6 +451,8 @@ Faulty SQL commands:
 ```sql
 {chr(10).join(sql_commands)}
 ```
+
+{similar_examples}
 
 Create corrected SQL commands that address the error.
 Return ONLY the corrected SQL commands in code blocks:
