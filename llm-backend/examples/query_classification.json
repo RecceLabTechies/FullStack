@@ -1,0 +1,82 @@
+[
+  {
+    "query": "Show a line chart of total ad spend over time.",
+    "result": "chart"
+  },
+  {
+    "query": "Create a bar chart comparing revenue by country.",
+    "result": "chart"
+  },
+  {
+    "query": "Plot a heatmap showing average revenue by age group and country.",
+    "result": "chart"
+  },
+  {
+    "query": "Visualize the correlation between ad spend and revenue.",
+    "result": "chart"
+  },
+  {
+    "query": "Create a stacked bar chart of new accounts by campaign and age group.",
+    "result": "chart"
+  },
+  {
+    "query": "Show a pie chart of total leads by marketing channel.",
+    "result": "chart"
+  },
+  {
+    "query": "Plot a time series of average leads per day across all campaigns.",
+    "result": "chart"
+  },
+  {
+    "query": "Display a scatter plot of views vs. leads with ad spend as the point size.",
+    "result": "chart"
+  },
+  {
+    "query": "Show a multi-line chart comparing revenue trends across channels.",
+    "result": "chart"
+  },
+  {
+    "query": "Create a box plot of ad spend distribution across countries.",
+    "result": "chart"
+  },
+  {
+    "query": "Describe which country had the highest average revenue per campaign.",
+    "result": "description"
+  },
+  {
+    "query": "Summarize which age group generated the most new accounts.",
+    "result": "description"
+  },
+  {
+    "query": "List the top 5 campaigns by total revenue.",
+    "result": "description"
+  },
+  {
+    "query": "Which marketing channel had the best leads-to-views conversion rate?",
+    "result": "description"
+  },
+  {
+    "query": "Identify patterns or anomalies in ad spend over time.",
+    "result": "description"
+  },
+  {
+    "query": "Break down the average performance metrics (views, leads, revenue) by channel.",
+    "result": "report"
+  },
+  {
+    "query": "Describe the distribution of new accounts per country.",
+    "result": "description"
+  },
+  {
+    "query": "Which age group has the highest revenue per dollar spent?",
+    "result": "description"
+  },
+  {
+    "query": "Summarize campaign performance for January 2022.",
+    "result": "report"
+  },
+  {
+    "query": "Identify underperforming campaigns based on low revenue despite high ad spend.",
+    "result": "report"
+  }
+]

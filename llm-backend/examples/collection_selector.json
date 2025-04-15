@@ -1,0 +1,245 @@
+[
+  {
+    "query": "Show a line chart of total ad spend over time.",
+    "result": {
+      "collection_name": "campaign_performance",
+      "reason": "Visualize how the total ad spend changes across different dates.",
+      "matching_fields": [
+        "date",
+        "ad_spend"
+      ]
+    }
+  },
+  {
+    "query": "Create a bar chart comparing revenue by country.",
+    "result": {
+      "collection_name": "campaign_performance",
+      "reason": "Compare how much revenue was generated across countries.",
+      "matching_fields": [
+        "country",
+        "revenue"
+      ]
+    }
+  },
+  {
+    "query": "Plot a heatmap showing average revenue by age group and country.",
+    "result": {
+      "collection_name": "campaign_performance",
+      "reason": "Reveal which age group and country combinations perform best.",
+      "matching_fields": [
+        "age_group",
+        "country",
+        "revenue"
+      ]
+    }
+  },
+  {
+    "query": "Visualize the correlation between ad spend and revenue.",
+    "result": {
+      "collection_name": "campaign_performance",
+      "reason": "Check if spending more on ads results in more revenue.",
+      "matching_fields": [
+        "ad_spend",
+        "revenue"
+      ]
+    }
+  },
+  {
+    "query": "Create a stacked bar chart of new accounts by campaign and age group.",
+    "result": {
+      "collection_name": "campaign_performance",
+      "reason": "Show how new accounts vary by age group within each campaign.",
+      "matching_fields": [
+        "campaign_id",
+        "age_group",
+        "new_accounts"
+      ]
+    }
+  },
+  {
+    "query": "Show a pie chart of total leads by marketing channel.",
+    "result": {
+      "collection_name": "campaign_performance",
+      "reason": "Compare lead generation across different channels.",
+      "matching_fields": [
+        "channel",
+        "leads"
+      ]
+    }
+  },
+  {
+    "query": "Plot a time series of average leads per day across all campaigns.",
+    "result": {
+      "collection_name": "campaign_performance",
+      "reason": "Track the average number of leads each day over time.",
+      "matching_fields": [
+        "date",
+        "leads"
+      ]
+    }
+  },
+  {
+    "query": "Display a scatter plot of views vs. leads with ad spend as the point size.",
+    "result": {
+      "collection_name": "campaign_performance",
+      "reason": "Visualize the relationship between views and leads, and the impact of ad spend.",
+      "matching_fields": [
+        "views",
+        "leads",
+        "ad_spend"
+      ]
+    }
+  },
+  {
+    "query": "Show a multi-line chart comparing revenue trends across channels.",
+    "result": {
+      "collection_name": "campaign_performance",
+      "reason": "Analyze how different channels perform in terms of revenue over time.",
+      "matching_fields": [
+        "date",
+        "channel",
+        "revenue"
+      ]
+    }
+  },
+  {
+    "query": "Create a box plot of ad spend distribution across countries.",
+    "result": {
+      "collection_name": "campaign_performance",
+      "reason": "Show how ad spend varies across countries.",
+      "matching_fields": [
+        "country",
+        "ad_spend"
+      ]
+    }
+  },
+  {
+    "query": "Describe which country had the highest average revenue per campaign.",
+    "result": {
+      "collection_name": "campaign_performance",
+      "reason": "Identify the most profitable countries on average.",
+      "matching_fields": [
+        "country",
+        "campaign_id",
+        "revenue"
+      ]
+    }
+  },
+  {
+    "query": "Summarize which age group generated the most new accounts.",
+    "result": {
+      "collection_name": "campaign_performance",
+      "reason": "Understand which age demographic converts best into new accounts.",
+      "matching_fields": [
+        "age_group",
+        "new_accounts"
+      ]
+    }
+  },
+  {
+    "query": "List the top 5 campaigns by total revenue.",
+    "result": {
+      "collection_name": "campaign_performance",
+      "reason": "Highlight the most successful campaigns financially.",
+      "matching_fields": [
+        "campaign_id",
+        "revenue"
+      ]
+    }
+  },
+  {
+    "query": "Which marketing channel had the best leads-to-views conversion rate?",
+    "result": {
+      "collection_name": "campaign_performance",
+      "reason": "Evaluate channel effectiveness in generating leads from views.",
+      "matching_fields": [
+        "channel",
+        "leads",
+        "views"
+      ]
+    }
+  },
+  {
+    "query": "Identify patterns or anomalies in ad spend over time.",
+    "result": {
+      "collection_name": "campaign_performance",
+      "reason": "Detect trends or outliers in advertising expenditure.",
+      "matching_fields": [
+        "date",
+        "ad_spend"
+      ],
+      "matching_values": {
+        "channel": [
+          "Social",
+          "Email",
+          "Search",
+          "Direct"
+        ]
+      }
+    }
+  },
+  {
+    "query": "Break down the average performance metrics (views, leads, revenue) by channel.",
+    "result": {
+      "collection_name": "campaign_performance",
+      "reason": "Compare overall performance of each channel.",
+      "matching_fields": [
+        "channel",
+        "views",
+        "leads",
+        "revenue"
+      ]
+    }
+  },
+  {
+    "query": "Describe the distribution of new accounts per country.",
+    "result": {
+      "collection_name": "campaign_performance",
+      "reason": "Understand where new user registrations are coming from.",
+      "matching_fields": [
+        "country",
+        "new_accounts"
+      ]
+    }
+  },
+  {
+    "query": "Which age group has the highest revenue per dollar spent?",
+    "result": {
+      "collection_name": "campaign_performance",
+      "reason": "Determine ROI efficiency across age demographics.",
+      "matching_fields": [
+        "age_group",
+        "revenue",
+        "ad_spend"
+      ]
+    }
+  },
+  {
+    "query": "Summarize campaign performance for January 2022.",
+    "result": {
+      "collection_name": "campaign_performance",
+      "reason": "Get a snapshot of performance for all January 2022 campaigns.",
+      "matching_fields": [
+        "campaign_id",
+        "date",
+        "ad_spend",
+        "views",
+        "leads",
+        "new_accounts",
+        "revenue"
+      ]
+    }
+  },
+  {
+    "query": "Identify underperforming campaigns based on low revenue despite high ad spend.",
+    "result": {
+      "collection_name": "campaign_performance",
+      "reason": "Spot campaigns with poor return on investment.",
+      "matching_fields": [
+        "campaign_id",
+        "ad_spend",
+        "revenue"
+      ]
+    }
+  }
+]

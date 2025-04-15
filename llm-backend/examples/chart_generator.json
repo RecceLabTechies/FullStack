@@ -1,0 +1,266 @@
+[
+  {
+    "query": "Show me a bar chart of sales by product category",
+    "result": {
+      "x_axis": "product_category",
+      "y_axis": "sales",
+      "chart_type": "bar"
+    }
+  },
+  {
+    "query": "Create a line chart showing revenue trends over the past year",
+    "result": {
+      "x_axis": "month",
+      "y_axis": "revenue",
+      "chart_type": "line"
+    }
+  },
+  {
+    "query": "Show a scatter plot of customer age vs. spending",
+    "result": {
+      "x_axis": "age",
+      "y_axis": "spending",
+      "chart_type": "scatter"
+    }
+  },
+  {
+    "query": "Display a box plot of salaries by department",
+    "result": {
+      "x_axis": "department",
+      "y_axis": "salary",
+      "chart_type": "box"
+    }
+  },
+  {
+    "query": "Generate a heatmap of product sales by month and category",
+    "result": {
+      "x_axis": "month",
+      "y_axis": "category",
+      "chart_type": "heatmap"
+    }
+  },
+  {
+    "query": "Show me the sales performance by region",
+    "result": {
+      "x_axis": "region",
+      "y_axis": "sales",
+      "chart_type": "bar"
+    }
+  },
+  {
+    "query": "Display customer satisfaction scores by product",
+    "result": {
+      "x_axis": "product",
+      "y_axis": "satisfaction_score",
+      "chart_type": "bar"
+    }
+  },
+  {
+    "query": "Show me how website traffic has changed over time",
+    "result": {
+      "x_axis": "date",
+      "y_axis": "visitors",
+      "chart_type": "line"
+    }
+  },
+  {
+    "query": "Total ad spend by month across all campaigns",
+    "result": {
+      "x_axis": "date",
+      "y_axis": "ad_spend",
+      "chart_type": "line"
+    }
+  },
+  {
+    "query": "Ad spend distribution across marketing channels for each month",
+    "result": {
+      "x_axis": "channel",
+      "y_axis": "ad_spend",
+      "chart_type": "bar"
+    }
+  },  
+  {
+    "query": "Plot the correlation between marketing spend and revenue",
+    "result": {
+      "x_axis": "marketing_spend",
+      "y_axis": "revenue",
+      "chart_type": "scatter"
+    }
+  },
+  {
+    "query": "Compare distribution of order values across different customer segments",
+    "result": {
+      "x_axis": "customer_segment",
+      "y_axis": "order_value",
+      "chart_type": "box"
+    }
+  },
+    {
+      "query": "Generate a chart of total ad spend over time for the LinkedIn channel during Q3.",
+      "result": {
+        "x_axis": "date",
+        "y_axis": "ad_spend",
+        "chart_type": "line"
+      }
+    },
+    {
+      "query": "Create a bar chart comparing total ad spend by channel in July 2022.",
+      "result": {
+        "x_axis": "channel",
+        "y_axis": "ad_spend",
+        "chart_type": "bar"
+      }
+    },
+    {
+      "query": "Show a pie chart of ad spend distribution by age group for TikTok ads during August 2022.",
+      "result": {
+        "x_axis": "age_group",
+        "y_axis": "ad_spend",
+        "chart_type": "pie"
+      }
+    },
+    {
+      "query": "Generate a line chart of weekly ad spend for Facebook campaigns during Q2.",
+      "result": {
+        "x_axis": "date",
+        "y_axis": "ad_spend",
+        "chart_type": "line"
+      }
+    },
+    {
+      "query": "Create a bar chart comparing average ad spend by age group for the YouTube channel.",
+      "result": {
+        "x_axis": "age_group",
+        "y_axis": "ad_spend",
+        "chart_type": "bar"
+      }
+    },
+    {
+      "query": "Plot total ad spend over time for the campaign 'June_2022_2'.",
+      "result": {
+        "x_axis": "date",
+        "y_axis": "ad_spend",
+        "chart_type": "line"
+      }
+    },
+    {
+      "query": "Display a bar chart comparing total ad spend across all channels in Q4.",
+      "result": {
+        "x_axis": "channel",
+        "y_axis": "ad_spend",
+        "chart_type": "bar"
+      }
+    },
+    {
+      "query": "Show a line chart of daily ad spend for the 'September_2022_1' campaign on Instagram.",
+      "result": {
+        "x_axis": "date",
+        "y_axis": "ad_spend",
+        "chart_type": "line"
+      }
+    },
+    {
+      "query": "Create a pie chart showing age group-wise spend for the 'October_2022_2' campaign.",
+      "result": {
+        "x_axis": "age_group",
+        "y_axis": "ad_spend",
+        "chart_type": "pie"
+      }
+    },
+    {
+      "query": "Generate a bar chart of average ad spend per channel for Q1.",
+      "result": {
+        "x_axis": "channel",
+        "y_axis": "ad_spend",
+        "chart_type": "bar"
+      }
+    },
+    {
+      "query": "Create a line chart showing ad spend trend for Influencer marketing across the year.",
+      "result": {
+        "x_axis": "date",
+        "y_axis": "ad_spend",
+        "chart_type": "line"
+      }
+    },
+    {
+      "query": "Show a pie chart of total ad spend split by channel in December 2022.",
+      "result": {
+        "x_axis": "channel",
+        "y_axis": "ad_spend",
+        "chart_type": "pie"
+      }
+    },
+    {
+      "query": "Plot ad spend over time for the 25-34 age group in Q2 on YouTube.",
+      "result": {
+        "x_axis": "date",
+        "y_axis": "ad_spend",
+        "chart_type": "line"
+      }
+    },
+    {
+      "query": "Generate a bar chart comparing ad spend across age groups for Q3.",
+      "result": {
+        "x_axis": "age_group",
+        "y_axis": "ad_spend",
+        "chart_type": "bar"
+      }
+    },
+    {
+      "query": "Create a line chart for weekly spend in 'November_2022_1' on Sponsored search ads.",
+      "result": {
+        "x_axis": "date",
+        "y_axis": "ad_spend",
+        "chart_type": "line"
+      }
+    },
+    {
+      "query": "Show a pie chart for ad spend by age group on LinkedIn in October 2022.",
+      "result": {
+        "x_axis": "age_group",
+        "y_axis": "ad_spend",
+        "chart_type": "pie"
+      }
+    },
+    {
+      "query": "Create a bar chart of ad spend per campaign for November 2022.",
+      "result": {
+        "x_axis": "campaign_id",
+        "y_axis": "ad_spend",
+        "chart_type": "bar"
+      }
+    },
+    {
+      "query": "Generate a line chart of ad spend on Google ads for each week in Q1.",
+      "result": {
+        "x_axis": "date",
+        "y_axis": "ad_spend",
+        "chart_type": "line"
+      }
+    },
+    {
+      "query": "Plot a bar chart showing total ad spend per channel for the 18-24 age group in Q2.",
+      "result": {
+        "x_axis": "channel",
+        "y_axis": "ad_spend",
+        "chart_type": "bar"
+      }
+    },
+    {
+      "query": "Show a line chart of monthly ad spend on Instagram throughout the year.",
+      "result": {
+        "x_axis": "date",
+        "y_axis": "ad_spend",
+        "chart_type": "line"
+      }
+    },
+    {
+      "query": "Create a pie chart showing total ad spend by channel for Q3.",
+      "result": {
+        "x_axis": "channel",
+        "y_axis": "ad_spend",
+        "chart_type": "pie"
+      }
+    }
+  ]

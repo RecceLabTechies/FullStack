@@ -1,0 +1,248 @@
+[
+  {
+    "query": "Describe the change in ad spend over time",
+    "result": {
+      "selected_columns": ["ad_spend", "date"],
+      "analysis_type": "trend",
+      "parameters": {
+        "time_column": "date",
+        "measure": "ad_spend"
+      }
+    }
+  },
+  {
+    "query": "Analyze how different marketing channels influence ad spend",
+    "result": {
+      "selected_columns": ["channel", "ad_spend"],
+      "analysis_type": "distribution",
+      "parameters": {
+        "group_by": "channel",
+        "metric": "ad_spend"
+      }
+    }
+  },
+  {
+    "query": "Explore age group differences in ad targeting costs",
+    "result": {
+      "selected_columns": ["age_group", "ad_spend"],
+      "analysis_type": "distribution",
+      "parameters": {
+        "group_by": "age_group",
+        "metric": "ad_spend"
+      }
+    }
+  },
+  {
+    "query": "Evaluate trends in campaign performance over time",
+    "result": {
+      "selected_columns": ["campaign_id", "date", "ad_spend"],
+      "analysis_type": "trend",
+      "parameters": {
+        "time_column": "date",
+        "measure": "ad_spend"
+      }
+    }
+  },
+  {
+    "query": "Identify which channels are most commonly used",
+    "result": {
+      "selected_columns": ["channel"],
+      "analysis_type": "distribution",
+      "parameters": {
+        "group_by": "channel"
+      }
+    }
+  },
+  {
+    "query": "Compare ad spend across different campaigns",
+    "result": {
+      "selected_columns": ["campaign_id", "ad_spend"],
+      "analysis_type": "distribution",
+      "parameters": {
+        "group_by": "campaign_id",
+        "metric": "ad_spend"
+      }
+    }
+  },
+  {
+    "query": "Examine seasonality in advertising patterns",
+    "result": {
+      "selected_columns": ["date", "ad_spend"],
+      "analysis_type": "trend",
+      "parameters": {
+        "time_column": "date",
+        "measure": "ad_spend"
+      }
+    }
+  },
+  {
+    "query": "Determine the most expensive advertising channel",
+    "result": {
+      "selected_columns": ["channel", "ad_spend"],
+      "analysis_type": "aggregation",
+      "parameters": {
+        "group_by": "channel",
+        "aggregation_function": "sum"
+      }
+    }
+  },
+  {
+    "query": "Compare spending trends between age groups",
+    "result": {
+      "selected_columns": ["age_group", "date", "ad_spend"],
+      "analysis_type": "trend",
+      "parameters": {
+        "group_by": "age_group",
+        "time_column": "date",
+        "measure": "ad_spend"
+      }
+    }
+  },
+  {
+    "query": "Analyze the concentration of ad spend across campaigns",
+    "result": {
+      "selected_columns": ["campaign_id", "ad_spend"],
+      "analysis_type": "distribution",
+      "parameters": {
+        "group_by": "campaign_id",
+        "metric": "ad_spend"
+      }
+    }
+  },
+  {
+    "query": "Identify which age group is most targeted by ads",
+    "result": {
+      "selected_columns": ["age_group"],
+      "analysis_type": "distribution",
+      "parameters": {
+        "group_by": "age_group"
+      }
+    }
+  },
+  {
+    "query": "Detect any correlation between channel and age group targeting",
+    "result": {
+      "selected_columns": ["channel", "age_group"],
+      "analysis_type": "correlation",
+      "parameters": {
+        "primary_column": "channel",
+        "secondary_column": "age_group"
+      }
+    }
+  },
+  {
+    "query": "Measure consistency of ad spend over time",
+    "result": {
+      "selected_columns": ["date", "ad_spend"],
+      "analysis_type": "trend",
+      "parameters": {
+        "time_column": "date",
+        "measure": "ad_spend"
+      }
+    }
+  },
+  {
+    "query": "Identify campaigns with peak spending periods",
+    "result": {
+      "selected_columns": ["campaign_id", "date", "ad_spend"],
+      "analysis_type": "trend",
+      "parameters": {
+        "group_by": "campaign_id",
+        "time_column": "date",
+        "measure": "ad_spend"
+      }
+    }
+  },
+  {
+    "query": "Summarize overall advertising effort by age group",
+    "result": {
+      "selected_columns": ["age_group", "ad_spend"],
+      "analysis_type": "aggregation",
+      "parameters": {
+        "group_by": "age_group",
+        "aggregation_function": "sum"
+      }
+    }
+  },
+  {
+    "query": "Explore how ad spend varies across the months",
+    "result": {
+      "selected_columns": ["date", "ad_spend"],
+      "analysis_type": "seasonality",
+      "parameters": {
+        "time_column": "date",
+        "measure": "ad_spend"
+      }
+    }
+  },
+  {
+    "query": "Identify the month with the highest and lowest total ad spend",
+    "result": {
+      "selected_columns": ["date", "ad_spend"],
+      "analysis_type": "extreme_values",
+      "parameters": {
+        "group_by": "month",
+        "aggregation": "sum",
+        "measure": "ad_spend",
+        "time_column": "date"
+      }
+    }
+  },  
+  {
+    "query": "Summarize overall ad spend trends across months",
+    "result": {
+      "selected_columns": ["date", "ad_spend"],
+      "analysis_type": "trend_analysis",
+      "parameters": {
+        "time_column": "date",
+        "measure": "ad_spend",
+        "aggregation": "monthly"
+      }
+    }
+  },  
+  {
+    "query": "Describe variation in spending between channels and age groups",
+    "result": {
+      "selected_columns": ["channel", "age_group", "ad_spend"],
+      "analysis_type": "distribution",
+      "parameters": {
+        "group_by": ["channel", "age_group"],
+        "metric": "ad_spend"
+      }
+    }
+  },
+  {
+    "query": "Compare performance of ad campaigns by channel",
+    "result": {
+      "selected_columns": ["campaign_id", "channel", "ad_spend"],
+      "analysis_type": "distribution",
+      "parameters": {
+        "group_by": ["campaign_id", "channel"],
+        "metric": "ad_spend"
+      }
+    }
+  },
+  {
+    "query": "Detect trends in preferred ad channels over time",
+    "result": {
+      "selected_columns": ["date", "channel"],
+      "analysis_type": "trend",
+      "parameters": {
+        "time_column": "date",
+        "group_by": "channel"
+      }
+    }
+  },
+  {
+    "query": "Assess variation in ad investment by time and age group",
+    "result": {
+      "selected_columns": ["date", "age_group", "ad_spend"],
+      "analysis_type": "trend",
+      "parameters": {
+        "group_by": "age_group",
+        "time_column": "date",
+        "measure": "ad_spend"
+      }
+    }
+  }
+]
