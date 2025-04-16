@@ -15,14 +15,14 @@ Key components:
 
 import logging
 import re
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, List
 
 import numpy as np
 import pandas as pd
 from langchain_core.messages import AIMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_experimental.utilities import PythonREPL
-from pandas.api.types import is_numeric_dtype, is_string_dtype
+from pandas.api.types import is_numeric_dtype, is_string_dtype, is_datetime64_any_dtype
 
 from mypackage.utils.database import Database
 from mypackage.utils.llm_config import COLLECTION_PROCESSOR_MODEL, get_groq_llm
@@ -63,6 +63,8 @@ def _get_column_metadata(df: pd.DataFrame) -> Dict:
         - dtypes: Column data types
         - unique_values: Dictionary of unique values for string columns
         - numeric_stats: Dictionary of statistics for numeric columns
+        - nan_counts: Dictionary of NaN counts for each column
+        - datetime_columns: List of columns that appear to be datetime columns
     """
     logger.info(f"Extracting column metadata from DataFrame with shape {df.shape}")
     if df.empty:
@@ -74,6 +76,8 @@ def _get_column_metadata(df: pd.DataFrame) -> Dict:
         "dtypes": df.dtypes.astype(str).to_dict(),
         "unique_values": {},
         "numeric_stats": {},
+        "nan_counts": df.isna().sum().to_dict(),
+        "datetime_columns": [],
     }
 
     # Process each column to extract appropriate metadata
@@ -98,6 +102,11 @@ def _get_column_metadata(df: pd.DataFrame) -> Dict:
             }
             metadata["numeric_stats"][col] = stats
             logger.debug(f"Column '{col}': numeric stats extracted")
+
+            # Check if this numeric column might be a Unix timestamp
+            if df[col].min() > 1000000000 and df[col].max() < 2000000000:
+                metadata["datetime_columns"].append(col)
+                logger.debug(f"Column '{col}': detected as potential Unix timestamp")
 
     logger.info(
         f"Metadata extraction complete: {len(metadata['columns'])} columns processed"
@@ -167,6 +176,8 @@ def _generate_processing_code(query: str, metadata: Dict) -> str:
 - Data types: {dtypes}
 - Unique values (string columns): {unique_values}
 - Numeric statistics: {numeric_stats}
+- NaN counts per column: {nan_counts}
+- Datetime columns (in Unix format): {datetime_columns}
 
 Write Python code to process the DataFrame according to this query:
 "{query}"
@@ -174,10 +185,15 @@ Write Python code to process the DataFrame according to this query:
 Rules:
 1. Use only pandas/numpy operations
 2. Preserve original columns unless explicitly asked to modify
-3. Handle null values appropriately
-4. Return the result as `result_df`
-5. Never modify the DataFrame in-place
-6. Provide ONLY the code without any explanations or text outside the code block
+3. Handle null values appropriately by:
+   - For numeric columns: Consider using fillna with appropriate values (0, mean, median)
+   - For string columns: Consider using fillna with empty string or a placeholder value
+   - For groupby operations: Make sure to handle NaN values properly
+4. DO NOT convert any datetime columns from Unix timestamp format to pandas datetime
+5. All columns in {datetime_columns} are Unix timestamps and must remain in Unix format
+6. Return the result as `result_df`
+7. Never modify the DataFrame in-place
+8. Provide ONLY the code without any explanations or text outside the code block
 
 Examples of good responses:
 ---
@@ -189,6 +205,7 @@ import numpy as np
 
 def process_data(df: pd.DataFrame) -> pd.DataFrame:
     processed_df = df.copy()
+    processed_df = processed_df.fillna({{'status': 'unknown'}})
     processed_df = processed_df[processed_df['status'] == 'active']
     processed_df = processed_df.sort_values('registration_date')
     result_df = processed_df
@@ -204,6 +221,8 @@ import numpy as np
 
 def process_data(df: pd.DataFrame) -> pd.DataFrame:
     processed_df = df.copy()
+    processed_df['revenue'] = processed_df['revenue'].fillna(0)
+    processed_df['category'] = processed_df['category'].fillna('uncategorized')
     result_df = processed_df.groupby('category')['revenue'].mean().reset_index()
     return result_df
 ```
@@ -218,6 +237,8 @@ Now generate the code for this query:"""
         dtypes=metadata["dtypes"],
         unique_values=metadata["unique_values"],
         numeric_stats=metadata["numeric_stats"],
+        nan_counts=metadata["nan_counts"],
+        datetime_columns=metadata["datetime_columns"],
     )
 
     logger.debug("Prompt prepared for LLM code generation")
@@ -258,6 +279,16 @@ def _execute_code_safe(
         logger.info(
             f"Code executed successfully, returned DataFrame with shape {result_df.shape}"
         )
+
+        # Log preview of the result DataFrame
+        if not result_df.empty:
+            preview_rows = min(5, result_df.shape[0])
+            logger.info(
+                f"Execution result preview (first {preview_rows} rows):\n{result_df.head(preview_rows).to_string()}"
+            )
+        else:
+            logger.warning("Execution returned an empty DataFrame")
+
         return result_df, None
 
     except Exception as e:
@@ -289,12 +320,19 @@ def _correct_code(error: str, code: str, query: str, metadata: Dict) -> str:
 Original query: "{query}"
 Dataset columns: {metadata["columns"]}
 Data types: {metadata["dtypes"]}
+NaN counts: {metadata["nan_counts"]}
+Datetime columns (in Unix format): {metadata["datetime_columns"]}
 
 Error:
 {error}
 
 Faulty code:
 {code}
+
+Requirements:
+1. Handle NaN values appropriately
+2. DO NOT convert any datetime columns from Unix timestamp format to pandas datetime
+3. All columns in {metadata["datetime_columns"]} are Unix timestamps and must remain in Unix format
 
 Create a corrected version of the function that addresses the error.
 Return ONLY the corrected code in a code block:
@@ -379,6 +417,7 @@ def process_collection_query(collection_name: str, query: str) -> pd.DataFrame:
     4. Generates processing code using an LLM
     5. Executes the code with retries
     6. Returns the processed DataFrame
+    7.
 
     Args:
         collection_name: Name of the MongoDB collection to process
@@ -422,6 +461,16 @@ def process_collection_query(collection_name: str, query: str) -> pd.DataFrame:
         logger.info(
             f"Query processing complete, returning DataFrame with shape {result_df.shape}"
         )
+        # Log the DataFrame content
+        if result_df.shape[0] > 0:
+            # For large DataFrames, limit to first 10 rows to avoid overwhelming logs
+            preview_rows = min(10, result_df.shape[0])
+            logger.info(
+                f"Result DataFrame preview (first {preview_rows} rows):\n{result_df.head(preview_rows).to_string()}"
+            )
+        else:
+            logger.info("Result DataFrame is empty")
+
         return result_df
 
     except Exception as e:

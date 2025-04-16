@@ -126,6 +126,24 @@ def _get_column_type(
         logger.debug("Series identified as datetime type")
         return "datetime"
     elif is_numeric_dtype(series):
+        # Check if this might be a UNIX timestamp
+        if series.name and (
+            "date" in series.name.lower()
+            or "time" in series.name.lower()
+            or "timestamp" in series.name.lower()
+        ):
+            min_val = series.min()
+            max_val = series.max()
+            # Basic heuristic for UNIX timestamps (values between 1970 and 2050)
+            # Approx ranges:
+            # - seconds since epoch: 0 to 2.5B (1970-2050)
+            # - milliseconds since epoch: 0 to 2.5T
+            if (0 <= min_val <= 2500000000 and 0 <= max_val <= 2500000000) or (
+                0 <= min_val <= 2500000000000 and 0 <= max_val <= 2500000000000
+            ):
+                logger.debug("Numeric series identified as potential UNIX timestamp")
+                return "datetime"
+
         logger.debug("Series identified as numeric type")
         return "numeric"
     elif isinstance(series.dtype, pd.CategoricalDtype):
@@ -383,10 +401,28 @@ def _create_seaborn_plot(df: pd.DataFrame, chart_info: "ChartInfo") -> plt.Figur
     plt.clf()
     fig, ax = plt.subplots(figsize=(10, 6))
 
+    # Create a copy of the DataFrame for potential modifications
+    plot_df = df.copy()
+
+    # Handle UNIX timestamps if present
+    x_dtype = _get_column_type(df[chart_info.x_axis])
+    if x_dtype == "datetime" and is_numeric_dtype(df[chart_info.x_axis]):
+        logger.debug(
+            f"Converting UNIX timestamp column '{chart_info.x_axis}' to datetime"
+        )
+        # Determine if in seconds or milliseconds
+        max_val = df[chart_info.x_axis].max()
+        if max_val > 2500000000:  # Likely milliseconds
+            plot_df[chart_info.x_axis] = pd.to_datetime(
+                df[chart_info.x_axis], unit="ms"
+            )
+        else:  # Likely seconds
+            plot_df[chart_info.x_axis] = pd.to_datetime(df[chart_info.x_axis], unit="s")
+
     # Log data info before plotting for troubleshooting
-    x_count = df[chart_info.x_axis].nunique()
-    y_min = df[chart_info.y_axis].min()
-    y_max = df[chart_info.y_axis].max()
+    x_count = plot_df[chart_info.x_axis].nunique()
+    y_min = plot_df[chart_info.y_axis].min()
+    y_max = plot_df[chart_info.y_axis].max()
 
     logger.debug(f"X-axis column '{chart_info.x_axis}' has {x_count} unique values")
     logger.debug(f"Y-axis column '{chart_info.y_axis}' range: [{y_min}, {y_max}]")
@@ -395,10 +431,66 @@ def _create_seaborn_plot(df: pd.DataFrame, chart_info: "ChartInfo") -> plt.Figur
         # Choose the appropriate chart type
         if chart_info.chart_type == "line":
             logger.debug("Generating line plot")
-            sns.lineplot(data=df, x=chart_info.x_axis, y=chart_info.y_axis, ax=ax)
+            # Check if x-axis column is text/categorical and prepare it for plotting
+            if x_dtype in ["text", "categorical"]:
+                logger.debug("Converting non-numeric x-axis data for line plot")
+                # Convert to categorical and use the codes for plotting
+                if not pd.api.types.is_categorical_dtype(plot_df[chart_info.x_axis]):
+                    # Convert to categorical with ordered categories if possible
+                    try:
+                        # Try to convert month names to ordered categories
+                        month_order = [
+                            "Jan",
+                            "Feb",
+                            "Mar",
+                            "Apr",
+                            "May",
+                            "Jun",
+                            "Jul",
+                            "Aug",
+                            "Sep",
+                            "Oct",
+                            "Nov",
+                            "Dec",
+                        ]
+                        if set(plot_df[chart_info.x_axis].unique()).issubset(
+                            set(month_order)
+                        ):
+                            # If values are month names, use month ordering
+                            plot_df[chart_info.x_axis] = pd.Categorical(
+                                plot_df[chart_info.x_axis],
+                                categories=month_order,
+                                ordered=True,
+                            )
+                        else:
+                            # Otherwise use alphabetical order
+                            plot_df[chart_info.x_axis] = pd.Categorical(
+                                plot_df[chart_info.x_axis],
+                                categories=sorted(plot_df[chart_info.x_axis].unique()),
+                                ordered=True,
+                            )
+                    except Exception as cat_error:
+                        logger.warning(
+                            f"Failed to convert to categorical: {str(cat_error)}"
+                        )
+                        # Fallback: use categorical codes for x-axis
+                        temp_cat = pd.Categorical(plot_df[chart_info.x_axis])
+                        plot_df[chart_info.x_axis] = temp_cat.codes
+                        # Replace x-tick labels with original text values
+                        category_mapping = {
+                            i: val for i, val in enumerate(temp_cat.categories)
+                        }
+                        plt.xticks(
+                            range(len(category_mapping)),
+                            list(category_mapping.values()),
+                        )
+
+            sns.lineplot(data=plot_df, x=chart_info.x_axis, y=chart_info.y_axis, ax=ax)
         elif chart_info.chart_type == "scatter":
             logger.debug("Generating scatter plot")
-            sns.scatterplot(data=df, x=chart_info.x_axis, y=chart_info.y_axis, ax=ax)
+            sns.scatterplot(
+                data=plot_df, x=chart_info.x_axis, y=chart_info.y_axis, ax=ax
+            )
         elif chart_info.chart_type == "bar":
             logger.debug("Generating bar plot")
             # Aggregate if necessary for bar charts with many unique x values
@@ -408,23 +500,25 @@ def _create_seaborn_plot(df: pd.DataFrame, chart_info: "ChartInfo") -> plt.Figur
                 )
                 # Sort by mean of y values
                 top_x = (
-                    df.groupby(chart_info.x_axis)[chart_info.y_axis]
+                    plot_df.groupby(chart_info.x_axis)[chart_info.y_axis]
                     .mean()
                     .nlargest(15)
                     .index
                 )
-                filtered_df = df[df[chart_info.x_axis].isin(top_x)]
+                filtered_df = plot_df[plot_df[chart_info.x_axis].isin(top_x)]
                 sns.barplot(
                     data=filtered_df, x=chart_info.x_axis, y=chart_info.y_axis, ax=ax
                 )
             else:
-                sns.barplot(data=df, x=chart_info.x_axis, y=chart_info.y_axis, ax=ax)
+                sns.barplot(
+                    data=plot_df, x=chart_info.x_axis, y=chart_info.y_axis, ax=ax
+                )
         elif chart_info.chart_type == "box":
             logger.debug("Generating box plot")
-            sns.boxplot(data=df, x=chart_info.x_axis, y=chart_info.y_axis, ax=ax)
+            sns.boxplot(data=plot_df, x=chart_info.x_axis, y=chart_info.y_axis, ax=ax)
         elif chart_info.chart_type == "heatmap":
             logger.debug("Generating heatmap")
-            pivot_data = df.pivot_table(
+            pivot_data = plot_df.pivot_table(
                 index=chart_info.x_axis,
                 columns=chart_info.y_axis,
                 aggfunc="size",
