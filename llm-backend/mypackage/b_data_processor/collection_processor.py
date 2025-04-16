@@ -458,6 +458,22 @@ def process_collection_query(collection_name: str, query: str) -> pd.DataFrame:
         # Step 5: Execute code with retries
         result_df = _execute_with_retries(code, df, query, metadata)
 
+        # Check if result is empty (size 0) when it shouldn't be
+        max_regeneration_attempts = 2
+        attempt = 0
+
+        while result_df.empty and not df.empty and attempt < max_regeneration_attempts:
+            logger.warning(
+                f"Generated code produced empty DataFrame. Regenerating code (attempt {attempt + 1}/{max_regeneration_attempts})"
+            )
+            # Modify the query to emphasize we need non-empty results
+            enhanced_query = f"{query} (Note: Previous code produced empty results, ensure the filtering conditions aren't too strict)"
+            # Regenerate code with the enhanced query
+            code = _generate_processing_code(enhanced_query, metadata)
+            # Execute the new code
+            result_df = _execute_with_retries(code, df, enhanced_query, metadata)
+            attempt += 1
+
         logger.info(
             f"Query processing complete, returning DataFrame with shape {result_df.shape}"
         )

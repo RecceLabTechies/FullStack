@@ -220,6 +220,7 @@ STRICT FORMAT REQUIREMENTS:
 4. The | symbol MUST separate the query from the collection name
 5. DO NOT add any other text, explanations, or formatting
 6. DO NOT use phrases like "using collection" - use the | symbol instead
+7. Keep the queries simple a.k.a. keep to a maximum of 2 columns
 
 VALID EXAMPLES:
 Generate a chart of leads by source | campaign_performance

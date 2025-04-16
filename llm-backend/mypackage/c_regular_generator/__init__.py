@@ -12,10 +12,7 @@ Key components:
 
 import logging
 
-from mypackage.c_regular_generator.chart_generator import (
-    ChartInfo,
-    generate_chart,
-)
+
 from mypackage.c_regular_generator.description_generator import (
     generate_description,
 )
@@ -37,7 +34,6 @@ if not logger.handlers:
 logger.debug("c_regular_generator module initialized")
 
 __all__ = [
-    "ChartInfo",
     "ColumnMatch",
     "ColumnStats",
     "generate_chart",

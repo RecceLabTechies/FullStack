@@ -3,31 +3,26 @@
 Chart Generator Module
 
 This module provides functionality for generating data visualizations based on user queries
-and DataFrame content. It uses a combination of machine learning (LLM) for chart selection
-and matplotlib/seaborn for rendering.
+and DataFrame content. It uses LLM to generate complete Python code for the visualization
+and executes it using PythonREPL.
 
 Key components:
-- Data analysis to extract column metadata
-- LLM-based selection of appropriate visualization type and axes
-- Chart rendering with matplotlib/seaborn
+- Converting DataFrame metadata to a format usable by the LLM
+- LLM-based generation of complete Python plotting code
+- Execution of that code using PythonREPL with automatic error correction and retries
+- Return of the generated visualization to the frontend
 """
 
 import logging
-from io import BytesIO
-from typing import List, Literal, Optional, Union
+from io import BytesIO, StringIO
+import json
+from typing import Dict, List, Any, Optional, Tuple
 
-import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
-import seaborn as sns
+import numpy as np
 from langchain_core.prompts import ChatPromptTemplate
-from pandas.api.types import (
-    is_bool_dtype,
-    is_datetime64_any_dtype,
-    is_numeric_dtype,
-    is_object_dtype,
-)
-from pydantic import BaseModel, field_validator
+from langchain_experimental.utilities import PythonREPL
+from pydantic import BaseModel
 
 from mypackage.utils.llm_config import CHART_DATA_MODEL, get_groq_llm
 
@@ -47,565 +42,487 @@ if not logger.handlers:
 logger.debug("chart_generator module initialized")
 
 
-class ColumnMetadata(BaseModel):
+class DataFramePreview(BaseModel):
     """
-    Pydantic model for storing DataFrame column metadata.
+    Pydantic model for DataFrame preview information to be sent to the LLM.
 
     Attributes:
-        name: Column name
-        dtype: Data type (categorical, numeric, datetime, etc.)
-        unique_values: List of unique values in the column (limited)
-        sample_values: Sample of values from the column
+        columns: List of column names in the DataFrame
+        dtypes: Dictionary mapping column names to their data types
+        sample_rows: List of dictionaries representing the first few rows
+        shape: Tuple of (rows, columns) describing the DataFrame shape
     """
 
-    name: str
-    dtype: str
-    unique_values: Optional[List[str]] = None
-    sample_values: List[Union[str, int, float]]
+    columns: List[str]
+    dtypes: Dict[str, str]
+    sample_rows: List[Dict[str, Any]]
+    shape: tuple
 
 
-class ChartInfo(BaseModel):
+def prepare_dataframe_preview(df: pd.DataFrame, max_rows: int = 5) -> DataFramePreview:
     """
-    Pydantic model for chart configuration.
-
-    Attributes:
-        x_axis: Column name to use for x-axis
-        y_axis: Column name to use for y-axis
-        chart_type: Type of chart to create (line, bar, scatter, etc.)
-    """
-
-    x_axis: str
-    y_axis: str
-    chart_type: str
-
-    @field_validator("chart_type")
-    @classmethod
-    def validate_chart_type(cls, v):
-        """
-        Validate that chart_type is one of the supported types.
-
-        Args:
-            v: The chart type value to validate
-
-        Returns:
-            Lowercase version of the validated chart type
-
-        Raises:
-            ValueError: If chart type is not in the list of valid types
-        """
-        valid_types = {"line", "scatter", "bar", "box", "heatmap"}
-        if v.lower() not in valid_types:
-            raise ValueError(f"Chart type must be one of: {', '.join(valid_types)}")
-        return v.lower()
-
-    model_config = {"frozen": True}
-
-
-# Type alias for column data types
-ColumnType = Literal["datetime", "numeric", "categorical", "boolean", "text"]
-
-
-def _get_column_type(
-    series: pd.Series,
-) -> ColumnType:
-    """
-    Determine the semantic type of a pandas Series.
-
-    This function analyzes the contents of a Series to determine its
-    most appropriate type classification beyond just the pandas dtype.
+    Prepare a preview of the DataFrame for the LLM prompt.
 
     Args:
-        series: The pandas Series to analyze
+        df: The pandas DataFrame to preview
+        max_rows: Maximum number of sample rows to include
 
     Returns:
-        A ColumnType value indicating the semantic type
+        DataFramePreview object containing structured preview data
     """
-    logger.debug(f"Determining column type for series with dtype: {series.dtype}")
+    logger.info(f"Preparing DataFrame preview with shape {df.shape}")
 
-    if is_datetime64_any_dtype(series):
-        logger.debug("Series identified as datetime type")
-        return "datetime"
-    elif is_numeric_dtype(series):
-        # Check if this might be a UNIX timestamp
-        if series.name and (
-            "date" in series.name.lower()
-            or "time" in series.name.lower()
-            or "timestamp" in series.name.lower()
-        ):
-            min_val = series.min()
-            max_val = series.max()
-            # Basic heuristic for UNIX timestamps (values between 1970 and 2050)
-            # Approx ranges:
-            # - seconds since epoch: 0 to 2.5B (1970-2050)
-            # - milliseconds since epoch: 0 to 2.5T
-            if (0 <= min_val <= 2500000000 and 0 <= max_val <= 2500000000) or (
-                0 <= min_val <= 2500000000000 and 0 <= max_val <= 2500000000000
-            ):
-                logger.debug("Numeric series identified as potential UNIX timestamp")
-                return "datetime"
+    # Get column names and dtypes
+    columns = df.columns.tolist()
+    dtypes = {col: str(df[col].dtype) for col in columns}
 
-        logger.debug("Series identified as numeric type")
-        return "numeric"
-    elif isinstance(series.dtype, pd.CategoricalDtype):
-        logger.debug(
-            "Series identified as categorical type (explicit categorical dtype)"
-        )
-        return "categorical"
-    elif is_bool_dtype(series):
-        logger.debug("Series identified as boolean type")
-        return "boolean"
-    elif is_object_dtype(series) and series.nunique() / len(series) < 0.5:
-        # Object type with relatively few unique values is likely categorical
-        logger.debug("Series identified as categorical type (based on cardinality)")
-        return "categorical"
+    # Convert sample rows to list of dicts for JSON serialization
+    # Handle NaN, dates, and other special values
+    sample_df = df.head(max_rows).copy()
+    sample_rows = []
 
-    logger.debug("Series identified as text type (default)")
-    return "text"
+    for _, row in sample_df.iterrows():
+        row_dict = {}
+        for col in columns:
+            value = row[col]
+            if pd.isna(value):
+                row_dict[col] = None
+            elif isinstance(value, (pd.Timestamp, pd.Period)):
+                row_dict[col] = str(value)
+            elif isinstance(value, (np.int64, np.float64)):
+                row_dict[col] = (
+                    float(value)
+                    if np.isnan(float(value))
+                    else int(value)
+                    if value.is_integer()
+                    else float(value)
+                )
+            else:
+                row_dict[col] = str(value)
+        sample_rows.append(row_dict)
+
+    logger.debug(f"Created preview with {len(sample_rows)} sample rows")
+
+    return DataFramePreview(
+        columns=columns, dtypes=dtypes, sample_rows=sample_rows, shape=df.shape
+    )
 
 
-def extract_column_metadata(df: pd.DataFrame) -> List[ColumnMetadata]:
-    logger.info(f"Extracting column metadata from DataFrame with shape {df.shape}")
-    metadata = []
-
-    for col in df.columns:
-        logger.debug(f"Processing column: {col}")
-        col_type = _get_column_type(df[col])
-        unique_vals = None
-
-        # ✅ Convert sample values to string (including Periods)
-        sample_vals = [str(v) for v in df[col].dropna().head(5).tolist()]
-
-        if col_type in ["categorical", "text", "datetime"]:
-            unique_vals = df[col].dropna().unique().tolist()
-            if len(unique_vals) > 20:
-                unique_vals = unique_vals[:20]
-
-            # ✅ Convert unique values to strings too
-            unique_vals = [str(v) for v in unique_vals]
-
-        metadata.append(
-            ColumnMetadata(
-                name=col,
-                dtype=col_type,
-                unique_values=unique_vals,
-                sample_values=sample_vals,
-            )
-        )
-        logger.debug(f"Added metadata for column: {col} (type: {col_type})")
-
-    logger.info(f"Extracted metadata for {len(metadata)} columns")
-    return metadata
-
-
-def enhance_query_with_metadata(
-    original_query: str, metadata: List[ColumnMetadata]
-) -> str:
+def generate_plot_code(query: str, df_preview: DataFramePreview) -> str:
     """
-    Enhance user query with column metadata to guide LLM interpretation.
-
-    This function adds contextual information about available columns and
-    highlights columns that appear to be relevant to the query.
+    Generate matplotlib/seaborn plotting code based on the user query and DataFrame preview.
 
     Args:
-        original_query: The user's raw query text
-        metadata: List of ColumnMetadata objects from the DataFrame
+        query: The user's query about what visualization they want
+        df_preview: Preview data about the DataFrame
 
     Returns:
-        Enhanced query string with added context
-    """
-    logger.info(f"Enhancing query with metadata: {original_query}")
-    emphasized = []
-    query_lower = original_query.lower()
-
-    # Identify columns referenced in the query
-    for col in metadata:
-        # Check if column name appears in query
-        if col.name.lower() in query_lower:
-            emphasized.append(f"'{col.name}' ({col.dtype})")
-            logger.debug(f"Column directly referenced in query: {col.name}")
-        # Check for semantic matches
-        elif any(synonym in query_lower for synonym in _get_column_synonyms(col.name)):
-            emphasized.append(f"'{col.name}' ({col.dtype})")
-            logger.debug(f"Column matched via synonym in query: {col.name}")
-
-    # Construct enhanced query
-    enhanced = f"{original_query}\n\nData Context:\n- Columns: {', '.join([f'{col.name} ({col.dtype})' for col in metadata])}"
-    if emphasized:
-        enhanced += (
-            f"\n- Emphasized Columns: {', '.join(emphasized)} should be prioritized"
-        )
-        logger.debug(f"Emphasized {len(emphasized)} columns in enhanced query")
-
-    logger.debug(f"Enhanced query length: {len(enhanced)} chars")
-    return enhanced
-
-
-def _get_column_synonyms(col_name: str) -> List[str]:
-    """
-    Generate potential synonyms for column names to improve matching.
-
-    This function returns common synonyms for frequently used column names
-    to help match user query terms to the appropriate columns.
-
-    Args:
-        col_name: Column name to find synonyms for
-
-    Returns:
-        List of synonym strings
-    """
-    logger.debug(f"Getting synonyms for column: {col_name}")
-    synonyms = {
-        "date": ["time", "day", "month", "year"],
-        "sales": ["revenue", "income"],
-        "price": ["cost", "value"],
-        "category": ["type", "group"],
-    }
-    result = synonyms.get(col_name.lower(), [])
-    logger.debug(f"Found {len(result)} synonyms for column: {col_name}")
-    return result
-
-
-def get_llm_chart_selection(query: str, metadata: List[ColumnMetadata]) -> ChartInfo:
-    """
-    Use LLM to select appropriate chart type and axes based on the query.
-
-    This function sends the query and column metadata to an LLM, which
-    then recommends the most appropriate visualization type and columns
-    to use for the x and y axes.
-
-    Args:
-        query: The user's query (possibly enhanced with metadata)
-        metadata: List of ColumnMetadata objects from the DataFrame
-
-    Returns:
-        ChartInfo object containing the selected chart configuration
+        String containing Python code to generate the requested visualization
 
     Raises:
-        ValueError: If the LLM response cannot be parsed into valid chart info
+        ValueError: If the LLM fails to generate valid Python code
     """
-    logger.info(f"Getting chart selection for query: {query}")
+    logger.info(f"Generating plot code for query: {query}")
 
-    # Define prompt template for LLM
+    # Convert DataFrame preview to a readable format for the prompt
+    columns_info = "\n".join(
+        [f"- {col} ({df_preview.dtypes[col]})" for col in df_preview.columns]
+    )
+
+    # Format sample rows as a pretty table for the prompt
+    sample_rows_str = json.dumps(df_preview.sample_rows, indent=2)
+
+    # Define the prompt template for the LLM
     prompt_template = ChatPromptTemplate.from_template(
-        """You are a chart configuration assistant. Your ONLY task is to analyze the visualization request and select appropriate columns.
+        """You are a data visualization expert. Your task is to generate Python code that creates a visualization 
+        based on the user's request and the provided DataFrame information.
 
         User Query: {query}
 
-        Available Columns:
-        {columns}
+        DataFrame Information:
+        - Shape: {shape}
+        - Columns:
+        {columns_info}
+        
+        Sample Data (first {sample_count} rows):
+        {sample_rows}
 
-        CRITICAL INSTRUCTIONS:
-        1. You MUST respond with EXACTLY 3 lines in this format:
-           x_axis: [column]
-           y_axis: [column]
-           chart_type: [type]
-        2. Use only the provided column names.
-        - If the query explicitly mentions column names, use them.
-        - If the query uses synonyms or related terms (e.g. "income" for "revenue"), choose the **closest matching column** from the list.
-        - Only use a datetime column like "Date" if the query clearly refers to time (e.g. "trend", "over time", "monthly").
-        3. The columns MUST be from the provided column names
-        4. Chart type MUST be one of: line, bar, scatter, box, heatmap
-        5. DO NOT include any other text, explanation, or formatting
-        6. Each line MUST start with the exact keys: x_axis:, y_axis:, chart_type:
+        INSTRUCTIONS:
+        1. Generate complete, executable Python code that:
+           - Creates the visualization requested by the user
+           - Uses matplotlib, seaborn, or plotly (prefer matplotlib/seaborn)
+           - Handles any necessary data transformations
+           - Includes proper styling, labels, and title
+           - Saves the figure to a BytesIO object as PNG
+           - IMPORTANT: Rotates all x-axis labels by 45 degrees
+           - IMPORTANT: Sets the figure size to 8x6 inches (figsize=(8, 6))
+        2. Your code MUST:
+           - Define a function called `create_plot()` that takes a pandas DataFrame as input and returns the image bytes
+           - NOT print anything except through logging
+           - NOT show the plot (use savefig instead of plt.show())
+           - Handle edge cases and possible errors
+           - Have proper formatting for dates if applicable
+           - Use colors that are visually appealing and accessible
+           - Return the BytesIO object containing the PNG bytes
+        3. Choose the most appropriate chart type based on the query
+        4. ONLY output valid, runnable Python code (no explanations, no markdown)
+        5. DO NOT include code fence markers (```) in your response
 
-        Example Valid Response:
-        x_axis: date
-        y_axis: sales
-        chart_type: line"""
+        Output ONLY the Python code with no additional text or explanations.
+        """
     )
 
-    # Format column information for the prompt
-    columns_str = "\n".join(
-        [
-            f"- {col.name} ({col.dtype})"
-            + (
-                f" [Categories: {', '.join(map(str, col.unique_values))}]"
-                if col.unique_values
-                else ""
-            )
-            for col in metadata
-        ]
-    )
-
+    # Prepare and send the prompt to the LLM
     logger.debug("Preparing prompt for Groq LLM")
     model = get_groq_llm(CHART_DATA_MODEL)
     chain = prompt_template | model
 
     logger.debug("Sending prompt to Groq LLM")
-    response = chain.invoke({"query": query, "columns": columns_str})
-    logger.debug(f"Received response from Groq LLM: {response.content}")
-
-    # Parse the response into chart configuration
-    try:
-        logger.debug("Parsing LLM response into chart configuration")
-        # Split by newlines and clean up
-        lines = [
-            line.strip()
-            for line in response.content.strip().split("\n")
-            if line.strip()
-        ]
-
-        if len(lines) != 3:
-            error_msg = f"Expected 3 lines in LLM response, got {len(lines)}"
-            logger.error(error_msg)
-            raise ValueError(error_msg)
-
-        config = {}
-        for line in lines:
-            key, value = line.split(":", 1)
-            key = key.strip()
-            if key not in ["x_axis", "y_axis", "chart_type"]:
-                error_msg = f"Invalid key in LLM response: {key}"
-                logger.error(error_msg)
-                raise ValueError(error_msg)
-            config[key] = value.strip().lower()
-            logger.debug(f"Parsed {key}: {config[key]}")
-
-        chart_info = ChartInfo(
-            x_axis=config["x_axis"],
-            y_axis=config["y_axis"],
-            chart_type=config["chart_type"],
-        )
-        logger.info(
-            f"Selected chart type: {chart_info.chart_type} with x: {chart_info.x_axis}, y: {chart_info.y_axis}"
-        )
-        return chart_info
-    except Exception as e:
-        logger.error(f"Failed to parse LLM response: {response.content}")
-        logger.error(f"Parse error: {str(e)}", exc_info=True)
-        raise ValueError(f"Invalid LLM response format: {str(e)}")
-
-
-def _create_seaborn_plot(df: pd.DataFrame, chart_info: "ChartInfo") -> plt.Figure:
-    """
-    Create a seaborn plot based on the chart configuration.
-
-    This function renders a visualization using seaborn based on the
-    DataFrame and configuration specified in chart_info.
-
-    Args:
-        df: The pandas DataFrame containing the data to visualize
-        chart_info: ChartInfo object specifying the chart configuration
-
-    Returns:
-        Matplotlib Figure object with the rendered chart
-
-    Raises:
-        ValueError: If the chart cannot be created with the given configuration
-    """
-    logger.info(
-        f"Creating {chart_info.chart_type} plot with x_axis: {chart_info.x_axis}, y_axis: {chart_info.y_axis}"
+    response = chain.invoke(
+        {
+            "query": query,
+            "shape": df_preview.shape,
+            "columns_info": columns_info,
+            "sample_count": len(df_preview.sample_rows),
+            "sample_rows": sample_rows_str,
+        }
     )
 
-    # Prepare plotting area
-    plt.clf()
-    fig, ax = plt.subplots(figsize=(10, 6))
+    generated_code = response.content.strip()
+    logger.debug(f"Received generated code from LLM (length: {len(generated_code)})")
 
-    # Create a copy of the DataFrame for potential modifications
-    plot_df = df.copy()
+    # Remove markdown code fence markers if present
+    generated_code = _clean_code_from_llm(generated_code)
 
-    # Handle UNIX timestamps if present
-    x_dtype = _get_column_type(df[chart_info.x_axis])
-    if x_dtype == "datetime" and is_numeric_dtype(df[chart_info.x_axis]):
-        logger.debug(
-            f"Converting UNIX timestamp column '{chart_info.x_axis}' to datetime"
+    # Validate the code contains the required function
+    if "def create_plot" not in generated_code:
+        error_msg = (
+            "Generated code does not contain the required create_plot() function"
         )
-        # Determine if in seconds or milliseconds
-        max_val = df[chart_info.x_axis].max()
-        if max_val > 2500000000:  # Likely milliseconds
-            plot_df[chart_info.x_axis] = pd.to_datetime(
-                df[chart_info.x_axis], unit="ms"
-            )
-        else:  # Likely seconds
-            plot_df[chart_info.x_axis] = pd.to_datetime(df[chart_info.x_axis], unit="s")
+        logger.error(error_msg)
+        raise ValueError(error_msg)
 
-    # Log data info before plotting for troubleshooting
-    x_count = plot_df[chart_info.x_axis].nunique()
-    y_min = plot_df[chart_info.y_axis].min()
-    y_max = plot_df[chart_info.y_axis].max()
+    # Print the generated code
+    print("\n==== GENERATED VISUALIZATION CODE ====")
+    print(generated_code)
+    print("=====================================\n")
 
-    logger.debug(f"X-axis column '{chart_info.x_axis}' has {x_count} unique values")
-    logger.debug(f"Y-axis column '{chart_info.y_axis}' range: [{y_min}, {y_max}]")
+    return generated_code
+
+
+def _clean_code_from_llm(code: str) -> str:
+    """
+    Clean code generated by LLM to remove markdown formatting or other non-code elements.
+
+    Args:
+        code: The raw code string from the LLM
+
+    Returns:
+        Cleaned code ready for execution
+    """
+    # Remove markdown code fence markers if present
+    code = code.strip()
+
+    # Check if code is wrapped in code fence markers
+    if code.startswith("```") and code.endswith("```"):
+        # Remove the opening and closing markers
+        code = code[3:-3].strip()
+
+        # If there's a language identifier (like ```python), remove it too
+        lines = code.split("\n")
+        if not lines[0].strip() or lines[0].strip().lower() in ["python", "py"]:
+            code = "\n".join(lines[1:])
+
+    # Sometimes only opening marker is present
+    elif code.startswith("```"):
+        lines = code.split("\n")
+        # Remove the first line which contains the marker
+        code = "\n".join(lines[1:])
+
+        # If there's a closing marker at the end, remove it
+        if code.endswith("```"):
+            code = code[:-3].strip()
+
+    return code
+
+
+def execute_plot_code(
+    code: str, df: pd.DataFrame
+) -> Tuple[Optional[bytes], Optional[str]]:
+    """
+    Execute the generated plot code.
+
+    Args:
+        code: Python code string to execute
+        df: The pandas DataFrame to use for plotting
+
+    Returns:
+        Tuple of (image_bytes, error_message):
+        - image_bytes: PNG image bytes if successful, None if failed
+        - error_message: Error message if failed, None if successful
+    """
+    logger.info("Executing generated plot code")
 
     try:
-        # Choose the appropriate chart type
-        if chart_info.chart_type == "line":
-            logger.debug("Generating line plot")
-            # Check if x-axis column is text/categorical and prepare it for plotting
-            if x_dtype in ["text", "categorical"]:
-                logger.debug("Converting non-numeric x-axis data for line plot")
-                # Convert to categorical and use the codes for plotting
-                if not pd.api.types.is_categorical_dtype(plot_df[chart_info.x_axis]):
-                    # Convert to categorical with ordered categories if possible
-                    try:
-                        # Try to convert month names to ordered categories
-                        month_order = [
-                            "Jan",
-                            "Feb",
-                            "Mar",
-                            "Apr",
-                            "May",
-                            "Jun",
-                            "Jul",
-                            "Aug",
-                            "Sep",
-                            "Oct",
-                            "Nov",
-                            "Dec",
-                        ]
-                        if set(plot_df[chart_info.x_axis].unique()).issubset(
-                            set(month_order)
-                        ):
-                            # If values are month names, use month ordering
-                            plot_df[chart_info.x_axis] = pd.Categorical(
-                                plot_df[chart_info.x_axis],
-                                categories=month_order,
-                                ordered=True,
-                            )
-                        else:
-                            # Otherwise use alphabetical order
-                            plot_df[chart_info.x_axis] = pd.Categorical(
-                                plot_df[chart_info.x_axis],
-                                categories=sorted(plot_df[chart_info.x_axis].unique()),
-                                ordered=True,
-                            )
-                    except Exception as cat_error:
-                        logger.warning(
-                            f"Failed to convert to categorical: {str(cat_error)}"
-                        )
-                        # Fallback: use categorical codes for x-axis
-                        temp_cat = pd.Categorical(plot_df[chart_info.x_axis])
-                        plot_df[chart_info.x_axis] = temp_cat.codes
-                        # Replace x-tick labels with original text values
-                        category_mapping = {
-                            i: val for i, val in enumerate(temp_cat.categories)
-                        }
-                        plt.xticks(
-                            range(len(category_mapping)),
-                            list(category_mapping.values()),
-                        )
+        # Set up the execution namespace
+        namespace = {
+            "pd": pd,
+            "np": np,
+            "df": df.copy(),
+            "BytesIO": BytesIO,
+            "plt": __import__("matplotlib.pyplot"),
+            "sns": __import__("seaborn"),
+        }
 
-            sns.lineplot(data=plot_df, x=chart_info.x_axis, y=chart_info.y_axis, ax=ax)
-        elif chart_info.chart_type == "scatter":
-            logger.debug("Generating scatter plot")
-            sns.scatterplot(
-                data=plot_df, x=chart_info.x_axis, y=chart_info.y_axis, ax=ax
-            )
-        elif chart_info.chart_type == "bar":
-            logger.debug("Generating bar plot")
-            # Aggregate if necessary for bar charts with many unique x values
-            if x_count > 15:
-                logger.debug(
-                    f"Too many unique values ({x_count}) for bar chart, aggregating"
-                )
-                # Sort by mean of y values
-                top_x = (
-                    plot_df.groupby(chart_info.x_axis)[chart_info.y_axis]
-                    .mean()
-                    .nlargest(15)
-                    .index
-                )
-                filtered_df = plot_df[plot_df[chart_info.x_axis].isin(top_x)]
-                sns.barplot(
-                    data=filtered_df, x=chart_info.x_axis, y=chart_info.y_axis, ax=ax
-                )
-            else:
-                sns.barplot(
-                    data=plot_df, x=chart_info.x_axis, y=chart_info.y_axis, ax=ax
-                )
-        elif chart_info.chart_type == "box":
-            logger.debug("Generating box plot")
-            sns.boxplot(data=plot_df, x=chart_info.x_axis, y=chart_info.y_axis, ax=ax)
-        elif chart_info.chart_type == "heatmap":
-            logger.debug("Generating heatmap")
-            pivot_data = plot_df.pivot_table(
-                index=chart_info.x_axis,
-                columns=chart_info.y_axis,
-                aggfunc="size",
-                fill_value=0,
-            )
-            sns.heatmap(pivot_data, cmap="YlGnBu", ax=ax)
-        else:
-            error_msg = f"Unsupported chart type: {chart_info.chart_type}"
+        # First, execute the code that defines the function
+        logger.debug("Defining the create_plot function")
+        exec(code, namespace)
+
+        # Then, execute the function with our DataFrame
+        logger.debug("Calling create_plot() with the DataFrame")
+        exec("image_bytes = create_plot(df)", namespace)
+
+        # Extract the image bytes from the namespace
+        if "image_bytes" not in namespace:
+            error_msg = "create_plot() did not define 'image_bytes' variable"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            return None, error_msg
 
-        # Enhance chart aesthetics
-        plt.title(f"{chart_info.y_axis} by {chart_info.x_axis}")
-        plt.tight_layout()
+        image_bytes = namespace["image_bytes"]
 
-        # Handle long x-axis labels
-        if x_count > 10:
-            logger.debug("Rotating x-axis labels for better readability")
-            plt.xticks(rotation=45, ha="right")
+        # Validate the result is a BytesIO object or bytes
+        if not isinstance(image_bytes, (BytesIO, bytes)):
+            error_msg = f"Expected create_plot() to return BytesIO or bytes, got {type(image_bytes)}"
+            logger.error(error_msg)
+            return None, error_msg
 
-        logger.info("Successfully created plot")
-        return fig
+        # Convert to bytes if it's BytesIO
+        if isinstance(image_bytes, BytesIO):
+            image_bytes.seek(0)
+            image_bytes = image_bytes.getvalue()
+
+        logger.info(
+            f"Successfully executed plot code, generated {len(image_bytes)} bytes"
+        )
+        return image_bytes, None
+
     except Exception as e:
-        logger.error(f"Error creating plot: {str(e)}", exc_info=True)
-        raise ValueError(f"Failed to create {chart_info.chart_type} chart: {str(e)}")
+        logger.error(f"Error executing plot code: {str(e)}", exc_info=True)
+        return None, f"Execution error: {str(e)}"
+
+
+def correct_plot_code(
+    error: str, code: str, query: str, df_preview: DataFramePreview
+) -> str:
+    """
+    Generate corrected plotting code when initial execution fails.
+
+    Args:
+        error: The error message from the failed execution
+        code: The original code that failed
+        query: The original user query
+        df_preview: Preview data about the DataFrame
+
+    Returns:
+        Corrected Python code as a string
+    """
+    logger.info(f"Attempting to correct plot code with error: {error}")
+
+    # Convert DataFrame preview to a readable format for the prompt
+    columns_info = "\n".join(
+        [f"- {col} ({df_preview.dtypes[col]})" for col in df_preview.columns]
+    )
+
+    # Format sample rows as a pretty table for the prompt
+    sample_rows_str = json.dumps(df_preview.sample_rows, indent=2)
+
+    # Create correction prompt with error details
+    correction_prompt = ChatPromptTemplate.from_template(
+        """You are a data visualization expert. Your task is to fix Python code that failed to generate a visualization.
+
+        The code was attempting to create a visualization based on this query:
+        "{query}"
+        
+        DataFrame Information:
+        - Shape: {shape}
+        - Columns:
+        {columns_info}
+        
+        Sample Data (first {sample_count} rows):
+        {sample_rows}
+        
+        The code failed with this error:
+        {error}
+        
+        Here is the faulty code:
+        ```python
+        {code}
+        ```
+        
+        INSTRUCTIONS:
+        1. Fix the code to address the specific error
+        2. Your fixed code MUST:
+           - Define a function called `create_plot()` that takes a pandas DataFrame as input
+           - Return a BytesIO object containing the PNG image bytes
+           - Handle edge cases properly
+           - Include appropriate error handling
+           - NOT print anything except through logging
+           - NOT show the plot (use savefig instead of plt.show())
+           - IMPORTANT: Rotate all x-axis labels by 45 degrees
+           - IMPORTANT: Set the figure size to 10x12 inches (figsize=(10, 12))
+        3. DO NOT explain your changes, just provide the corrected code
+        4. Make sure to include all necessary imports
+        5. DO NOT include code fence markers (```) in your response
+        
+        Output ONLY the corrected Python code with no additional text.
+        """
+    )
+
+    # Prepare and send the prompt to the LLM
+    logger.debug("Preparing correction prompt for Groq LLM")
+    model = get_groq_llm(CHART_DATA_MODEL)
+    chain = correction_prompt | model
+
+    logger.debug("Sending correction prompt to Groq LLM")
+    response = chain.invoke(
+        {
+            "query": query,
+            "shape": df_preview.shape,
+            "columns_info": columns_info,
+            "sample_count": len(df_preview.sample_rows),
+            "sample_rows": sample_rows_str,
+            "error": error,
+            "code": code,
+        }
+    )
+
+    corrected_code = response.content.strip()
+    logger.debug(f"Received corrected code from LLM (length: {len(corrected_code)})")
+
+    # Remove markdown code fence markers if present
+    corrected_code = _clean_code_from_llm(corrected_code)
+
+    # Validate the corrected code contains the required function
+    if "def create_plot" not in corrected_code:
+        error_msg = (
+            "Corrected code does not contain the required create_plot() function"
+        )
+        logger.error(error_msg)
+        raise ValueError(error_msg)
+
+    # Print the corrected code
+    print("\n==== CORRECTED VISUALIZATION CODE ====")
+    print(corrected_code)
+    print("======================================\n")
+
+    return corrected_code
+
+
+def execute_with_retries(
+    initial_code: str,
+    df: pd.DataFrame,
+    query: str,
+    df_preview: DataFramePreview,
+    max_retries: int = 5,
+) -> bytes:
+    """
+    Execute code with automatic error correction and retries.
+
+    Args:
+        initial_code: The initial Python code to execute
+        df: The DataFrame to process
+        query: The original user query
+        df_preview: Preview data about the DataFrame
+        max_retries: Maximum number of retry attempts
+
+    Returns:
+        PNG image bytes of the chart
+
+    Raises:
+        ValueError: If all retry attempts fail
+    """
+    logger.info(f"Executing plot code with up to {max_retries} retries")
+    print(f"\n==== STARTING EXECUTION WITH {max_retries} MAX RETRIES ====\n")
+
+    code = initial_code
+    for attempt in range(max_retries):
+        logger.debug(f"Execution attempt {attempt + 1}/{max_retries}")
+        print(f"Attempt {attempt + 1}/{max_retries} to execute visualization code...")
+
+        image_bytes, error = execute_plot_code(code, df)
+
+        if error is None:
+            # Success
+            logger.info(f"Plot generation succeeded on attempt {attempt + 1}")
+            print(f"\n✅ Plot generation SUCCEEDED on attempt {attempt + 1}\n")
+            return image_bytes
+
+        logger.warning(f"Attempt {attempt + 1} failed with error: {error}")
+        print(f"\n❌ Attempt {attempt + 1} FAILED with error: {error}\n")
+
+        if attempt < max_retries - 1:
+            # Try to correct the code for next attempt
+            logger.info("Requesting code correction from LLM")
+            print("Requesting code correction from LLM...")
+            try:
+                code = correct_plot_code(error, code, query, df_preview)
+                print("Received corrected code, trying again...")
+            except Exception as correction_error:
+                logger.error(f"Code correction failed: {str(correction_error)}")
+                print(f"⚠️ Code correction failed: {str(correction_error)}")
+                # If correction fails, we'll try again with the original code
+                logger.warning("Continuing with original code for next attempt")
+                print("Continuing with original code for next attempt...")
+
+    # All attempts failed
+    logger.error(f"All {max_retries} execution attempts failed")
+    print(f"\n❌ All {max_retries} execution attempts FAILED\n")
+    raise ValueError(f"Failed to generate chart after {max_retries} attempts")
 
 
 def generate_chart(df: pd.DataFrame, query: str) -> bytes:
     """
     Main function to generate a chart based on a user query.
 
+    Args:
+        df: The pandas DataFrame containing the data to visualize
+        query: The user's query describing the desired visualization
+
     Returns:
         PNG image bytes of the generated chart
+
+    Raises:
+        ValueError: If any step of the chart generation process fails
     """
     logger.info(f"Generating chart for query: {query}")
+    print(f"\n==== GENERATING CHART FOR QUERY ====")
+    print(f'Query: "{query}"')
+    print(f"DataFrame shape: {df.shape}")
+    print("====================================\n")
 
     try:
-        # Step 1: Extract metadata
-        logger.debug("Extracting column metadata")
-        metadata = extract_column_metadata(df)
+        # Step 1: Prepare DataFrame preview for the LLM
+        logger.debug("Preparing DataFrame preview")
+        print("1. Preparing DataFrame preview...")
+        df_preview = prepare_dataframe_preview(df)
 
-        # Step 2: Enhance query with metadata context
-        logger.debug("Enhancing query with metadata")
-        enhanced_query = enhance_query_with_metadata(query, metadata)
+        # Step 2: Generate the plotting code
+        logger.debug("Generating visualization code")
+        print("2. Generating visualization code...")
+        plot_code = generate_plot_code(query, df_preview)
 
-        # Step 3: Get chart configuration from LLM
-        logger.debug("Getting chart configuration from LLM")
-        chart_info = get_llm_chart_selection(enhanced_query, metadata)
-
-        # 🔥 Step 3.5: Match chart_info keys to actual DataFrame columns (case-insensitive)
-        lower_col_map = {col.lower(): col for col in df.columns}
-
-        x_axis = lower_col_map.get(chart_info.x_axis.lower())
-        y_axis = lower_col_map.get(chart_info.y_axis.lower())
-
-        if not x_axis or not y_axis:
-            raise KeyError(
-                f"LLM returned x='{chart_info.x_axis}' and y='{chart_info.y_axis}', "
-                f"but matching columns not found in DataFrame columns: {list(df.columns)}"
-            )
-
-        # Patch chart_info with corrected column names
-        chart_info = ChartInfo(
-            x_axis=x_axis,
-            y_axis=y_axis,
-            chart_type=chart_info.chart_type,
-        )
-
-        # Step 4: Create the chart
-        logger.debug("Creating the chart visualization")
-        fig = _create_seaborn_plot(df, chart_info)
-
-        # Step 5: Create in-memory image buffer
-        logger.debug("Creating in-memory image buffer")
-        img_buffer = BytesIO()
-        fig.savefig(
-            img_buffer, format="png", dpi=300, bbox_inches="tight", facecolor="white"
-        )
-        img_buffer.seek(0)
-        image_bytes = img_buffer.getvalue()
-        plt.close(fig)
+        # Step 3: Execute the code to create the plot with retries
+        logger.debug("Executing visualization code with retry logic")
+        print("3. Executing visualization code with retry logic...")
+        image_bytes = execute_with_retries(plot_code, df, query, df_preview)
 
         logger.info("Chart generation complete")
+        print(f"\n✅ Chart generation COMPLETE - generated {len(image_bytes)} bytes\n")
         return image_bytes
 
     except Exception as e:
         logger.error(f"Chart generation failed: {str(e)}", exc_info=True)
+        print(f"\n❌ Chart generation FAILED: {str(e)}\n")
         raise ValueError(f"Failed to generate chart: {str(e)}")
 
 

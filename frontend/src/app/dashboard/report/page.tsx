@@ -604,28 +604,28 @@ export default function ReportPage() {
 
         <div className="space-y-4">
           {/* Report Queries Section */}
-          <div className="space-y-1">
+          <div className="space-y-1 flex flex-col">
             <h3 className="text-xs font-semibold">Report Queries</h3>
             <Button
               variant="link"
               size="free"
               className="justify-start text-wrap text-start text-muted-foreground"
-              onClick={() => setQuery('Generate sales performance report for Q2 2024')}
+              onClick={() => setQuery('Generate a report for each country')}
             >
-              <small>Generate sales performance report for Q2 2024</small>
+              <small>Generate a report for each country</small>
             </Button>
             <Button
               variant="link"
               size="free"
               className="justify-start text-wrap text-start text-muted-foreground"
-              onClick={() => setQuery('Create marketing campaign analysis report')}
+              onClick={() => setQuery('Create a report for the different channel in 2024')}
             >
-              <small>Create marketing campaign analysis report</small>
+              <small>Create a report for the different marketing channel in 2024</small>
             </Button>
           </div>
 
           {/* Description Queries Section */}
-          <div className="space-y-1">
+          <div className="space-y-1 flex flex-col">
             <h3 className="text-xs font-semibold">Description Queries</h3>
             <Button
               variant="link"
@@ -634,7 +634,7 @@ export default function ReportPage() {
               onClick={() => setQuery('Describe key trends in customer acquisition')}
             >
               <small>Describe key trends in customer acquisition</small>
-            </Button>
+            </Button>x
             <Button
               variant="link"
               size="free"
@@ -646,7 +646,7 @@ export default function ReportPage() {
           </div>
           {/* Chart Queries Section */}
 
-          <div className="space-y-1">
+          <div className="space-y-1 flex flex-col">
             <h3 className="text-xs font-semibold">Chart Queries</h3>
             <Button
               variant="link"
