@@ -12,7 +12,6 @@ Key components:
 
 import logging
 
-
 from mypackage.c_regular_generator.description_generator import (
     generate_description,
 )

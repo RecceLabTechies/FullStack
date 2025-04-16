@@ -13,15 +13,14 @@ Key components:
 - Return of the generated visualization to the frontend
 """
 
-import logging
-from io import BytesIO, StringIO
 import json
-from typing import Dict, List, Any, Optional, Tuple
+import logging
+from io import BytesIO
+from typing import Any, Dict, List, Optional, Tuple
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_experimental.utilities import PythonREPL
 from pydantic import BaseModel
 
 from mypackage.utils.llm_config import CHART_DATA_MODEL, get_groq_llm
@@ -495,7 +494,7 @@ def generate_chart(df: pd.DataFrame, query: str) -> bytes:
         ValueError: If any step of the chart generation process fails
     """
     logger.info(f"Generating chart for query: {query}")
-    print(f"\n==== GENERATING CHART FOR QUERY ====")
+    print("\n==== GENERATING CHART FOR QUERY ====")
     print(f'Query: "{query}"')
     print(f"DataFrame shape: {df.shape}")
     print("====================================\n")

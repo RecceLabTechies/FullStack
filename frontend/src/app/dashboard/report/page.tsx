@@ -634,7 +634,7 @@ export default function ReportPage() {
               onClick={() => setQuery('Describe key trends in customer acquisition')}
             >
               <small>Describe key trends in customer acquisition</small>
-            </Button>x
+            </Button>
             <Button
               variant="link"
               size="free"
