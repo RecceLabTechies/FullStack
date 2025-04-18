@@ -145,10 +145,9 @@ const CountryPerformanceCharts = () => {
               <XAxis dataKey="date" />
               <YAxis />
               <Tooltip
-                formatter={(value: number) => [
-                  `$${value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`,
-                  '',
-                ]}
+                formatter={(value: number | string) =>
+                  typeof value === 'number' ? value.toFixed(3) : value
+                }
               />
               <Legend />
               <Line

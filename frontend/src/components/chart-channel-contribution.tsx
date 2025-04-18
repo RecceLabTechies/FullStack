@@ -23,11 +23,11 @@ import { useCampaignDateRange, useChannelContribution } from '@/hooks/use-backen
 // Define color scheme for different channels using CSS variables
 const CHANNEL_COLORS: Record<string, string> = {
   Facebook: 'hsl(var(--chart-1))',
-  Instagram: 'hsl(var(--chart-2))',
+  Email: 'hsl(var(--chart-2))',
   Google: 'hsl(var(--chart-3))',
   LinkedIn: 'hsl(var(--chart-4))',
   TikTok: 'hsl(var(--chart-5))',
-  Email: 'hsl(var(--chart-6))',
+  Instagram: 'hsl(var(--chart-6))',
   TV: 'hsl(var(--chart-7))',
   Search: 'hsl(var(--chart-8))',
 };
