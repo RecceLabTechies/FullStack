@@ -567,6 +567,9 @@ export const useProphetPredictions = () => {
 /**
  * Hook to fetch monthly data aggregated by channel for charting purposes.
  * Returns revenue and ad spend metrics per month per channel.
+ *
+ * @param minDate Optional - Start date as Unix timestamp
+ * @param maxDate Optional - End date as Unix timestamp
  */
 export const useMonthlyChannelData = () => {
   const [state, setState] = useState<HookState<MonthlyChannelData>>({
@@ -575,9 +578,9 @@ export const useMonthlyChannelData = () => {
     error: null,
   });
 
-  const fetchMonthlyChannelData = useCallback(async () => {
+  const fetchMonthlyChannelData = useCallback(async (minDate?: number, maxDate?: number) => {
     setState((prev) => ({ ...prev, isLoading: true }));
-    const result = await backendApi.fetchMonthlyChannelData();
+    const result = await backendApi.fetchMonthlyChannelData(minDate, maxDate);
 
     if (result instanceof Error) {
       setState({ data: null, isLoading: false, error: result });
@@ -592,6 +595,9 @@ export const useMonthlyChannelData = () => {
 /**
  * Hook to fetch monthly data aggregated by age group for charting purposes.
  * Returns revenue and ad spend metrics per month per age group.
+ *
+ * @param minDate Optional - Start date as Unix timestamp
+ * @param maxDate Optional - End date as Unix timestamp
  */
 export const useMonthlyAgeData = () => {
   const [state, setState] = useState<HookState<MonthlyAgeData>>({
@@ -600,9 +606,9 @@ export const useMonthlyAgeData = () => {
     error: null,
   });
 
-  const fetchMonthlyAgeData = useCallback(async () => {
+  const fetchMonthlyAgeData = useCallback(async (minDate?: number, maxDate?: number) => {
     setState((prev) => ({ ...prev, isLoading: true }));
-    const result = await backendApi.fetchMonthlyAgeData();
+    const result = await backendApi.fetchMonthlyAgeData(minDate, maxDate);
 
     if (result instanceof Error) {
       setState({ data: null, isLoading: false, error: result });
@@ -617,6 +623,9 @@ export const useMonthlyAgeData = () => {
 /**
  * Hook to fetch monthly data aggregated by country for charting purposes.
  * Returns revenue and ad spend metrics per month per country.
+ *
+ * @param minDate Optional - Start date as Unix timestamp
+ * @param maxDate Optional - End date as Unix timestamp
  */
 export const useMonthlyCountryData = () => {
   const [state, setState] = useState<HookState<MonthlyCountryData>>({
@@ -625,9 +634,9 @@ export const useMonthlyCountryData = () => {
     error: null,
   });
 
-  const fetchMonthlyCountryData = useCallback(async () => {
+  const fetchMonthlyCountryData = useCallback(async (minDate?: number, maxDate?: number) => {
     setState((prev) => ({ ...prev, isLoading: true }));
-    const result = await backendApi.fetchMonthlyCountryData();
+    const result = await backendApi.fetchMonthlyCountryData(minDate, maxDate);
 
     if (result instanceof Error) {
       setState({ data: null, isLoading: false, error: result });
