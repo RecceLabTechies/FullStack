@@ -614,6 +614,64 @@ export default function ReportPage() {
         },
       });
 
+      // Helper function to check if an image URL is valid
+      const isValidImageUrl = (url: string) => {
+        return typeof url === 'string' && (url.startsWith('data:image/') || url.startsWith('http'));
+      };
+
+      // Helper function to extract image data from React elements
+      const extractImageSrc = (content: unknown): string | null => {
+        // If it's already a valid image URL string
+        if (typeof content === 'string' && isValidImageUrl(content)) {
+          return content;
+        }
+
+        // If it's a React image element, try to extract the src
+        if (React.isValidElement(content)) {
+          const element = content as React.ReactElement;
+          // Type-safe check for src property
+          const props = element.props as Record<string, unknown>;
+          if (props && 'src' in props && typeof props.src === 'string') {
+            return props.src;
+          }
+        }
+
+        // If it's an array, check if it contains image elements
+        if (Array.isArray(content)) {
+          for (const item of content) {
+            const src = extractImageSrc(item);
+            if (src) return src;
+          }
+        }
+
+        return null;
+      };
+
+      // Process report items for PDF
+      const processedItems = reportItems.map((item) => {
+        const { result } = item;
+
+        // For chart type, ensure we have a valid image source
+        if (result.type === 'chart') {
+          const imageSrc = extractImageSrc(result.content);
+          if (imageSrc) {
+            return {
+              type: 'chart' as const,
+              content: imageSrc,
+              originalQuery: result.originalQuery,
+            };
+          }
+          console.warn('Could not extract image source from chart:', result.content);
+          return {
+            type: 'description' as const,
+            content: 'Chart image could not be displayed',
+            originalQuery: result.originalQuery,
+          };
+        }
+
+        return result;
+      });
+
       // Create PDF Document Component
       const ReportDocument = () => (
         <Document>
@@ -621,9 +679,7 @@ export default function ReportPage() {
             <Text style={pdfStyles.title}>{reportTitle}</Text>
             <Text style={pdfStyles.author}>{reportAuthor}</Text>
 
-            {reportItems.map((item, index) => {
-              const { result } = item;
-
+            {processedItems.map((result, index) => {
               if (result.type === 'description') {
                 return (
                   <View key={index} style={pdfStyles.section}>
@@ -632,12 +688,23 @@ export default function ReportPage() {
                     </Text>
                   </View>
                 );
-              } else if (result.type === 'chart' && typeof result.content === 'string') {
-                return (
-                  <View key={index} style={pdfStyles.section}>
-                    <Image src={result.content} style={pdfStyles.image} />
-                  </View>
-                );
+              } else if (result.type === 'chart') {
+                const imageSrc = typeof result.content === 'string' ? result.content : null;
+
+                if (imageSrc && isValidImageUrl(imageSrc)) {
+                  return (
+                    <View key={index} style={pdfStyles.section}>
+                      <Image src={imageSrc} style={pdfStyles.image} />
+                    </View>
+                  );
+                } else {
+                  console.warn('Invalid image source in PDF render:', result.content);
+                  return (
+                    <View key={index} style={pdfStyles.section}>
+                      <Text style={pdfStyles.text}>[Chart image could not be displayed]</Text>
+                    </View>
+                  );
+                }
               } else {
                 return (
                   <View key={index} style={pdfStyles.section}>
