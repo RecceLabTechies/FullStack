@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { DateRange } from 'react-day-picker';
+import { type DateRange } from 'react-day-picker';
 
 import { useDatabaseOperations } from '@/context/database-operations-context';
 import { format } from 'date-fns';

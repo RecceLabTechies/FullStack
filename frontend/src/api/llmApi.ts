@@ -8,7 +8,6 @@ import {
   type AsyncQueryResponse,
   type HealthResponse,
   type QueryRequest,
-  type QueryResponse,
   type QueryStatusResponse,
 } from '../types/types';
 

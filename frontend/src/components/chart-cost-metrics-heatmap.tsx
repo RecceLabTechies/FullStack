@@ -57,6 +57,8 @@ export function CostMetricsHeatmap() {
   const [colorRanges, setColorRanges] = useState<
     { from: number; to: number; color: string; name: string }[]
   >([]);
+  const [minDataValue, setMinDataValue] = useState<number | null>(null);
+  const [maxDataValue, setMaxDataValue] = useState<number | null>(null);
 
   // Fetch available date range on mount
   useEffect(() => {
@@ -87,6 +89,10 @@ export function CostMetricsHeatmap() {
         }
       });
     });
+
+    // Store min/max values for display
+    setMinDataValue(minValue !== Infinity ? minValue : null);
+    setMaxDataValue(maxValue !== -Infinity ? maxValue : null);
 
     // Create normalized data with recalculated intensity
     const normalized = data.data.map((row) => ({
@@ -249,14 +255,32 @@ export function CostMetricsHeatmap() {
               aria-label="About cost metrics analysis"
             />
           </HoverCardTrigger>
-          <HoverCardContent className="w-80">
+          <HoverCardContent className="w-[320px]">
             <div className="space-y-2">
               <h4 className="text-sm font-semibold">Cost Metrics Analysis</h4>
               <p className="text-sm text-muted-foreground">
                 This heatmap visualizes various cost metrics across different advertising channels.
                 Darker colors indicate higher costs, helping you identify which channels are more
-                expensive for specific metrics. Use this to optimize your budget allocation and
-                identify cost-efficient channels.
+                expensive for specific metrics.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                <strong>Value calculation:</strong> Each cell shows the actual metric value in
+                dollars. Color intensity is normalized on a scale from 0-100% where:
+                <br />• 0% = lowest value in dataset{' '}
+                {minDataValue !== null ? `($${minDataValue.toFixed(3)})` : ''}
+                <br />• 100% = highest value in dataset{' '}
+                {maxDataValue !== null ? `($${maxDataValue.toFixed(3)})` : ''}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                <strong>Normalization formula:</strong> For each value (v), intensity is calculated
+                as:
+                <br />
+                <code>(v - min) / (max - min) × 100%</code>
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Cells with similar intensities have comparable relative costs within the current
+                dataset. Use this to optimize your budget allocation and identify cost-efficient
+                channels.
               </p>
             </div>
           </HoverCardContent>
