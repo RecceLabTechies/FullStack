@@ -53,6 +53,12 @@ export function CostMetricsHeatmap() {
   } = useCampaignDateRange();
   const { lastUpdated } = useDatabaseOperations();
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [normalizedData, setNormalizedData] = useState<SeriesData[]>([]);
+  const [colorRanges, setColorRanges] = useState<
+    { from: number; to: number; color: string; name: string }[]
+  >([]);
+  const [minDataValue, setMinDataValue] = useState<number | null>(null);
+  const [maxDataValue, setMaxDataValue] = useState<number | null>(null);
 
   // Fetch available date range on mount
   useEffect(() => {
@@ -65,6 +71,67 @@ export function CostMetricsHeatmap() {
     const maxDate = dateRange?.to ? Math.floor(dateRange.to.getTime() / 1000) : undefined;
     void fetchCostMetricsHeatmap(minDate, maxDate);
   }, [fetchCostMetricsHeatmap, dateRange, lastUpdated]);
+
+  // Process and normalize data
+  useEffect(() => {
+    if (!data?.data) return;
+
+    // Find min and max values across all metrics and channels
+    let minValue = Infinity;
+    let maxValue = -Infinity;
+
+    // First pass to find min/max
+    data.data.forEach((row) => {
+      Object.values(row.values).forEach((cellData) => {
+        if (cellData?.value !== undefined) {
+          minValue = Math.min(minValue, cellData.value);
+          maxValue = Math.max(maxValue, cellData.value);
+        }
+      });
+    });
+
+    // Store min/max values for display
+    setMinDataValue(minValue !== Infinity ? minValue : null);
+    setMaxDataValue(maxValue !== -Infinity ? maxValue : null);
+
+    // Create normalized data with recalculated intensity
+    const normalized = data.data.map((row) => ({
+      name: row.metric,
+      data: data.channels.map((channel) => {
+        const cellData = row.values[channel];
+        const value = cellData?.value ?? 0;
+        // Normalize intensity based on min/max instead of using the pre-calculated intensity
+        const normalizedIntensity =
+          maxValue === minValue
+            ? 0.5 // If all values are the same, use middle intensity
+            : (value - minValue) / (maxValue - minValue);
+
+        return {
+          x: channel,
+          y: normalizedIntensity, // Use normalized intensity for the heatmap coloring
+          value: value, // Keep original value for display
+        };
+      }),
+    }));
+
+    setNormalizedData(normalized);
+
+    // Create dynamic color ranges based on the data distribution
+    const ranges = [
+      { from: 0, to: 0.1, color: '#1a9850', name: '0–10%' },
+      { from: 0.1, to: 0.2, color: '#66bd63', name: '10–20%' },
+      { from: 0.2, to: 0.3, color: '#a6d96a', name: '20–30%' },
+      { from: 0.3, to: 0.4, color: '#d9ef8b', name: '30–40%' },
+      { from: 0.4, to: 0.5, color: '#fee08b', name: '40–50%' },
+      { from: 0.5, to: 0.6, color: '#fdae61', name: '50–60%' },
+      { from: 0.6, to: 0.7, color: '#ef6548', name: '60–70%' },
+      { from: 0.7, to: 0.8, color: '#d7301f', name: '70–80%' },
+      { from: 0.8, to: 0.9, color: '#b30000', name: '80–90%' },
+      { from: 0.9, to: 1.0, color: '#7f0000', name: '90–100%' },
+    ];
+
+    setColorRanges(ranges);
+  }, [data]);
 
   // Convert Unix timestamps to Date objects for the date picker
   const minDate = dateRangeData?.min_date ? new Date(dateRangeData.min_date * 1000) : undefined;
@@ -105,18 +172,8 @@ export function CostMetricsHeatmap() {
     );
   }
 
-  // Transform data for ApexCharts format
-  const series: SeriesData[] = data.data.map((row) => ({
-    name: row.metric,
-    data: data.channels.map((channel) => {
-      const cellData = row.values[channel];
-      return {
-        x: channel,
-        y: cellData?.intensity ?? 0,
-        value: cellData?.value ?? 0, // Store actual value for tooltip
-      };
-    }),
-  }));
+  // Use normalizedData instead of directly transforming the data
+  const series = normalizedData;
 
   const options: ApexOptions = {
     chart: {
@@ -150,26 +207,7 @@ export function CostMetricsHeatmap() {
       heatmap: {
         shadeIntensity: 0.5,
         colorScale: {
-          ranges: [
-            {
-              from: 0,
-              to: 0.3,
-              color: '#90EE90',
-              name: 'low',
-            },
-            {
-              from: 0.3,
-              to: 0.7,
-              color: '#FFB74D',
-              name: 'medium',
-            },
-            {
-              from: 0.7,
-              to: 1,
-              color: '#FF5252',
-              name: 'high',
-            },
-          ],
+          ranges: colorRanges,
         },
       },
     },
@@ -217,14 +255,32 @@ export function CostMetricsHeatmap() {
               aria-label="About cost metrics analysis"
             />
           </HoverCardTrigger>
-          <HoverCardContent className="w-80">
+          <HoverCardContent className="w-[320px]">
             <div className="space-y-2">
               <h4 className="text-sm font-semibold">Cost Metrics Analysis</h4>
               <p className="text-sm text-muted-foreground">
                 This heatmap visualizes various cost metrics across different advertising channels.
                 Darker colors indicate higher costs, helping you identify which channels are more
-                expensive for specific metrics. Use this to optimize your budget allocation and
-                identify cost-efficient channels.
+                expensive for specific metrics.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                <strong>Value calculation:</strong> Each cell shows the actual metric value in
+                dollars. Color intensity is normalized on a scale from 0-100% where:
+                <br />• 0% = lowest value in dataset{' '}
+                {minDataValue !== null ? `($${minDataValue.toFixed(3)})` : ''}
+                <br />• 100% = highest value in dataset{' '}
+                {maxDataValue !== null ? `($${maxDataValue.toFixed(3)})` : ''}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                <strong>Normalization formula:</strong> For each value (v), intensity is calculated
+                as:
+                <br />
+                <code>(v - min) / (max - min) × 100%</code>
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Cells with similar intensities have comparable relative costs within the current
+                dataset. Use this to optimize your budget allocation and identify cost-efficient
+                channels.
               </p>
             </div>
           </HoverCardContent>

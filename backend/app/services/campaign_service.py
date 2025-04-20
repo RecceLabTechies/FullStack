@@ -821,10 +821,17 @@ def get_latest_month_revenue() -> Dict:
         return {"revenue": 0, "month": None, "year": None, "error": str(e)}
 
 
-def get_monthly_age_data() -> Dict:
+def get_monthly_age_data(min_date=None, max_date=None) -> Dict:
     """
     Get monthly data aggregated by age group for charting purposes.
     Returns revenue and ad spend metrics per month per age group.
+    
+    Args:
+        min_date: Optional start date as Unix timestamp
+        max_date: Optional end date as Unix timestamp
+        
+    If date parameters are provided, data will be filtered to that range.
+    Otherwise, returns data for all available months.
 
     Returns:
         Dict: Dictionary containing:
@@ -837,8 +844,21 @@ def get_monthly_age_data() -> Dict:
         # Get all distinct age groups
         age_groups = CampaignModel.get_distinct("age_group")
 
+        # Build base query
+        query = {}
+        
+        # Add date range filter if provided
+        if min_date is not None or max_date is not None:
+            query["date"] = {}
+            if min_date is not None:
+                query["date"]["$gte"] = min_date
+            if max_date is not None:
+                query["date"]["$lte"] = max_date
+
         # Aggregate the data by month and age group
         pipeline = [
+            # Match documents by query if date range is provided
+            {"$match": query} if query else {"$match": {}},
             # Group by month and age group, calculating sums
             {
                 "$group": {
@@ -910,10 +930,17 @@ def get_monthly_age_data() -> Dict:
         raise
 
 
-def get_monthly_channel_data() -> Dict:
+def get_monthly_channel_data(min_date=None, max_date=None) -> Dict:
     """
     Get monthly data aggregated by channel for charting purposes.
     Returns revenue and ad spend metrics per month per channel.
+    
+    Args:
+        min_date: Optional start date as Unix timestamp
+        max_date: Optional end date as Unix timestamp
+        
+    If date parameters are provided, data will be filtered to that range.
+    Otherwise, returns data for all available months.
 
     Returns:
         Dict: Dictionary containing:
@@ -926,8 +953,21 @@ def get_monthly_channel_data() -> Dict:
         # Get all distinct channels
         channels = CampaignModel.get_distinct("channel")
 
+        # Build base query
+        query = {}
+        
+        # Add date range filter if provided
+        if min_date is not None or max_date is not None:
+            query["date"] = {}
+            if min_date is not None:
+                query["date"]["$gte"] = min_date
+            if max_date is not None:
+                query["date"]["$lte"] = max_date
+
         # Aggregate the data by month and channel
         pipeline = [
+            # Match documents by query if date range is provided
+            {"$match": query} if query else {"$match": {}},
             # Group by month and channel, calculating sums
             {
                 "$group": {
@@ -999,10 +1039,17 @@ def get_monthly_channel_data() -> Dict:
         raise
 
 
-def get_monthly_country_data() -> Dict:
+def get_monthly_country_data(min_date=None, max_date=None) -> Dict:
     """
     Get monthly data aggregated by country for charting purposes.
     Returns revenue and ad spend metrics per month per country.
+    
+    Args:
+        min_date: Optional start date as Unix timestamp
+        max_date: Optional end date as Unix timestamp
+        
+    If date parameters are provided, data will be filtered to that range.
+    Otherwise, returns data for all available months.
 
     Returns:
         Dict: Dictionary containing:
@@ -1015,8 +1062,21 @@ def get_monthly_country_data() -> Dict:
         # Get all distinct countries
         countries = CampaignModel.get_distinct("country")
 
+        # Build base query
+        query = {}
+        
+        # Add date range filter if provided
+        if min_date is not None or max_date is not None:
+            query["date"] = {}
+            if min_date is not None:
+                query["date"]["$gte"] = min_date
+            if max_date is not None:
+                query["date"]["$lte"] = max_date
+
         # Aggregate the data by month and country
         pipeline = [
+            # Match documents by query if date range is provided
+            {"$match": query} if query else {"$match": {}},
             # Group by month and country, calculating sums
             {
                 "$group": {

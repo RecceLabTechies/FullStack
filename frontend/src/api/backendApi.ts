@@ -377,12 +377,21 @@ export const fetchProphetPredictions = async (
 
 /**
  * Fetches monthly data by channel
+ * @param minDate Optional - Start date as Unix timestamp
+ * @param maxDate Optional - End date as Unix timestamp
  * @returns Revenue and ad spend per month per channel
  */
-export const fetchMonthlyChannelData = async (): Promise<MonthlyChannelData | Error> => {
+export const fetchMonthlyChannelData = async (
+  minDate?: number,
+  maxDate?: number
+): Promise<MonthlyChannelData | Error> => {
   try {
+    const params = new URLSearchParams();
+    if (minDate) params.append('min_date', minDate.toString());
+    if (maxDate) params.append('max_date', maxDate.toString());
+
     const response = await axios.get<ApiResponse<MonthlyChannelData>>(
-      `${API_BASE_URL}/api/v1/campaigns/monthly-channel-data`
+      `${API_BASE_URL}/api/v1/campaigns/monthly-channel-data${params.toString() ? '?' + params.toString() : ''}`
     );
     return response.data.data;
   } catch (error) {
@@ -393,12 +402,21 @@ export const fetchMonthlyChannelData = async (): Promise<MonthlyChannelData | Er
 
 /**
  * Fetches monthly data by age group
+ * @param minDate Optional - Start date as Unix timestamp
+ * @param maxDate Optional - End date as Unix timestamp
  * @returns Revenue and ad spend per month per age group
  */
-export const fetchMonthlyAgeData = async (): Promise<MonthlyAgeData | Error> => {
+export const fetchMonthlyAgeData = async (
+  minDate?: number,
+  maxDate?: number
+): Promise<MonthlyAgeData | Error> => {
   try {
+    const params = new URLSearchParams();
+    if (minDate) params.append('min_date', minDate.toString());
+    if (maxDate) params.append('max_date', maxDate.toString());
+
     const response = await axios.get<ApiResponse<MonthlyAgeData>>(
-      `${API_BASE_URL}/api/v1/campaigns/monthly-age-data`
+      `${API_BASE_URL}/api/v1/campaigns/monthly-age-data${params.toString() ? '?' + params.toString() : ''}`
     );
     return response.data.data;
   } catch (error) {
@@ -409,12 +427,21 @@ export const fetchMonthlyAgeData = async (): Promise<MonthlyAgeData | Error> => 
 
 /**
  * Fetches monthly data by country
+ * @param minDate Optional - Start date as Unix timestamp
+ * @param maxDate Optional - End date as Unix timestamp
  * @returns Revenue and ad spend per month per country
  */
-export const fetchMonthlyCountryData = async (): Promise<MonthlyCountryData | Error> => {
+export const fetchMonthlyCountryData = async (
+  minDate?: number,
+  maxDate?: number
+): Promise<MonthlyCountryData | Error> => {
   try {
+    const params = new URLSearchParams();
+    if (minDate) params.append('min_date', minDate.toString());
+    if (maxDate) params.append('max_date', maxDate.toString());
+
     const response = await axios.get<ApiResponse<MonthlyCountryData>>(
-      `${API_BASE_URL}/api/v1/campaigns/monthly-country-data`
+      `${API_BASE_URL}/api/v1/campaigns/monthly-country-data${params.toString() ? '?' + params.toString() : ''}`
     );
     return response.data.data;
   } catch (error) {

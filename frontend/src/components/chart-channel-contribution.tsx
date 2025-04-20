@@ -23,11 +23,11 @@ import { useCampaignDateRange, useChannelContribution } from '@/hooks/use-backen
 // Define color scheme for different channels using CSS variables
 const CHANNEL_COLORS: Record<string, string> = {
   Facebook: 'hsl(var(--chart-1))',
-  Instagram: 'hsl(var(--chart-2))',
+  Email: 'hsl(var(--chart-2))',
   Google: 'hsl(var(--chart-3))',
   LinkedIn: 'hsl(var(--chart-4))',
   TikTok: 'hsl(var(--chart-5))',
-  Email: 'hsl(var(--chart-6))',
+  Instagram: 'hsl(var(--chart-6))',
   TV: 'hsl(var(--chart-7))',
   Search: 'hsl(var(--chart-8))',
 };
@@ -161,14 +161,27 @@ export default function ChannelContributionChart() {
               aria-label="About channel performance distribution"
             />
           </HoverCardTrigger>
-          <HoverCardContent className="w-80">
+          <HoverCardContent className="w-[320px]">
             <div className="space-y-2">
               <h4 className="text-sm font-semibold">Channel Performance Distribution</h4>
               <p className="text-sm text-muted-foreground">
                 This stacked bar chart shows how different advertising channels contribute to each
                 metric as a percentage. Each bar represents 100% of a metric, split by channel
-                contribution. Use this to understand which channels are your top performers across
-                different metrics and identify opportunities for channel optimization.
+                contribution.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                <strong>Calculation method:</strong> For each metric, the raw values for all
+                channels are summed, then each channel&apos;s value is divided by this total to get
+                its percentage contribution (0-100%).
+              </p>
+              <p className="text-sm text-muted-foreground">
+                <strong>Interpretation:</strong> Taller segments indicate channels with higher
+                contribution to that metric. This normalization allows for comparing channel
+                distribution across metrics with different value ranges.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Use this visualization to identify your top-performing channels for each metric and
+                detect imbalances in your marketing mix.
               </p>
             </div>
           </HoverCardContent>

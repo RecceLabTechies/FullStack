@@ -128,7 +128,11 @@ export function MLPredictionsChart() {
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="month" />
             <YAxis />
-            <Tooltip />
+            <Tooltip
+              formatter={(value: number | string) =>
+                typeof value === 'number' ? value.toFixed(3) : value
+              }
+            />
             <Legend />
             <Line
               type="monotone"

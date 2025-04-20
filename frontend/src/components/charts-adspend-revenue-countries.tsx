@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { type DateRange } from 'react-day-picker';
 
 import { useDatabaseOperations } from '@/context/database-operations-context';
 import { format } from 'date-fns';
@@ -13,9 +14,10 @@ import {
   YAxis,
 } from 'recharts';
 
+import { DatePickerWithRange } from '@/components/date-range-picker';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
-import { useMonthlyCountryData } from '@/hooks/use-backend-api';
+import { useCampaignDateRange, useMonthlyCountryData } from '@/hooks/use-backend-api';
 
 interface DataPoint {
   date: string;
@@ -27,13 +29,36 @@ interface DataPoint {
 
 const CountryPerformanceCharts = () => {
   const { data, isLoading, error, fetchMonthlyCountryData } = useMonthlyCountryData();
+  const {
+    data: dateRangeData,
+    isLoading: isDateRangeLoading,
+    fetchDateRange,
+  } = useCampaignDateRange();
   const { lastUpdated } = useDatabaseOperations();
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
+  // Fetch date range data on mount
   useEffect(() => {
-    void fetchMonthlyCountryData();
-  }, [fetchMonthlyCountryData, lastUpdated]);
+    void fetchDateRange();
+  }, [fetchDateRange, lastUpdated]);
 
-  if (isLoading) {
+  // Fetch data with date range filter
+  useEffect(() => {
+    const minDate = dateRange?.from ? Math.floor(dateRange.from.getTime() / 1000) : undefined;
+    const maxDate = dateRange?.to ? Math.floor(dateRange.to.getTime() / 1000) : undefined;
+    void fetchMonthlyCountryData(minDate, maxDate);
+  }, [fetchMonthlyCountryData, dateRange, lastUpdated]);
+
+  // Date range change handler
+  const handleDateRangeChange = (range: DateRange | undefined) => {
+    setDateRange(range);
+  };
+
+  // Convert timestamps to Date objects for min/max date constraints
+  const minDate = dateRangeData?.min_date ? new Date(dateRangeData.min_date * 1000) : undefined;
+  const maxDate = dateRangeData?.max_date ? new Date(dateRangeData.max_date * 1000) : undefined;
+
+  if (isLoading || isDateRangeLoading) {
     return (
       <Card>
         <CardHeader>
@@ -145,10 +170,9 @@ const CountryPerformanceCharts = () => {
               <XAxis dataKey="date" />
               <YAxis />
               <Tooltip
-                formatter={(value: number) => [
-                  `$${value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`,
-                  '',
-                ]}
+                formatter={(value: number | string) =>
+                  typeof value === 'number' ? value.toFixed(3) : value
+                }
               />
               <Legend />
               <Line
@@ -194,8 +218,22 @@ const CountryPerformanceCharts = () => {
   });
 
   return (
-    <div className="grid grid-cols-3 gap-2" aria-label="Country performance charts">
-      {countryCharts}
+    <div className="space-y-2" aria-label="Country performance charts">
+      <Card>
+        <CardHeader>
+          <CardTitle>Filter Country Data</CardTitle>
+          <CardDescription>Select a date range to filter performance data</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DatePickerWithRange
+            onRangeChange={handleDateRangeChange}
+            initialDateRange={dateRange}
+            minDate={minDate}
+            maxDate={maxDate}
+          />
+        </CardContent>
+      </Card>
+      <div className="grid grid-cols-3 gap-2">{countryCharts}</div>
     </div>
   );
 };

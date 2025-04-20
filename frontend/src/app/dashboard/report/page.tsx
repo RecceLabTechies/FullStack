@@ -57,8 +57,10 @@ export default function ReportPage() {
   const [isPdfReady, setIsPdfReady] = useState(false);
   const [isAddingNewDescription, setIsAddingNewDescription] = useState(false);
   const [newDescription, setNewDescription] = useState('');
+  const [queryJobId, setQueryJobId] = useState<string | null>(null);
 
-  const { executeQuery, processedResult, loading, error } = useLLMQuery();
+  const { executeQuery, processedResult, loading, polling, jobId, statusData, error } =
+    useLLMQuery();
 
   // Load user data from localStorage on component mount
   useEffect(() => {
@@ -85,13 +87,21 @@ export default function ReportPage() {
     if (!query.trim()) return;
 
     try {
-      await executeQuery(query);
-      // We'll add the result to history in the useEffect below
+      const response = await executeQuery(query);
+      setQueryJobId(response.job_id);
+      // We'll add the result to history in the useEffect when the polling completes
       setQuery('');
     } catch (err) {
       console.error('Failed to execute query:', err);
     }
   };
+
+  // Update job ID when it changes in the hook
+  useEffect(() => {
+    if (jobId) {
+      setQueryJobId(jobId);
+    }
+  }, [jobId]);
 
   // Update result history when a new result comes in
   useEffect(() => {
@@ -109,31 +119,51 @@ export default function ReportPage() {
         },
       ]);
 
+      // Reset the job ID since we've processed it
+      setQueryJobId(null);
+
       // Add new item(s) to the report items list for drag and drop
       if (processedResult.type === 'report') {
+        // Log the report data for debugging
+        console.log('Processing report result:', processedResult);
+
         // Get report content items - could be an array of strings and binary data
         const reportContentItems = processedResult.content as Array<string | React.ReactNode>;
 
         if (reportContentItems && reportContentItems.length > 0) {
+          console.log(`Found ${reportContentItems.length} report items to process`);
+
           // Process each item in the report
-          const newItems = reportContentItems.map((content) => {
+          const newItems = reportContentItems.map((content, idx) => {
             const contentId =
               new Date().getTime().toString() + '-' + Math.random().toString(36).substring(2, 9);
             let type: QueryResultType = 'description';
             let processedContent = content;
 
+            console.log(
+              `Processing report item ${idx}:`,
+              typeof content === 'string'
+                ? content.substring(0, 50) + (content.length > 50 ? '...' : '')
+                : typeof content
+            );
+
             // Determine the type of content and process it
             if (React.isValidElement(content)) {
               // If it's a React element (likely an image from a chart)
+              console.log(`Item ${idx} is a React element`);
               type = 'chart';
             } else if (typeof content === 'string') {
               // If it's a string that starts with data:image, it's a chart
               if (content.startsWith('data:image')) {
+                console.log(`Item ${idx} is a data URL image`);
                 type = 'chart';
+              } else {
+                console.log(`Item ${idx} is a text description`);
               }
               // Otherwise it's a description (default)
             } else if (typeof Buffer !== 'undefined' && Buffer?.isBuffer?.(content)) {
               // Handle Node.js Buffer (for server-side rendering)
+              console.log(`Item ${idx} is a Buffer`);
               type = 'chart';
               const base64String = Buffer.from(content as unknown as ArrayBuffer).toString(
                 'base64'
@@ -141,17 +171,28 @@ export default function ReportPage() {
               processedContent = base64ChartToDataUrl(base64String);
             } else if (typeof content === 'object' && content !== null) {
               // Handle binary data or other objects
+              console.log(`Item ${idx} is an object:`, content);
               type = 'chart';
 
               // Try to detect binary data that's already base64-encoded
-              const contentStr = JSON.stringify(content);
-              // Check if it might be base64 encoded
-              if (typeof content === 'string' && /^[A-Za-z0-9+/=]+$/.test(content)) {
-                // Likely already base64-encoded
-                processedContent = base64ChartToDataUrl(content);
-              } else {
-                // For other objects, convert to string representation
-                processedContent = contentStr;
+              try {
+                if (content && typeof content === 'string' && /^[A-Za-z0-9+/=]+$/.test(content)) {
+                  // Likely already base64-encoded
+                  console.log(`Item ${idx} appears to be base64 encoded`);
+                  processedContent = base64ChartToDataUrl(content);
+                } else {
+                  // For other objects, convert to string representation
+                  console.log(`Item ${idx} is a non-base64 object, stringifying`);
+                  processedContent = JSON.stringify(content);
+                }
+              } catch (err) {
+                console.error(`Error processing item ${idx}:`, err);
+                // Use safe stringification
+                const fallbackContent =
+                  typeof content === 'object' && content !== null
+                    ? JSON.stringify(content)
+                    : String(content);
+                processedContent = fallbackContent;
               }
             }
 
@@ -165,7 +206,10 @@ export default function ReportPage() {
             };
           });
 
+          console.log(`Processed ${newItems.length} items for the report`);
           setReportItems((prev) => [...prev, ...newItems]);
+        } else {
+          console.warn('Report has no content items or invalid structure:', reportContentItems);
         }
       } else {
         // For non-report types, add as a single item
@@ -257,6 +301,42 @@ export default function ReportPage() {
     setNewDescription('');
   };
 
+  // Function to get a summary of the result content
+  const getResultSummary = (result: ProcessedQueryResult): string => {
+    if (!result?.content) return 'No content';
+
+    if (result.type === 'chart') {
+      return 'Chart visualization';
+    } else if (result.type === 'report') {
+      return 'Detailed report';
+    } else if (result.type === 'description') {
+      const content = result.content as string;
+      return content.length > 80 ? content.substring(0, 80) + '...' : content;
+    }
+
+    return result.type || 'Result';
+  };
+
+  // Function to get status message
+  const getStatusMessage = () => {
+    if (!queryJobId) return '';
+
+    if (!statusData) return 'Initializing...';
+
+    switch (statusData.status) {
+      case 'pending':
+        return 'Waiting to start processing...';
+      case 'processing':
+        return 'Processing your query...';
+      case 'completed':
+        return 'Completed';
+      case 'error':
+        return 'Error processing your query';
+      default:
+        return 'Working on it...';
+    }
+  };
+
   const renderSingleResult = (
     result: ProcessedQueryResult,
     id: string,
@@ -330,14 +410,32 @@ export default function ReportPage() {
               </div>
 
               <CardContent className="pt-6">
-                {result.type === 'chart' && typeof result.content === 'string' && (
+                {result.type === 'chart' && (
                   <figure>
-                    <img
-                      src={result.content}
-                      alt={`Data visualization: ${result.originalQuery?.substring(0, 50)}`}
-                      className="mx-auto pt-2"
-                      role="img"
-                    />
+                    {typeof result.content === 'string' ? (
+                      <img
+                        src={result.content}
+                        alt={`Data visualization: ${result.originalQuery?.substring(0, 50)}`}
+                        className="mx-auto pt-2"
+                        role="img"
+                        onError={(e) => {
+                          console.error('Image failed to load:', result.content);
+                          e.currentTarget.style.display = 'none';
+                          e.currentTarget.parentElement?.appendChild(
+                            Object.assign(document.createElement('div'), {
+                              textContent: 'Error loading chart image',
+                              className: 'text-center text-destructive p-4',
+                            })
+                          );
+                        }}
+                      />
+                    ) : React.isValidElement(result.content) ? (
+                      <div className="mx-auto pt-2">{result.content}</div>
+                    ) : (
+                      <div className="text-center text-muted-foreground p-4">
+                        Invalid chart format
+                      </div>
+                    )}
                     <figcaption className="sr-only">Chart: {result.originalQuery}</figcaption>
                   </figure>
                 )}
@@ -463,22 +561,6 @@ export default function ReportPage() {
     );
   };
 
-  // Function to get a summary of the result content
-  const getResultSummary = (result: ProcessedQueryResult): string => {
-    if (!result?.content) return 'No content';
-
-    if (result.type === 'chart') {
-      return 'Chart visualization';
-    } else if (result.type === 'report') {
-      return 'Detailed report';
-    } else if (result.type === 'description') {
-      const content = result.content as string;
-      return content.length > 80 ? content.substring(0, 80) + '...' : content;
-    }
-
-    return result.type || 'Result';
-  };
-
   // Load PDF libraries only on client side
   useEffect(() => {
     setIsPdfReady(true);
@@ -532,6 +614,64 @@ export default function ReportPage() {
         },
       });
 
+      // Helper function to check if an image URL is valid
+      const isValidImageUrl = (url: string) => {
+        return typeof url === 'string' && (url.startsWith('data:image/') || url.startsWith('http'));
+      };
+
+      // Helper function to extract image data from React elements
+      const extractImageSrc = (content: unknown): string | null => {
+        // If it's already a valid image URL string
+        if (typeof content === 'string' && isValidImageUrl(content)) {
+          return content;
+        }
+
+        // If it's a React image element, try to extract the src
+        if (React.isValidElement(content)) {
+          const element = content as React.ReactElement;
+          // Type-safe check for src property
+          const props = element.props as Record<string, unknown>;
+          if (props && 'src' in props && typeof props.src === 'string') {
+            return props.src;
+          }
+        }
+
+        // If it's an array, check if it contains image elements
+        if (Array.isArray(content)) {
+          for (const item of content) {
+            const src = extractImageSrc(item);
+            if (src) return src;
+          }
+        }
+
+        return null;
+      };
+
+      // Process report items for PDF
+      const processedItems = reportItems.map((item) => {
+        const { result } = item;
+
+        // For chart type, ensure we have a valid image source
+        if (result.type === 'chart') {
+          const imageSrc = extractImageSrc(result.content);
+          if (imageSrc) {
+            return {
+              type: 'chart' as const,
+              content: imageSrc,
+              originalQuery: result.originalQuery,
+            };
+          }
+          console.warn('Could not extract image source from chart:', result.content);
+          return {
+            type: 'description' as const,
+            content: 'Chart image could not be displayed',
+            originalQuery: result.originalQuery,
+          };
+        }
+
+        return result;
+      });
+
       // Create PDF Document Component
       const ReportDocument = () => (
         <Document>
@@ -539,9 +679,7 @@ export default function ReportPage() {
             <Text style={pdfStyles.title}>{reportTitle}</Text>
             <Text style={pdfStyles.author}>{reportAuthor}</Text>
 
-            {reportItems.map((item, index) => {
-              const { result } = item;
-
+            {processedItems.map((result, index) => {
               if (result.type === 'description') {
                 return (
                   <View key={index} style={pdfStyles.section}>
@@ -550,12 +688,23 @@ export default function ReportPage() {
                     </Text>
                   </View>
                 );
-              } else if (result.type === 'chart' && typeof result.content === 'string') {
-                return (
-                  <View key={index} style={pdfStyles.section}>
-                    <Image src={result.content} style={pdfStyles.image} />
-                  </View>
-                );
+              } else if (result.type === 'chart') {
+                const imageSrc = typeof result.content === 'string' ? result.content : null;
+
+                if (imageSrc && isValidImageUrl(imageSrc)) {
+                  return (
+                    <View key={index} style={pdfStyles.section}>
+                      <Image src={imageSrc} style={pdfStyles.image} />
+                    </View>
+                  );
+                } else {
+                  console.warn('Invalid image source in PDF render:', result.content);
+                  return (
+                    <View key={index} style={pdfStyles.section}>
+                      <Text style={pdfStyles.text}>[Chart image could not be displayed]</Text>
+                    </View>
+                  );
+                }
               } else {
                 return (
                   <View key={index} style={pdfStyles.section}>
@@ -728,14 +877,17 @@ export default function ReportPage() {
             ))
           )}
 
-          {loading && (
+          {(loading || polling) && (
             <div className="flex gap-2 items-start">
               <div className="bg-secondary text-secondary-foreground rounded-full p-1.5 mt-0.5">
                 <Bot size={16} />
               </div>
               <div className="flex-1">
                 <div className="bg-secondary text-secondary-foreground rounded-lg p-3 rounded-tl-none w-fit">
-                  <Loader2 size={16} className="animate-spin text-muted-foreground" />
+                  <div className="flex items-center">
+                    <Loader2 size={16} className="animate-spin text-muted-foreground mr-2" />
+                    <span className="text-sm text-muted-foreground">{getStatusMessage()}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -749,17 +901,21 @@ export default function ReportPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Enter your query here..."
-            disabled={loading}
+            disabled={loading || polling}
             className="w-full h-fit text-wrap"
             aria-label="Query input"
           />
           <Button
             type="submit"
             size="icon"
-            disabled={loading || !query.trim()}
+            disabled={loading || polling || !query.trim()}
             aria-label="Send query"
           >
-            {loading ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
+            {loading || polling ? (
+              <Loader2 className="animate-spin" size={16} />
+            ) : (
+              <Send size={16} />
+            )}
           </Button>
         </form>
 
@@ -856,10 +1012,16 @@ export default function ReportPage() {
             </Droppable>
           </DragDropContext>
 
-          {loading && (
+          {(loading || polling) && (
             <Card>
-              <CardContent className="pt-6 flex justify-center items-center">
-                <div className="loader"></div>
+              <CardContent className="pt-6 flex justify-center items-center flex-col gap-2">
+                <Loader2 size={24} className="animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">{getStatusMessage()}</p>
+                {statusData?.created_at && (
+                  <p className="text-xs text-muted-foreground">
+                    Started at: {new Date(statusData.created_at * 1000).toLocaleTimeString()}
+                  </p>
+                )}
               </CardContent>
             </Card>
           )}

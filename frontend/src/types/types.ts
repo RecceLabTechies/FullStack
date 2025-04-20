@@ -489,7 +489,42 @@ export interface ProcessedQueryResult {
 }
 
 /**
- * Response from the LLM query API
+ * Response from the asynchronous query submission API
+ */
+export interface AsyncQueryResponse {
+  /** Unique identifier for the submitted job */
+  job_id: string;
+  /** Current status of the job */
+  status: 'pending' | 'processing' | 'completed' | 'error';
+  /** Message describing the current state */
+  message: string;
+}
+
+/**
+ * Response from the query status check API
+ */
+export interface QueryStatusResponse {
+  /** Unique identifier of the job */
+  job_id: string;
+  /** Current status of the job */
+  status: 'pending' | 'processing' | 'completed' | 'error';
+  /** Original query that was submitted */
+  original_query: string;
+  /** When the job was created (Unix timestamp) */
+  created_at: number;
+  /** When the job will expire (Unix timestamp) */
+  expires_at: number;
+  /** The query output with type and result (only present when status is 'completed' or 'error') */
+  output?: {
+    /** Type of result returned */
+    type: QueryResultType;
+    /** The actual result data, varies based on type */
+    result: string | ReportResults;
+  };
+}
+
+/**
+ * Response from the LLM query API (synchronous version - keeping for backward compatibility)
  */
 export interface QueryResponse {
   /** The query output with type and result */

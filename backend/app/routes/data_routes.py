@@ -663,6 +663,13 @@ def get_monthly_channel_data_route():
     """
     Get monthly data aggregated by channel for charting purposes.
     Returns revenue and ad spend metrics per month per channel.
+    
+    Query parameters:
+    - min_date: Optional start date as Unix timestamp
+    - max_date: Optional end date as Unix timestamp
+    
+    If date parameters are provided, data will be filtered to that range.
+    Otherwise, returns data for all available months.
 
     Returns:
         JSON object containing:
@@ -672,7 +679,16 @@ def get_monthly_channel_data_route():
         - ad_spend: Dictionary with channel keys and monthly ad spend arrays
     """
     try:
-        data = get_monthly_channel_data()
+        # Extract date range parameters from query string
+        min_date = request.args.get("min_date", type=float)
+        max_date = request.args.get("max_date", type=float)
+        
+        # Validate date parameters if both are provided
+        if min_date and max_date and min_date > max_date:
+            return error_response(400, "min_date cannot be greater than max_date", "invalid_date_range")
+        
+        # Call service function with optional date parameters
+        data = get_monthly_channel_data(min_date, max_date)
         return format_response(data)
 
     except Exception as e:
@@ -686,6 +702,13 @@ def get_monthly_age_data_route():
     """
     Get monthly data aggregated by age group for charting purposes.
     Returns revenue and ad spend metrics per month per age group.
+    
+    Query parameters:
+    - min_date: Optional start date as Unix timestamp
+    - max_date: Optional end date as Unix timestamp
+    
+    If date parameters are provided, data will be filtered to that range.
+    Otherwise, returns data for all available months.
 
     Returns:
         JSON object containing:
@@ -695,7 +718,16 @@ def get_monthly_age_data_route():
         - ad_spend: Dictionary with age group keys and monthly ad spend arrays
     """
     try:
-        data = get_monthly_age_data()
+        # Extract date range parameters from query string
+        min_date = request.args.get("min_date", type=float)
+        max_date = request.args.get("max_date", type=float)
+        
+        # Validate date parameters if both are provided
+        if min_date and max_date and min_date > max_date:
+            return error_response(400, "min_date cannot be greater than max_date", "invalid_date_range")
+        
+        # Call service function with optional date parameters
+        data = get_monthly_age_data(min_date, max_date)
         return format_response(data)
 
     except Exception as e:
@@ -709,6 +741,13 @@ def get_monthly_country_data_route():
     """
     Get monthly data aggregated by country for charting purposes.
     Returns revenue and ad spend metrics per month per country.
+    
+    Query parameters:
+    - min_date: Optional start date as Unix timestamp
+    - max_date: Optional end date as Unix timestamp
+    
+    If date parameters are provided, data will be filtered to that range.
+    Otherwise, returns data for all available months.
 
     Returns:
         JSON object containing:
@@ -718,7 +757,16 @@ def get_monthly_country_data_route():
         - ad_spend: Dictionary with country keys and monthly ad spend arrays
     """
     try:
-        data = get_monthly_country_data()
+        # Extract date range parameters from query string
+        min_date = request.args.get("min_date", type=float)
+        max_date = request.args.get("max_date", type=float)
+        
+        # Validate date parameters if both are provided
+        if min_date and max_date and min_date > max_date:
+            return error_response(400, "min_date cannot be greater than max_date", "invalid_date_range")
+        
+        # Call service function with optional date parameters
+        data = get_monthly_country_data(min_date, max_date)
         return format_response(data)
 
     except Exception as e:
