@@ -212,8 +212,6 @@ Upload and manage your marketing campaign data:
 ├── mongodb-init/         # MongoDB initialization scripts
 ├── nginx/                # Nginx configuration
 ├── docker-compose.yml    # Docker compose configuration
-├── start_app.sh          # Application startup script
-└── stop_app.sh           # Application shutdown script
 ```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
